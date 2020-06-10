@@ -31,3 +31,7 @@ This repo contains a backup of the UAZ data, to ease development. If the data ha
     docker-compose down --volumes
     docker-compose up
 
+## Configuration
+Most of the configuration is in `config.py`. You can override the configuration by adding the file `instance/config.py`. This file overrides the configuration properties in `config.py`.
+
+Note that if a configuration property is a dictionary, you need to override the entire dictionary in `instance/config.py` and not just a few fields.
