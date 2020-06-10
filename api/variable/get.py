@@ -75,7 +75,7 @@ class GeographyLevel(Enum):
     ADMIN3 = 3
     OTHER = 4
 
-class VariableResource(Resource):
+class VariableGetter:
     def init_resources(self):
         global labels, location
         

@@ -5,7 +5,7 @@ from flask_restful import Api
 from flask_cors import CORS
 
 import api.hello
-from api.variables import VariableResource
+from api.variable import VariableResource
 
 app = Flask(__name__)
 CORS(app)
