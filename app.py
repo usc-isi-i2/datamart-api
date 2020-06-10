@@ -1,9 +1,8 @@
 from flask import Flask
-app = Flask(__name__)
+import api.hello
 
-@app.route('/')
-def hello():
-    return 'Hello, world'
+app = Flask(__name__)
+app.register_blueprint(api.hello.bp)
 
 if __name__=='__main__':
     app.run()
