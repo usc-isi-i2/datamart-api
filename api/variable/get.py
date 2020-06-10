@@ -254,22 +254,15 @@ class SQLProvider:
         return len(dataset_dicts) > 0
         
     def query_variable(self, dataset, variable):
-        dataset_query = f'''
-        SELECT e_dataset.node2 AS dataset_id
-        	FROM edges e_dataset
-        WHERE e_dataset.label='P1813' AND e_dataset.node2='{dataset}';
-        '''
-        dataset_dicts = query_to_dicts(dataset_query)
-        if not len(dataset_dicts):
-            return None
-
         variable_query = f'''
-        SELECT e_var.node2 AS variable_id, s_var_label.text AS variable_name, e_property.node2 AS property_id
+        SELECT e_var.node2 AS variable_id, s_var_label.text AS variable_name, e_property.node2 AS property_id, e_dataset.node1 AS dataset_id, e_dataset_label.node2 AS dataset_name
         	FROM edges e_var
 	        JOIN edges e_var_label ON (e_var.node1=e_var_label.node1 AND e_var_label.label='label')
 	        JOIN strings s_var_label ON (e_var_label.id=s_var_label.edge_id)
 	        JOIN edges e_property ON (e_property.node1=e_var.node1 AND e_property.label='P1687')
-        WHERE e_var.label='P1813' AND e_var.node2='{variable}';
+			JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_property.node1)
+			JOIN edges e_dataset_label ON (e_dataset_label.node1=e_dataset.node1 AND e_dataset_label.label='P1813')
+        WHERE e_var.label='P1813' AND e_var.node2='{variable}' AND e_dataset_label.node2='{dataset}';
         '''
 
         variable_dicts = query_to_dicts(variable_query)
@@ -277,7 +270,8 @@ class SQLProvider:
             return None
 
         return {
-            'dataset_id': dataset_dicts[0]['dataset_id'],
+            'dataset_id': variable_dicts[0]['dataset_id'],
+            'dataset_name': variable_dicts[0]['dataset_name'],
             'variable_id': variable_dicts[0]['variable_id'],
             'property_id': variable_dicts[0]['property_id'],
             'variable_name': variable_dicts[0]['variable_name'],
