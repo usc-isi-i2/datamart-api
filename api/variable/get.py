@@ -86,23 +86,8 @@ class VariableGetter:
             Location.initialize(current_app.config)
             location = Location()
 
-    def get(self, dataset=None, variable=None):
+    def get(self, dataset, variable):
         self.init_resources()
-        if dataset == 'Qwikidata':
-            dataset = 'Wikidata'
-        if dataset not in ['Wikidata', 'UAZ']:
-            content = {
-                'Error': f'path not found: /datasets/{dataset}',
-                'Usage': 'Use path /datasets/Wikidata/variables/{variable}'
-            }
-            return content, 404
-        if variable is None:
-            content = {
-                'Error': f'path not found: /datasets/{dataset}/variables/{variable}',
-                'Usage': f'Use path /datasets/{dataset}/variables/{{PNode}}',
-                'Example': f'Use path /datasets/{dataset}/variables/VP1200149'
-            }
-            return content, 404
 
         include_cols = []
         exclude_cols = []
@@ -170,6 +155,7 @@ class VariableGetter:
 
     def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, main_subjects=[]):
         provider = SQLProvider()
+
         result = provider.query_variable(dataset, variable)
         if not result:
             content = {
@@ -254,22 +240,15 @@ class SQLProvider:
         return len(dataset_dicts) > 0
         
     def query_variable(self, dataset, variable):
-        dataset_query = f'''
-        SELECT e_dataset.node2 AS dataset_id
-        	FROM edges e_dataset
-        WHERE e_dataset.label='P1813' AND e_dataset.node2='{dataset}';
-        '''
-        dataset_dicts = query_to_dicts(dataset_query)
-        if not len(dataset_dicts):
-            return None
-
         variable_query = f'''
-        SELECT e_var.node2 AS variable_id, s_var_label.text AS variable_name, e_property.node2 AS property_id
+        SELECT e_var.node2 AS variable_id, s_var_label.text AS variable_name, e_property.node2 AS property_id, e_dataset.node1 AS dataset_id, e_dataset_label.node2 AS dataset_name
         	FROM edges e_var
 	        JOIN edges e_var_label ON (e_var.node1=e_var_label.node1 AND e_var_label.label='label')
 	        JOIN strings s_var_label ON (e_var_label.id=s_var_label.edge_id)
 	        JOIN edges e_property ON (e_property.node1=e_var.node1 AND e_property.label='P1687')
-        WHERE e_var.label='P1813' AND e_var.node2='{variable}';
+			JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_property.node1)
+			JOIN edges e_dataset_label ON (e_dataset_label.node1=e_dataset.node1 AND e_dataset_label.label='P1813')
+        WHERE e_var.label='P1813' AND e_var.node2='{variable}' AND e_dataset_label.node2='{dataset}';
         '''
 
         variable_dicts = query_to_dicts(variable_query)
@@ -277,7 +256,8 @@ class SQLProvider:
             return None
 
         return {
-            'dataset_id': dataset_dicts[0]['dataset_id'],
+            'dataset_id': variable_dicts[0]['dataset_id'],
+            'dataset_name': variable_dicts[0]['dataset_name'],
             'variable_id': variable_dicts[0]['variable_id'],
             'property_id': variable_dicts[0]['property_id'],
             'variable_name': variable_dicts[0]['variable_name'],
@@ -346,3 +326,33 @@ class SQLProvider:
         print(query)
 
         return query_to_dicts(query)
+
+    def query_country_qnodes(self, countries):
+        # Translates countries to Q-nodes. Returns a dictionary of each input country and its QNode (None if not found)
+        # We look for countries in a case-insensitive fashion.
+        if not countries:
+            return {}
+
+        lower_countries = [country.lower() for country in countries]
+        quoted_countries = [f"'{country}'" for country in lower_countries]
+        countries_in = ', '.join(quoted_countries)
+
+        query = f'''
+            SELECT e_country.node1 as qnode, s_country_label.text AS country
+            	FROM edges e_country
+	            JOIN edges e_country_label ON (e_country_label.node1=e_country.node1 AND e_country_label.label='label')
+	            JOIN strings s_country_label ON (e_country_label.id=s_country_label.edge_id)
+            WHERE e_country.label='P31' AND e_country.node2='Q6256' AND LOWER(s_country_label.text) IN ({countries_in})
+        ''';
+        rows = query_to_dicts(query)
+
+        result_dict = { row['country']: row['qnode'] for row in rows }
+
+        # The result dictionary contains all the countries we have found, we need to add those we did not find
+        found_countries = set([country.lower() for country in result_dict.keys()])
+        for country in countries:
+            if country.lower() not in found_countries:
+                result_dict[country] = None
+
+        return result_dict
+
