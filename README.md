@@ -16,3 +16,18 @@ The main directory contains the basic Flask files - a thin app.py, wsgi.py and c
 * db/sparql - a package containing all SPARQL related files (empty at this stage)
 * dev-env - a folder with Docker files to set up a development environment (Postgres and backup files)
 
+## Running the development envirnoment dependencies (Postgres)
+To run Postgres for development, simple switch to the `dev-env` directory and run
+
+    docker-compose up
+
+This will set up the database and make it available on port 5433. You can see the credentials in `docker-compose.yml`. These credentials are also the default configuration, so unless you change them, the system should just work.
+
+*IMPORTANT* do not use the default configuration in production - choose different login credentials
+
+### Updating the database content
+This repo contains a backup of the UAZ data, to ease development. If the data has been changed and you want to load the new data, you need to delete the Postgres volume and restart it:
+
+    docker-compose down --volumes
+    docker-compose up
+
