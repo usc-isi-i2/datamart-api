@@ -12,5 +12,4 @@ POSTGRES = dict(
 )
 
 METADATA_DIR = os.path.join(BASE_DIR, 'metadata')
-REGION_METADATA_FILE = os.path.join(METADATA_DIR, 'region.csv')
 
