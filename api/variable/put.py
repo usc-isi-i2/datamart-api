@@ -5,17 +5,14 @@ import json
 import re
 import subprocess
 import time
-import os.path
-import shutil
 
 import pandas as pd
 from flask import request
 
 from db.sql.utils import query_to_dicts
-from db.sql.kgtk import import_kgtk_tsv
+from db.sql.kgtk import import_kgtk_dataframe, import_kgtk_tsv
 
 from .country_wikifier import DatamartCountryWikifier
-import tempfile
 
 qnode_regex = {}
 all_ids_dict = {}
@@ -195,22 +192,6 @@ def canonical_data(dataset, variable):
         kgtk_format_list.append(create_triple(no_source_qnode_dict[k], 'label', json.dumps(k)))
 
     df_kgtk = pd.DataFrame(kgtk_format_list)
-    f_name = str(time.time()).replace('.', '_')
-
-    try:
-        temp_dir = tempfile.mkdtemp()
-        tsv_path = os.path.join(temp_dir, f'{f_name}.tsv')
-        exploded_tsv_path = os.path.join(temp_dir, f'{f_name}_exploded.tsv')
-    
-        df_kgtk.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
-
-        subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path])
-
-        if not os.path.isfile(exploded_tsv_path):
-            raise ValueError("Couldn't create exploded TSV file")
-
-        import_kgtk_tsv(exploded_tsv_path)
-    finally:
-        shutil.rmtree(temp_dir)
+    import_kgtk_dataframe(df_kgtk)
 
     return 'S'

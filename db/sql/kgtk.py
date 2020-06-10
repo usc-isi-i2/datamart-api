@@ -4,11 +4,15 @@
 # Import edges from a KGTK TSV file
 import datetime
 from csv import DictReader
+import csv
 
 from db.sql.models import CoordinateValue, DateValue, SymbolValue, QuantityValue, Edge, StringValue
 import dateutil.parser
 from db.sql.utils import create_sqlalchemy_session
-
+import tempfile
+import shutil
+import os.path
+import subprocess
 
 def create_edge_objects(row):
     # Returns a tuple of a edge and an additional Value object (or None if there is no such object)
@@ -139,4 +143,23 @@ def import_kgtk_tsv(filename: str, config=None):
         session.bulk_save_objects(value_chunk)
 
     session.commit()
+
+def import_kgtk_dataframe(df, config=None):
+    try:
+        temp_dir = tempfile.mkdtemp()
+        tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
+        exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
+    
+        df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
+
+        # TODO: Are we sure kgtk is on the path
+        subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path])
+
+        if not os.path.isfile(exploded_tsv_path):
+            raise ValueError("Couldn't create exploded TSV file")
+
+        import_kgtk_tsv(exploded_tsv_path, config)
+    finally:
+        shutil.rmtree(temp_dir)
+
 
