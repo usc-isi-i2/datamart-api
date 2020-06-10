@@ -14,15 +14,16 @@ import shutil
 import os.path
 import subprocess
 
+
 def create_edge_objects(row):
     # Returns a tuple of a edge and an additional Value object (or None if there is no such object)
 
     def get_edge_object(row):
         edge = Edge(id=row['id'],
-                         node1=row['node1'],
-                         label=row['label'],
-                         node2=row['node2'],
-                         data_type=row['node2;kgtk:data_type'])  # rank is optional
+                    node1=row['node1'],
+                    label=row['label'],
+                    node2=row['node2'],
+                    data_type=row['node2;kgtk:data_type'])  # rank is optional
         return edge
 
     def get_value_object(row):
@@ -133,8 +134,8 @@ def import_kgtk_tsv(filename: str, config=None):
     # Working in chunks is a lot faster than feeding everything to the database at once.
     CHUNK_SIZE = 50000
     for start in range(0, len(edges), CHUNK_SIZE):
-        edge_chunk = edges[start:start+CHUNK_SIZE]
-        value_chunk = values[start:start+CHUNK_SIZE]
+        edge_chunk = edges[start:start + CHUNK_SIZE]
+        value_chunk = values[start:start + CHUNK_SIZE]
         ids = [edge.id for edge in edge_chunk]
         delete_q = Edge.__table__.delete().where(Edge.id.in_(ids))
         # We have ON DELETE CASCADE on foreign keys, so values are also deleted
@@ -144,12 +145,13 @@ def import_kgtk_tsv(filename: str, config=None):
 
     session.commit()
 
+
 def import_kgtk_dataframe(df, config=None):
+    temp_dir = tempfile.mkdtemp()
     try:
-        temp_dir = tempfile.mkdtemp()
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
         exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
-    
+
         df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
 
         # TODO: Are we sure kgtk is on the path
@@ -161,5 +163,3 @@ def import_kgtk_dataframe(df, config=None):
         import_kgtk_tsv(exploded_tsv_path, config)
     finally:
         shutil.rmtree(temp_dir)
-
-

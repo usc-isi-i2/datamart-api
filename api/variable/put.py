@@ -194,4 +194,4 @@ def canonical_data(dataset, variable):
     df_kgtk = pd.DataFrame(kgtk_format_list)
     import_kgtk_dataframe(df_kgtk)
 
-    return 'S'
+    return '{} rows imported!'.format(len(df)), 201 # original file

@@ -3,6 +3,8 @@ import rltk.similarity as sim
 import numpy as np
 import json
 import logging
+import os
+from config import METADATA_DIR
 
 from abc import ABC, abstractmethod
 from functools import partial
@@ -88,7 +90,8 @@ class DatamartCountryWikifier:
     def __init__(self, cache_file: str = "country_wikifier_cache.json"):
         self.similarity_unit = HybridJaccardSimilarity(tl_args={"ignore_case": True}, tokenizer="word")
         self._logger = logging.getLogger(__name__)
-        with open(cache_file, "r") as f:
+
+        with open('{}/{}'.format(METADATA_DIR, cache_file), "r") as f:
             self.memo = json.load(f)
 
     def save(self, loc: str = "country_wikifier_cache.json") -> None:
