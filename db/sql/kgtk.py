@@ -5,7 +5,7 @@
 import datetime
 from csv import DictReader
 
-from db.sql.models import CoordinateValue, DateValue, SymbolValue, QuantityValue, Session, Edge, StringValue
+from db.sql.models import CoordinateValue, DateValue, SymbolValue, QuantityValue, Edge, StringValue
 import dateutil.parser
 from db.sql.utils import create_sqlalchemy_session
 
