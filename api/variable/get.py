@@ -1,15 +1,13 @@
 
 import os
-import random
 import typing
 
 from enum import Enum
 
 from flask import request, make_response, current_app
-from flask_restful import Resource
 
 import pandas as pd
-from api.variable.util import Labels, Location, TimePrecision
+from api.util import TimePrecision
 
 from db.sql.utils import query_to_dicts
 from flask.blueprints import Blueprint
@@ -19,24 +17,6 @@ DROP_QUALIFIERS = [
     'pq:P1640',  # curator
     'pq:Pdataset', 'P2006020004' # dataset
 ]
-
-# Load labels and location
-labels = None
-location = None
-
-# region.csv is an alternate cleaner version admin hiearchy, compared
-# with the admin hierarchy in the Location class. Sub-administractive
-# regions are required to have path to super-adminstractive regions
-# all the way up to country.
-region_df = None
-def _init_regions():
-    global region_df
-    if region_df:
-        return
-    region_df = pd.read_csv(os.path.join(current_app.config['METADATA_DIR'], 'region.csv'), dtype=str)
-    region_df = region_df.fillna('')
-    for column in ['country', 'admin1', 'admin2', 'admin3']:
-        region_df.loc[:, column] = region_df.loc[:, column].map(lambda s: s.lower())
 
 class ColumnStatus(Enum):
     REQUIRED = 0
@@ -76,18 +56,7 @@ class GeographyLevel(Enum):
     OTHER = 4
 
 class VariableGetter:
-    def init_resources(self):
-        global labels, location
-
-        if not labels and not location:
-            _init_regions()
-            Labels.initialize(current_app.config)
-            labels = Labels()
-            Location.initialize(current_app.config)
-            location = Location()
-
     def get(self, dataset, variable):
-        self.init_resources()
 
         include_cols = []
         exclude_cols = []
@@ -103,13 +72,14 @@ class VariableGetter:
             except:
                 pass
 
+        provider = SQLProvider()
+
         # Add main subject by exact English label
-        for keyword in ['country', 'admin1', 'admin2', 'admin3']:
-            if request.args.get(keyword) is not None:
-                admins = [x.lower() for x in request.args.get(keyword).split(',')]
-                index = region_df.loc[:, keyword].isin(admins)
-                print(f'Add {keyword}:', region_df.loc[index, keyword + '_id'].unique())
-                main_subjects += [x for x in region_df.loc[index, keyword + '_id'].unique()]
+        # For now assume only country:
+        keyword = 'country'
+        if request.args.get(keyword) is not None:
+            admins = [x.lower() for x in request.args.get(keyword).split(',')]
+            main_subjects += provider.query_country_qnodes(admins)
 
         # Add main subject by qnode
         for keyword in ['main_subject_id', 'country_id', 'admin1_id', 'admin2_id', 'admin3_id']:
@@ -118,33 +88,32 @@ class VariableGetter:
                 print(f'Add {keyword}:', qnodes)
                 main_subjects += qnodes
 
-        # Add administrative locations using the name of parent administrative location
-        for keyword, admin_col, lower_admin_col in zip(
-                ['in_country', 'in_admin1', 'in_admin2'],
-                ['country', 'admin1', 'admin2'],
-                ['admin1_id', 'admin2_id', 'admin3_id']):
-            if request.args.get(keyword) is not None:
-                admins = [x.lower() for x in request.args.get(keyword).split(',')]
-                index = region_df.loc[:, admin_col].isin(admins)
-                print(f'Add {keyword}({request.args.get(keyword)}):',
-                      region_df.loc[index, lower_admin_col].unique())
-                main_subjects += qnodes
+        # Not needed for Causex release
+        # # Add administrative locations using the name of parent administrative location
+        # for keyword, admin_col, lower_admin_col in zip(
+        #         ['in_country', 'in_admin1', 'in_admin2'],
+        #         ['country', 'admin1', 'admin2'],
+        #         ['admin1_id', 'admin2_id', 'admin3_id']):
+        #     if request.args.get(keyword) is not None:
+        #         admins = [x.lower() for x in request.args.get(keyword).split(',')]
+        #         index = region_df.loc[:, admin_col].isin(admins)
+        #         print(f'Add {keyword}({request.args.get(keyword)}):',
+        #               region_df.loc[index, lower_admin_col].unique())
+        #         main_subjects += qnodes
 
-        # Add administrative locations using the qnode of parent administrative location
-        for keyword, admin_col, lower_admin_col in zip(
-                ['in_country_id', 'in_admin1_id', 'in_admin2_id'],
-                ['country_id', 'admin1_id', 'admin2_id'],
-                ['admin1_id', 'admin2_id', 'admin3_id']):
-            if request.args.get(keyword) is not None:
-                admin_ids = request.args.get(keyword).split(',')
-                index = region_df.loc[:, admin_col].isin(admin_ids)
-                print(f'Add {keyword}({request.args.get(keyword)}):',
-                      region_df.loc[index, lower_admin_col].unique())
-                main_subjects += [x for x in region_df.loc[index, lower_admin_col].unique()]
+        # # Add administrative locations using the qnode of parent administrative location
+        # for keyword, admin_col, lower_admin_col in zip(
+        #         ['in_country_id', 'in_admin1_id', 'in_admin2_id'],
+        #         ['country_id', 'admin1_id', 'admin2_id'],
+        #         ['admin1_id', 'admin2_id', 'admin3_id']):
+        #     if request.args.get(keyword) is not None:
+        #         admin_ids = request.args.get(keyword).split(',')
+        #         index = region_df.loc[:, admin_col].isin(admin_ids)
+        #         print(f'Add {keyword}({request.args.get(keyword)}):',
+        #               region_df.loc[index, lower_admin_col].unique())
+        #         main_subjects += [x for x in region_df.loc[index, lower_admin_col].unique()]
 
         print((dataset, variable, include_cols, exclude_cols, limit, main_subjects))
-        # return self.get_using_cache(dataset, variable, include_cols, exclude_cols, limit, main_subjects=main_subjects)
-
         return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, main_subjects=main_subjects)
 
     def fix_time_precision(self, precision):
@@ -186,11 +155,17 @@ class VariableGetter:
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
         # result_df.loc[:, 'time_precision'] = self.get_time_precision([10])
 
+
+        countries = provider.query_country_qnodes(result_df.loc[:, 'main_subject_id'].unique())
         for main_subject_id in result_df.loc[:, 'main_subject_id'].unique():
-            place = location.lookup_admin_hierarchy(admin_level, main_subject_id)
+            # For now, assume main subject is always country
+            # place = location.lookup_admin_hierarchy(admin_level, main_subject_id)
+            place = {}
+            if main_subject_id in countries:
+                place['country'] = countries[main_subject_id]
+
             index = result_df.loc[:, 'main_subject_id'] == main_subject_id
-            if main_subject_id in labels:
-                result_df.loc[index, 'main_subject'] = labels.get(main_subject_id, '')
+            result_df.loc[index, 'main_subject'] = provider.get_label(main_subject_id, '')
             for col, val in place.items():
                 if col in select_cols:
                     result_df.loc[index, col] = val

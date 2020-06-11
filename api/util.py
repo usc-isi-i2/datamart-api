@@ -1,14 +1,4 @@
 
-
-import gzip
-import json
-import shutil
-import typing
-
-from pathlib import Path
-
-import numpy as np  # type: ignore
-
 class DataInterval:
     name_qnode_map = {
         'millennium': 'Q36507',
