@@ -227,7 +227,7 @@ class Metadata:
         for key, value in metadata.items():
             setattr(self, key, value)
 
-    def tto_dict(self, *, include_internal_fields=False) -> dict:
+    def to_dict(self, *, include_internal_fields=False) -> dict:
         result = {}
         for attr in self._datamart_fields:
             if getattr(self, attr) is not None:
