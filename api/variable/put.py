@@ -18,7 +18,14 @@ qnode_regex = {}
 all_ids_dict = {}
 time_precision_dict = {
     'year': '9',
-    'month': '10'
+    'month': '10',
+    'day': '11',
+    'decade': '8',
+    'century': '7',
+    'millennium': '6',
+    'hundred thousand years': '5',
+    'million years': '3',
+    'billion years': '0'
 }
 
 
@@ -194,4 +201,4 @@ def canonical_data(dataset, variable):
     df_kgtk = pd.DataFrame(kgtk_format_list)
     import_kgtk_dataframe(df_kgtk)
 
-    return '{} rows imported!'.format(len(df)), 201 # original file
+    return '{} rows imported!'.format(len(df)), 201  # original file
