@@ -14,12 +14,19 @@ from db.sql.kgtk import import_kgtk_dataframe
 provider = SQLProvider()
 
 class DatasetMetadataResource(Resource):
-    def post(self):
+    def post(self, dataset=None):
         if not request.json:
             content = {
                 'Error': 'JSON content body is empty'
             }
             return content, 400
+
+        if dataset:
+            content = {
+                'Error': 'Please do not supply a dataset-id when POSTing'
+            }
+            return content, 400
+
         # print('Post dataset: ', request.json)
         metadata = DatasetMetadata()
         status, code = metadata.from_request(request.json)
@@ -63,19 +70,26 @@ class DatasetMetadataResource(Resource):
         provider = SQLProvider()
         results = provider.query_dataset_metadata(dataset)
         if results is None:
-            return { 'error': "No such dataset" }, 404
+            return { 'Error': f"No such dataset {dataset}" }, 404
 
+        # Results is a simple list, no need to postprocess it
         return results, 200
 
 
 class VariableMetadataResource(Resource):
-    def post(self, dataset):
+    def post(self, dataset, variable=None):
         if not request.json:
             content = {
                 'Error': 'JSON content body is empty'
             }
             return content, 400
         # print('Post variable: ', request.json)
+
+        if variable:
+            content = {
+                'Error': 'Please do not supply a variable when POSTing'
+            }
+            return content, 400
 
         metadata = VariableMetadata()
         status, code = metadata.from_request(request.json)
@@ -122,3 +136,17 @@ class VariableMetadataResource(Resource):
             return output
 
         return content, 200
+
+    def get(self, dataset, variable=None):
+        provider = SQLProvider()
+        if variable is None:
+            results = provider.query_dataset_variables(dataset)
+            if results is None:
+                return { 'Error': f"No dataset {dataset}" }, 404
+        else:
+            results = provider.query_variable_metadata(dataset, variable)
+            if results is None:
+                return { 'Error': f"No variable {variable} in dataset {dataset}" }, 404
+
+        return results, 200
+

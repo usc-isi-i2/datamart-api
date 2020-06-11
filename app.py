@@ -20,6 +20,7 @@ app.register_blueprint(api.hello.bp)
 api = Api(app)
 api.add_resource(VariableResource, '/datasets/<string:dataset>/variables/<string:variable>')
 api.add_resource(DatasetMetadataResource, '/metadata/datasets', '/metadata/datasets/<string:dataset>')
-api.add_resource(VariableMetadataResource, '/metadata/datasets/<string:dataset>/variables')
+api.add_resource(VariableMetadataResource, '/metadata/datasets/<string:dataset>/variables',
+                                           '/metadata/datasets/<string:dataset>/variables/<string:variable>')
 if __name__=='__main__':
     app.run()
