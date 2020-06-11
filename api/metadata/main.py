@@ -7,7 +7,7 @@ import pandas as pd
 from flask import request, make_response
 from flask_restful import Resource
 
-from api.variable.get import SQLProvider
+from api.SQLProvider import SQLProvider
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
 from db.sql.kgtk import import_kgtk_dataframe
 
