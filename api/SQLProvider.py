@@ -4,6 +4,7 @@
 # We need to reorganize this in the future, all queries shouldn't be in the same place
 
 from db.sql.utils import query_to_dicts
+from api.util import TimePrecision, DataInterval
 
 class SQLProvider:
     def get_dataset_id(self, dataset):
@@ -256,54 +257,111 @@ class SQLProvider:
         print(query)
         return query_to_dicts(query)
 
-    def query_variable_metadata(self, dataset, variable=None):
+    def query_variable_metadata(self, dataset, variable):
         def join_edge(alias, label, satellite_type=None, qualifier=False, left=False):
             return self.join_edge('e_var', alias, label, satellite_type=satellite_type, qualifier=qualifier, left=left)
+
+        def fix_time_precisions(row):
+            if row['start_time_precision'] is not None:
+                row['start_time_precision'] = TimePrecision.to_name(row['start_time_precision'])
+            if row['end_time_precision'] is not None:
+                row['end_time_precision'] = TimePrecision.to_name(row['end_time_precision'])
+
+        def fix_interval(row):
+            if row['data_interval'] is not None:
+                row['data_interval'] = DataInterval.qnode_to_name(row['data_interval'])
+        
+        def run_query(select_clause, join_clause):
+            nonlocal from_clause, where_clause
+            query = f"""
+            {select_clause}
+            {from_clause}
+            {join_clause}
+            {where_clause}
+            """
+            print(query)
+            return query_to_dicts(query)
+
+        def fetch_scalars():
+            select = f"""
+            SELECT s_name.text AS name,
+                e_shortName.node2 AS shortName,
+                s_description.text AS description,
+                e_correspondsToProperty.node2 AS corresnponds_to_property,
+                to_json(d_start_time.date_and_time)#>>'{{}}' || 'Z' AS start_time,
+                d_start_time.precision AS start_time_precision,
+                to_json(d_end_time.date_and_time)#>>'{{}}' || 'Z' AS end_time,
+                d_end_time.precision AS end_time_precision,
+                e_data_interval.node2 AS data_interval,
+                s_column_index.text AS column_index,
+                q_count.number AS count
+            """
+
+            # Mandatory fields first
+            join = ""
+            join += join_edge('shortName', 'P1813')
+            join += join_edge('correspondsToProperty', 'P1687')
+            # Now optional fields that are supposed to be required
+            join += join_edge('description', 'description', 's', left=True)
+            join += join_edge('name', 'P1476', 's', left=True)
+            # Now truely optional fields
+            join += join_edge('start_time', 'P580', 'd', left=True)
+            join += join_edge('end_time', 'P582', 'd', left=True)
+            join += join_edge('data_interval', 'P6339', left=True)
+            join += join_edge('column_index', 'P2006020001', 's', left=True)
+            join += join_edge('count', 'P1114', 'q', left=True)
+
+            return run_query(select, join)
+
+        def fetch_list(entity, edge_label, return_ids=False):
+            select = f"""
+            SELECT e_{entity}.node2 AS {entity}_id, s_{entity}_label.text AS {entity}
+            """
+
+            join = f"""
+            JOIN edges e_{entity} ON (e_var.node1=e_{entity}.node1 AND e_{entity}.label='{edge_label}')
+            LEFT JOIN edges e_{entity}_label 
+                JOIN strings s_{entity}_label ON (e_{entity}_label.id=s_{entity}_label.edge_id)
+            ON (e_{entity}.node2=e_{entity}_label.node1 AND e_{entity}_label.label='label')
+            """
+
+            rows = run_query(select, join)
+
+            if return_ids:
+                return rows
+
+            # We need to return just the entities, in a simple list
+            entity_list = [row[entity] for row in rows]
+            return entity_list
+
+            # We need to turn this into a list of the label field. We could in 
 
         dataset_id = self.get_dataset_id(dataset)
         if not dataset_id:
             return None
         
-        where = f"e_dataset.node1='{dataset_id}'"
+        variable_id = self.get_variable_id(dataset_id, variable)
+        if not variable_id:
+            return None
 
-        if variable:
-            variable_id = self.get_variable_id(dataset_id, variable)
-            if not variable_id:
-                return None
-            where += f" AND e_var.node1='{variable_id}'"
-
-        query = f"""
-        SELECT e_var.node1 AS variableID,
-               e_dataset.node1 AS datasetID,
-               s_name.text AS name,
-               e_shortName.node2 AS shortName,
-               s_description.text AS description,
-               e_correspondsToProperty.node2 AS corresnpondsToProperty,
-               e_mainSubject.node2 AS mainSubject,
-               e_unitOfMeasure.node2 AS unitOfMeasure,
-               e_country.node2 AS country
-
+        # We perform several similar queries - one to get all the scalar fields of a dataset, and
+        # then one for each list field. Some parts of these queries are identical:
+        from_clause = f"""
         FROM edges e_var
-            JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+        JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+        """
+        where_clause = f"""
+        WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'  AND e_var.node1='{variable_id}'
         """
 
-        # Mandatory fields first
-        query += join_edge('shortName', 'P1813')
-        query += join_edge('correspondsToProperty', 'P1687')
-        # Now optional fields that are supposed to be required
-        query += join_edge('description', 'description', 's', left=True)
-        query += join_edge('name', 'P1476', 's', left=True)
-        # Now truely optional fields
-        query += join_edge('mainSubject', 'P921', left=True)
-        query += join_edge('unitOfMeasure', 'P1880', left=True)
-        query += join_edge('country', 'P17', left=True)
-
-        query += f"""
-        WHERE e_var.label='P31' AND e_var.node2='Q50701' AND {where}
-        """
-
-        print(query)
-        return query_to_dicts(query)
+        result = fetch_scalars()[0]
+        fix_time_precisions(result)
+        result['main_subjects'] = fetch_list('main_subject', 'P921')
+        result['units_of_measure'] = fetch_list('unit_of_measure', 'P1880')
+        result['countries'] = fetch_list('country', 'P17')
+        result['locations'] = fetch_list('location', 'P276')
+        result['qualifiers'] = fetch_list('qualifier', 'P2006020002', True)
+        return result
 
     def join_edge(self,  main_table, alias, label, satellite_type=None, qualifier=False, left=False):
         edge_table_alias = f'e_{alias}'
