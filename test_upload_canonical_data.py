@@ -23,5 +23,5 @@ def call_service(file_path):
 
 
 url = "http://localhost:5000/datasets/QUAZ/variables/P2006020015"
-file_path = '/Users/amandeep/Github/wikidata-fuzzy-search/backend_2/uaz_sample.csv'
+file_path = 'test_data/uaz_sample.csv'
 call_service(file_path)

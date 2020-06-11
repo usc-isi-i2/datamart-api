@@ -20,7 +20,7 @@ class DatasetMetadataResource(Resource):
                 'Error': 'JSON content body is empty'
             }
             return content, 400
-        print('Post dataset: ', request.json)
+        # print('Post dataset: ', request.json)
         metadata = DatasetMetadata()
         status, code = metadata.from_request(request.json)
         if not code == 200:
@@ -28,7 +28,7 @@ class DatasetMetadataResource(Resource):
 
         if provider.get_dataset_id(metadata.shortName):
             content = {
-                'Error': f'Dataset identifier {metadata.shortName} has already by used'
+                'Error': f'Dataset identifier {metadata.shortName} has already been used'
             }
             return content, 409
 
@@ -41,9 +41,9 @@ class DatasetMetadataResource(Resource):
         metadata.datasetID = metadata.shortName
         metadata._dataset_id = dataset_id
 
-        pprint(metadata.to_dict())
+        # pprint(metadata.to_dict())
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
-        pprint(edges)
+        # pprint(edges)
 
         import_kgtk_dataframe(edges)
 
@@ -67,7 +67,7 @@ class VariableMetadataResource(Resource):
                 'Error': 'JSON content body is empty'
             }
             return content, 400
-        print('Post variable: ', request.json)
+        # print('Post variable: ', request.json)
 
         metadata = VariableMetadata()
         status, code = metadata.from_request(request.json)
@@ -86,7 +86,7 @@ class VariableMetadataResource(Resource):
             status = {
                 'Error': f'Variable {metadata.shortName} has already been defined in dataset {dataset}'
             }
-            return status, 404
+            return status, 409
 
         # Create qnode for variable
         if not metadata.shortName:
@@ -97,9 +97,9 @@ class VariableMetadataResource(Resource):
         variable_id = f'Q{metadata.datasetID}-{metadata.variableID}'
         metadata._variable_id = variable_id
 
-        pprint(metadata.to_dict())
+        # pprint(metadata.to_dict())
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id, variable_id))
-        pprint(edges)
+        # pprint(edges)
 
         if 'test' not in request.args:
             import_kgtk_dataframe(edges)

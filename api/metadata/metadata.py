@@ -274,7 +274,7 @@ class Metadata:
                 continue
             data_type = self._datamart_field_type[name]
 
-            print(name, data_type, value)
+            # print(name, data_type, value)
 
             if data_type == DataType.QNODE:
                 try:
@@ -316,7 +316,7 @@ class Metadata:
             elif data_type == DataType.DATE:
                 try:
                     result[name] = parse(value, default=DEFAULT_DATE).isoformat()
-                    print(name, result[name])
+                    # print(name, result[name])
                 except (ValueError, OverflowError) as error:
                     print(error)
                     error[name] = str(error)

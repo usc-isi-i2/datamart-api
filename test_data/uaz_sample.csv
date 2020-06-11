@@ -1,0 +1,22 @@
+dataset_id,variable,variable_id,main_subject,value,value_unit,time,time_precision,country,admin1,place,source,source_id
+UAZ,FAO: India,VUAZ-0,Vietnam,0.16,%,1971-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.16,%,1972-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.17,%,1973-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.17,%,1974-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.15,%,1975-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.15,%,1976-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.16,%,1977-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.19,%,1978-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.2,%,1979-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.19,%,1980-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.21,%,1981-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.19,%,1982-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.21,%,1983-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.18,%,1984-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.18,%,1985-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.16,%,1986-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.27,%,1987-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.24,%,1988-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.23,%,1989-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.26,%,1990-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
+UAZ,FAO: India,VUAZ-0,Vietnam,0.18,%,1991-01-01T00:00:00Z,year,Vietnam,,,FAO,Q82151
