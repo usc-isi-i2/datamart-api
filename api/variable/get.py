@@ -9,7 +9,7 @@ from flask import request, make_response, current_app
 from flask_restful import Resource
 
 import pandas as pd
-from .util import Labels, Location, TimePrecision
+from api.variable.util import Labels, Location, TimePrecision
 
 from db.sql.utils import query_to_dicts
 from flask.blueprints import Blueprint
@@ -78,7 +78,7 @@ class GeographyLevel(Enum):
 class VariableGetter:
     def init_resources(self):
         global labels, location
-        
+
         if not labels and not location:
             _init_regions()
             Labels.initialize(current_app.config)
@@ -175,7 +175,7 @@ class VariableGetter:
             temp_cols = ['main_subject_id'] + select_cols
 
         results = provider.query_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
-    
+
         result_df = pd.DataFrame(results, columns=temp_cols)
 
         if 'dataset_id' in result_df.columns:
@@ -183,7 +183,7 @@ class VariableGetter:
         if 'variable_id' in result_df.columns:
             result_df['variable_id'] = variable
         result_df.loc[:, 'variable'] = result['variable_name']
-        result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)      
+        result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
         # result_df.loc[:, 'time_precision'] = self.get_time_precision([10])
 
         for main_subject_id in result_df.loc[:, 'main_subject_id'].unique():
@@ -230,15 +230,72 @@ class VariableGetter:
 
 
 class SQLProvider:
-    def does_dataset_exists(self, dataset):
+    def get_dataset_id(self, dataset):
         dataset_query = f'''
-        SELECT e_dataset.node2 AS dataset_id
+        SELECT e_dataset.node1 AS dataset_id
         	FROM edges e_dataset
         WHERE e_dataset.label='P1813' AND e_dataset.node2='{dataset}';
         '''
         dataset_dicts = query_to_dicts(dataset_query)
-        return len(dataset_dicts) > 0
-        
+        if len(dataset_dicts) > 0:
+            return dataset_dicts[0]['dataset_id']
+        return None
+
+    def get_variable_id(self, dataset_id, variable) -> str:
+        print(f'variable_exists({dataset_id}, {variable})')
+        variable_query = f'''
+        select e_variable.node1 AS variable_id from edges e_variable
+        where e_variable.node1 in
+	(
+		select e_dataset.node2 from edges e_dataset
+		where e_dataset.node1 = '{dataset_id}'
+		and e_dataset.label = 'P2006020003'
+	)
+	and e_variable.label = 'P1813' and e_variable.node2 = '{variable}';
+        '''
+        variable_dicts = query_to_dicts(variable_query)
+        if len(variable_dicts) > 0:
+            return variable_dicts[0]['variable_id']
+        return None
+
+    def get_label(self, qnode, default=None, lang='en'):
+        label_query = f'''
+        SELECT node1 as qnode, text as label
+        FROM edges e
+        INNER JOIN strings s on e.id = s.edge_id
+        WHERE e.node1 = '{qnode}' and e.label = 'label' and s.language='{lang}';
+        '''
+        label = query_to_dicts(label_query)
+        if len(label) > 0:
+            return label[0]['label']
+        return default
+
+    def next_variable_value(self, dataset_id, prefix) -> int:
+        query = f'''
+        select max(substring(e_variable.node2 from '{prefix}#"[0-9]+#"' for '#')::INTEGER)  from edges e_variable
+        where e_variable.node1 in
+	(
+		select e_dataset.node2 from edges e_dataset
+		where e_dataset.node1 = '{dataset_id}'
+		and e_dataset.label = 'P2006020003'
+	)
+	and e_variable.label = 'P1813' and e_variable.node2 similar to '{prefix}[0-9]+';
+        '''
+        result = query_to_dicts(query)
+        if len(result) > 0 and result[0]['max'] is not None:
+            number = result[0]['max'] + 1
+        else:
+            number = 0
+        return number
+
+    def node_exists(self, node1):
+        query = f'''
+        select e.node1 as node1 from edges e
+        where e.node1 = '{node1}'
+        '''
+        result_dicts = query_to_dicts(query)
+        return len(result_dicts) > 0
+
     def query_variable(self, dataset, variable):
         variable_query = f'''
         SELECT e_var.node2 AS variable_id, s_var_label.text AS variable_name, e_property.node2 AS property_id, e_dataset.node1 AS dataset_id, e_dataset_label.node2 AS dataset_name
@@ -303,7 +360,7 @@ class SQLProvider:
                 JOIN coordinates AS c_coordinate ON (e_coordinate.id=c_coordinate.edge_id)
                 ON (e_coordinate.node1=e_main.node1 AND e_coordinate.label='P625')
 			LEFT JOIN edges AS e_stated ON (e_stated.node1=e_main.id AND e_stated.label='P248')
-			-- Allow the stated_in label to not exist in the database				
+			-- Allow the stated_in label to not exist in the database
 			LEFT JOIN edges AS e_stated_label
 				JOIN strings AS s_stated_label ON (s_stated_label.edge_id=e_stated_label.id)
 			ON (e_stated_label.node1=e_stated.id AND e_stated_label.label='label')
@@ -317,7 +374,7 @@ class SQLProvider:
         #
         # Since coordinates are optional, we LEFT JOIN on *A JOIN* of e_coordinate and c_coordinate. The weird
         # syntax of T LEFT JOIN A JOIN B ON (...) ON (...) is the SQL way of explicity specifying which INNER
-        # JOINS are LEFT JOINed. 
+        # JOINS are LEFT JOINed.
         #
         # We use the || operator on fields from the LEFT JOIN, since x || NULL is NULL in SQL, so coordinate is
         # NULL in the result if there is no coordinate
@@ -355,4 +412,3 @@ class SQLProvider:
                 result_dict[country] = None
 
         return result_dict
-

@@ -6,6 +6,7 @@ from flask_cors import CORS
 
 import api.hello
 from api.variable import VariableResource
+from api.metadata import DatasetMetadataResource, VariableMetadataResource
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +19,7 @@ if os.path.isfile(instance_config_path):
 app.register_blueprint(api.hello.bp)
 api = Api(app)
 api.add_resource(VariableResource, '/datasets/<string:dataset>/variables/<string:variable>')
-
+api.add_resource(DatasetMetadataResource, '/metadata/datasets', '/metadata/datasets/<string:dataset>')
+api.add_resource(VariableMetadataResource, '/metadata/datasets/<string:dataset>/variables')
 if __name__=='__main__':
     app.run()
