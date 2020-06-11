@@ -52,7 +52,8 @@ class DatasetMetadataResource(Resource):
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
         # pprint(edges)
 
-        import_kgtk_dataframe(edges)
+        if 'test' not in request.args:
+            import_kgtk_dataframe(edges)
 
         content = metadata.to_dict()
 
@@ -64,7 +65,7 @@ class DatasetMetadataResource(Resource):
             return output
 
 
-        return content, 200
+        return content, 201
 
     def get(self, dataset=None):
         provider = SQLProvider()
@@ -135,7 +136,7 @@ class VariableMetadataResource(Resource):
             output.headers['Content-type'] = 'text/tsv'
             return output
 
-        return content, 200
+        return content, 201
 
     def get(self, dataset, variable=None):
         provider = SQLProvider()
@@ -149,4 +150,3 @@ class VariableMetadataResource(Resource):
                 return { 'Error': f"No variable {variable} in dataset {dataset}" }, 404
 
         return results, 200
-
