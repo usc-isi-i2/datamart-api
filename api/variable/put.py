@@ -4,9 +4,11 @@ import hashlib
 import pandas as pd
 from flask import request
 from db.sql.utils import query_to_dicts
+from api.SQLProvider import SQLProvider
 from db.sql.kgtk import import_kgtk_dataframe
 from .country_wikifier import DatamartCountryWikifier
 
+provider = SQLProvider()
 qnode_regex = {}
 all_ids_dict = {}
 time_precision_dict = {
@@ -114,25 +116,34 @@ def create_kgtk_measurements(row, dataset_id, variable_id):
 
 def canonical_data(dataset, variable):
     # check if the dataset exists
-    dataset_query = f"Select DISTINCT node1 from edges where node1 = '{dataset}'"
-    dataset_result = query_to_dicts(dataset_query)
 
-    if len(dataset_result) == 0:
-        return {'error': 'Dataset not found: {}'.format(dataset)}, 404
+    dataset_id = provider.get_dataset_id(dataset)
+
+    if not dataset_id:
+        return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
     # check if variable exists for the dataset
     # P2006020003 - Variable Measured
     # P1687 - Corresponds to property
 
-    variable_query = f"SELECT * FROM edges e WHERE e.label = 'P2006020003' AND e.node1 = '{dataset}' " \
-                     f"AND e.node2 IN (SELECT node1 FROM " \
-                     f"edges e1 WHERE e1.label = 'P1687' " \
-                     f"and e1.node2 = '{variable}' )"
+    variable_query = f"""Select e.node1, e.node2 from edges e where e.node1 in (
+                            select e_variable.node1 from edges e_variable
+                                    where e_variable.node1 in
+                                (
+                                    select e_dataset.node2 from edges e_dataset
+                                    where e_dataset.node1 = '{dataset_id}'
+                                    and e_dataset.label = 'P2006020003'
+                                )
+                                and e_variable.label = 'P1813' and e_variable.node2 = '{variable}'
+                            )
+                            and e.label = 'P1687'
+                                """
 
     variable_result = query_to_dicts(variable_query)
-
     if len(variable_result) == 0:
         return {'error': 'Variable: {} not found for the dataset: {}'.format(variable, dataset)}, 404
+
+    variable_pnode = variable_result[0]['node2']
 
     # dataset and variable has been found, wikify and upload the data
     df = pd.read_csv(request.files['file'], dtype=object, lineterminator='\r')
@@ -154,7 +165,7 @@ def canonical_data(dataset, variable):
     no_qnode_units = list()
     no_qnode_units.extend([u for u in units if u not in unit_qnode_dict])
 
-    no_unit_qnode_dict = create_new_qnodes(dataset, no_qnode_units, 'Unit')
+    no_unit_qnode_dict = create_new_qnodes(dataset_id, no_qnode_units, 'Unit')
 
     df_wikified['value_unit_id'] = df_wikified['value_unit'].map(
         lambda x: unit_qnode_dict[x] if x in unit_qnode_dict else no_unit_qnode_dict[x])
@@ -173,14 +184,14 @@ def canonical_data(dataset, variable):
     no_qnode_sources = list()
     no_qnode_sources.extend([s for s in sources if s not in source_qnode_dict])
 
-    no_source_qnode_dict = create_new_qnodes(dataset, no_qnode_sources, 'Source')
+    no_source_qnode_dict = create_new_qnodes(dataset_id, no_qnode_sources, 'Source')
 
     df_wikified['source_id'] = df_wikified['source'].map(
         lambda x: source_qnode_dict[x] if x in source_qnode_dict else no_source_qnode_dict[x])
 
     kgtk_format_list = list()
     for i, row in df_wikified.iterrows():
-        kgtk_format_list.extend(create_kgtk_measurements(row, dataset, variable))
+        kgtk_format_list.extend(create_kgtk_measurements(row, dataset_id, variable_pnode))
 
     # create rows for new created variables Unit Qnodes and Source Qnodes
     for k in no_unit_qnode_dict:
