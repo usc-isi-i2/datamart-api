@@ -155,7 +155,7 @@ def import_kgtk_dataframe(df, config=None):
         df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
 
         # TODO: Are we sure kgtk is on the path
-        subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path])
+        subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
 
         if not os.path.isfile(exploded_tsv_path):
             raise ValueError("Couldn't create exploded TSV file")
