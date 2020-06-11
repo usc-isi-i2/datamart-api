@@ -230,11 +230,11 @@ class Metadata:
     def to_dict(self, *, include_internal_fields=False) -> dict:
         result = {}
         for attr in self._datamart_fields:
-            if getattr(self, attr) is not None:
+            if not getattr(self, attr):
                 result[attr] = getattr(self, attr)
         if include_internal_fields:
             for attr in self._internal_fields:
-                if getattr(self, attr) is not None:
+                if not getattr(self, attr):
                     result[attr] = getattr(self, attr)
         return result
 
@@ -365,38 +365,38 @@ class DatasetMetadata(Metadata):
         'name',
         'description',
         'url',
-        'shortName',
-        'datasetID',
+        'short_name',
+        'dataset_id',
         'keywords',
         'creator',
         'contributor',
-        'citesWork',
-        'copyrightLicense',
+        'cites_work',
+        'copyright_license',
         'version',
         'doi',
-        'mainSubject',
-        'coordinateLocation',
+        'main_subject',
+        'coordinate_location',
         'geoshape',
         'country',
         'location',
-        'startTime',
-        'endTime',
-        'startTime_precision',
-        'endTime_precision',
-        'dataInterval',
-        'variableMeasured',
-        'mappingFile',
-        'officialWebsite',
-        'dateCreated',
-        'apiEndpoint',
-        'includedInDataCatalog',
-        'hasPart'
+        'start_time',
+        'end_time',
+        'start_time_precision',
+        'end_time_precision',
+        'data_interval',
+        'variable_measured',
+        'mapping_file',
+        'official_website',
+        'date_created',
+        'api_endpoint',
+        'included_in_data_catalog',
+        'has_part'
     ]
     _required_fields = [
         'name',
         'description',
         'url',
-        'shortName'
+        'short_name'
     ]
     _internal_fields = [
         '_dataset_id'
@@ -405,61 +405,61 @@ class DatasetMetadata(Metadata):
         'name': DataType.STRING,
         'description': DataType.STRING,
         'url': DataType.URL,
-        'shortName': DataType.STRING,
-        'datasetID': DataType.STRING,
+        'short_name': DataType.STRING,
+        'dataset_id': DataType.STRING,
         'keywords': DataType.STRING,
         'creator': DataType.QNODE,
         'contributor': DataType.QNODE,
         'citesWork': DataType.STRING,
-        'copyrightLicense': DataType.QNODE,
+        'copyright_license': DataType.QNODE,
         'version': DataType.STRING,
         'doi': DataType.STRING,
-        'mainSubject': DataType.QNODE,
-        'coordinateLocation': DataType.STRING,
+        'main_subject': DataType.QNODE,
+        'coordinate_location': DataType.STRING,
         'geoshape': DataType.STRING,
         'country': DataType.QNODE,
         'location': DataType.QNODE,
-        'startTime': DataType.DATE,
-        'endTime': DataType.DATE,
+        'start_time': DataType.DATE,
+        'end_time': DataType.DATE,
         'startTime_precision': DataType.PRECISION,
         'endTime_precision': DataType.PRECISION,
-        'dataInterval': DataType.INTERVAL,
-        'variableMeasured': DataType.QNODE,
-        'mappingFile': DataType.URL,
-        'officialWebsite': DataType.URL,
-        'dateCreated': DataType.DATE,
-        'apiEndpoint': DataType.URL,
-        'includedInDataCatalog': DataType.QNODE,
-        'hasPart': DataType.URL
+        'data_interval': DataType.INTERVAL,
+        'variable_measured': DataType.QNODE,
+        'mapping_file': DataType.URL,
+        'official_website': DataType.URL,
+        'date_created': DataType.DATE,
+        'api_endpoint': DataType.URL,
+        'included_in_data_catalog': DataType.QNODE,
+        'has_part': DataType.URL
     }
     _name_to_pnode_map = {
         'name': 'P1476',
         'description': 'description',
         'url': 'P2699',
-        'shortName': 'P1813',
+        'short_name': 'P1813',
         # 'datasetID': 'None',
         'keywords': 'schema:keywords',
         'creator': 'P170',
         'contributor': 'P767',
-        'citesWork': 'P2860',
-        'copyrightLicense': 'P275',
+        'cites_work': 'P2860',
+        'copyright_license': 'P275',
         'version': 'schema:version',
         'doi': 'P356',
-        'mainSubject': 'P921',
-        'coordinateLocation': 'P921',
+        'main_subject': 'P921',
+        'coordinate_location': 'P921',
         'geoshape': 'P3896',
         'country': 'P17',
         'location': 'P276',
-        'startTime': 'P580',
-        'endTime': 'P582',
-        'dataInterval': 'P6339',
-        'variableMeasured': 'P2006020003',
-        'mappingFile': 'P2006020005',
-        'officialWebsite': 'P856',
-        'dateCreated': 'schema:dateCreated',
-        'apiEndpoint': 'P6269',
-        'includedInDataCatalog': 'schema:includedInDataCatalog',
-        'hasPart': 'P527'
+        'start_time': 'P580',
+        'end_time': 'P582',
+        'data_interval': 'P6339',
+        'variable_measured': 'P2006020003',
+        'mapping_file': 'P2006020005',
+        'official_website': 'P856',
+        'date_created': 'schema:dateCreated',
+        'api_endpoint': 'P6269',
+        'included_in_data_catalog': 'schema:includedInDataCatalog',
+        'has_part': 'P527'
 
     }
     def __init__(self):
@@ -467,25 +467,25 @@ class DatasetMetadata(Metadata):
         self.name = None
         self.description = None
         self.url = None
-        self.shortName = None
+        self.short_name = None
         # self.datasetID = None
         self.keywords = None
         self.creator = None
         self.contributor = None
-        self.citesWork = None
-        self.copyrightLicense = None
+        self.cites_work = None
+        self.copyright_license = None
         self.version = None
         self.doi = None
-        self.mainSubject = None
-        self.coordinateLocation = None
+        self.main_subject = None
+        self.coordinate_location = None
         self.geoshape = None
         self.country = None
         self.location = None
-        self.startTime = None
-        self.endTime = None
-        self.dataInterval = None
-        self.variableMeasured = None
-        self.mappingFile = None
+        self.start_time = None
+        self.end_time = None
+        self.data_interval = None
+        self.variable_measured = None
+        self.mapping_file = None
 
     def to_kgtk_edges(self, dataset_node) -> typing.List[dict]:
 
@@ -505,23 +505,23 @@ class DatasetMetadata(Metadata):
         edges.append(self.field_edge(dataset_node, 'url', required=True))
 
         # Optional
-        edges.append(self.field_edge(dataset_node, 'shortName'))
+        edges.append(self.field_edge(dataset_node, 'short_name'))
         edges.append(self.field_edge(dataset_node, 'keywords'))
         edges.append(self.field_edge(dataset_node, 'creator'))
         edges.append(self.field_edge(dataset_node, 'contributor'))
-        edges.append(self.field_edge(dataset_node, 'citesWork'))
-        edges.append(self.field_edge(dataset_node, 'copyrightLicense', is_item=True))
+        edges.append(self.field_edge(dataset_node, 'cites_work'))
+        edges.append(self.field_edge(dataset_node, 'copyright_license', is_item=True))
         edges.append(self.field_edge(dataset_node, 'version'))
         edges.append(self.field_edge(dataset_node, 'doi'))
-        edges.append(self.field_edge(dataset_node, 'mainSubject', is_item=True))
+        edges.append(self.field_edge(dataset_node, 'main_subject', is_item=True))
         edges.append(self.field_edge(dataset_node, 'geoshape'))
         edges.append(self.field_edge(dataset_node, 'country', is_item=True))
         edges.append(self.field_edge(dataset_node, 'location', is_item=True))
-        edges.append(self.field_edge(dataset_node, 'startTime', is_time=True))
-        edges.append(self.field_edge(dataset_node, 'endTime', is_time=True))
-        edges.append(self.field_edge(dataset_node, 'dataInterval', is_item=True))
-        edges.append(self.field_edge(dataset_node, 'variableMeasured', is_item=True))
-        edges.append(self.field_edge(dataset_node, 'mappingFile'))
+        edges.append(self.field_edge(dataset_node, 'start_time', is_time=True))
+        edges.append(self.field_edge(dataset_node, 'end_time', is_time=True))
+        edges.append(self.field_edge(dataset_node, 'data_interval', is_item=True))
+        edges.append(self.field_edge(dataset_node, 'variable_measured', is_item=True))
+        edges.append(self.field_edge(dataset_node, 'mapping_file'))
 
         edges = [edge for edge in edges if edge is not None]
         return edges
@@ -534,21 +534,22 @@ class VariableMetadata(Metadata):
     '''
     _datamart_fields = [
         'name',
-        'variableID',
-        'datasetID',
-        'shortName',
+        # 'variable_id',
+        # 'dataset_id',
+        'short_name',
+        'dataset_short_name',
         'description',
-        'correspondsToProperty',
-        'mainSubject',
-        'unitOfMeasure',
+        'corresponds_to_property',
+        'main_subject',
+        'unit_of_measure',
         'country',
         'location',
-        'startTime',
-        'endTime',
-        'startTime_precision',
-        'endTime_precision',
-        'dataInterval',
-        'columnIndex',
+        'start_time',
+        'end_time',
+        'start_time_precision',
+        'end_time_precision',
+        'data_interval',
+        'column_index',
         'qualifier',
         'count'
     ]
@@ -566,21 +567,22 @@ class VariableMetadata(Metadata):
     _list_fields = ['mainSubject', 'unitOfMeasure', 'country', 'qualifier']
     _datamart_field_type = {
         'name': DataType.STRING,
-        'variableID': DataType.STRING,
-        'datasetID': DataType.STRING,
-        'shortName': DataType.STRING,
+        # 'variable_id': DataType.STRING,
+        # 'dataset_id': DataType.STRING,
+        'short_name': DataType.STRING,
+        'dataset_short_name': DataType.STRING,
         'description': DataType.STRING,
-        'correspondsToProperty' : DataType.PNODE,
-        'mainSubject': DataType.QLIST,
-        'unitOfMeasure': DataType.QLIST,
+        'corresponds_to_property' : DataType.PNODE,
+        'main_subject': DataType.QLIST,
+        'unit_of_measure': DataType.QLIST,
         'country': DataType.QLIST,
         'location': DataType.QLIST,
-        'startTime': DataType.DATE,
-        'endTime': DataType.DATE,
-        'startTime_precision': DataType.PRECISION,
-        'endTime_precision': DataType.PRECISION,
-        'dataInterval': DataType.INTERVAL,
-        'columnIndex': DataType.STRING,
+        'start_time': DataType.DATE,
+        'end_time': DataType.DATE,
+        'start_time_precision': DataType.PRECISION,
+        'end_time_precision': DataType.PRECISION,
+        'data_interval': DataType.INTERVAL,
+        'column_index': DataType.STRING,
         'qualifier': DataType.QLIST,
         'count': DataType.INTEGER
     }
@@ -588,17 +590,17 @@ class VariableMetadata(Metadata):
         'name': 'P1476',
         # 'variableID': 'None',
         # 'datasetID': 'None',
-        'shortName': 'P1813',
+        'short_name': 'P1813',
         'description': 'description',
-        'correspondsToProperty': 'P1687',
-        'mainSubject': 'P921',
-        'unitOfMeasure': 'P1880',
+        'corresponds_to_property': 'P1687',
+        'main_subject': 'P921',
+        'unit_of_measure': 'P1880',
         'country': 'P17',
         'location': 'P276',
-        'startTime': 'P580',
-        'endTime': 'P582',
-        'dataInterval': 'P6339',
-        'columnIndex': 'P2006020001',
+        'start_time': 'P580',
+        'end_time': 'P582',
+        'data_interval': 'P6339',
+        'column_index': 'P2006020001',
         'qualifier': 'P2006020002',
         'count': 'P1114'
     }
@@ -606,21 +608,21 @@ class VariableMetadata(Metadata):
     def __init__(self):
         super().__init__()
         self.name = None
-        self.variableID = None
-        self.datasetID = None
-        self.shortName = None
+        # self.variableID = None
+        # self.datasetID = None
+        self.short_name = None
         self.description = None
-        self.correspondsToProperty = None
-        self.mainSubject = []
-        self.unitOfMeasure = []
+        self.corresponds_to_property = None
+        self.main_subject = []
+        self.unit_of_measure = []
         self.country = []
         self.location = []
-        self.startTime = None
-        self.endTime = None
-        self.startTime_precision = None
-        self.endTime_precision = None
-        self.dataInterval = None
-        self.columnIndex: typing.Union(int, None) = None
+        self.start_time = None
+        self.end_time = None
+        self.start_time_precision = None
+        self.end_time_precision = None
+        self.data_interval = None
+        self.column_index: typing.Union(int, None) = None
         self.qualifier = []
         self.count = None
 
@@ -642,7 +644,7 @@ class VariableMetadata(Metadata):
         edges.append(create_triple(variable_node, 'label', json.dumps(self.name)))
         edges.append(self.field_edge(variable_node, 'name', required=True))
 
-        edges.append(self.field_edge(variable_node, 'shortName', required=True))
+        edges.append(self.field_edge(variable_node, 'short_name', required=True))
 
         edges.append(self.field_edge(variable_node, 'description'))
 
@@ -651,31 +653,31 @@ class VariableMetadata(Metadata):
 
         # Wikidata property (P1687) expects object to be a property. KGTK
         # does not support object with type property (May 2020).
-        # edges.append(create_triple(variable_node, 'P1687', self.correspondsToProperty))
-        edges.append(self.field_edge(variable_node, 'correspondsToProperty', is_item=True))
+        # edges.append(create_triple(variable_node, 'P1687', self.corresponds_to_property))
+        edges.append(self.field_edge(variable_node, 'corresponds_to_property', is_item=True))
 
-        if self.unitOfMeasure:
-            for unit in self.unitOfMeasure:
+        if self.unit_of_measure:
+            for unit in self.unit_of_measure:
                 edges.append(create_triple(variable_node, 'P1880', unit['identifier']))
                 if defined_labels is not None and unit['identifier'] not in defined_labels:
                     defined_labels.add(unit['identifier'])
                     edges.append(create_triple(unit['identifier'], 'label', json.dumps(unit['name'])))
 
-        if self.mainSubject:
-            for main_subject_obj in self.mainSubject:
+        if self.main_subject:
+            for main_subject_obj in self.main_subject:
                 edges.append(
                     create_triple(variable_node, 'P921', main_subject_obj['identifier']))
 
-        # precision = DataInterval.name_to_int(self.dataInterval)
-        edges.append(self.field_edge(variable_node, 'startTime', is_time=True))
-        edges.append(self.field_edge(variable_node, 'endTime', is_time=True))
+        # precision = DataInterval.name_to_int(self.data_interval)
+        edges.append(self.field_edge(variable_node, 'start_time', is_time=True))
+        edges.append(self.field_edge(variable_node, 'end_time', is_time=True))
 
-        if self.dataInterval:
+        if self.data_interval:
             edges.append(create_triple(
-                # variable_node, 'P6339', DataInterval.name_to_qnode(self.dataInterval))
-                variable_node, 'P6339', self.dataInterval))
+                # variable_node, 'P6339', DataInterval.name_to_qnode(self.data_interval))
+                variable_node, 'P6339', self.data_interval))
 
-        edges.append(self.field_edge(variable_node, 'columnIndex'))
+        edges.append(self.field_edge(variable_node, 'column_index'))
 
         edges.append(self.field_edge(variable_node, 'count'))
 

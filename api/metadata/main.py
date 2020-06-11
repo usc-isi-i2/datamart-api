@@ -33,19 +33,18 @@ class DatasetMetadataResource(Resource):
         if not code == 200:
             return status, code
 
-        if provider.get_dataset_id(metadata.shortName):
+        if provider.get_dataset_id(metadata.short_name):
             content = {
-                'Error': f'Dataset identifier {metadata.shortName} has already been used'
+                'Error': f'Dataset identifier {metadata.short_name} has already been used'
             }
             return content, 409
 
-        dataset_id = f'Q{metadata.shortName}'
+        dataset_id = f'Q{metadata.short_name}'
         count = 0
         while provider.node_exists(dataset_id):
             count += 1
-            dataset_id = f'Q{metadata.shortName}{count}'
+            dataset_id = f'Q{metadata.short_name}{count}'
 
-        metadata.datasetID = metadata.shortName
         metadata._dataset_id = dataset_id
 
         # pprint(metadata.to_dict())
@@ -60,7 +59,7 @@ class DatasetMetadataResource(Resource):
         if 'tsv' in request.args:
             tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
             output = make_response(tsv)
-            output.headers['Content-Disposition'] = f'attachment; filename={metadata.shortName}.tsv'
+            output.headers['Content-Disposition'] = f'attachment; filename={metadata.short_name}.tsv'
             output.headers['Content-type'] = 'text/tsv'
             return output
 
@@ -103,21 +102,20 @@ class VariableMetadataResource(Resource):
                 'Error': f'Cannot find dataset {dataset}'
             }
             return  status, 404
-        metadata.datasetID = dataset
+        metadata.dataset_short_name = dataset
 
-        if metadata.shortName and provider.get_variable_id(dataset_id, metadata.shortName) is not None:
+        if metadata.short_name and provider.get_variable_id(dataset_id, metadata.short_name) is not None:
             status = {
-                'Error': f'Variable {metadata.shortName} has already been defined in dataset {dataset}'
+                'Error': f'Variable {metadata.short_name} has already been defined in dataset {dataset}'
             }
             return status, 409
 
         # Create qnode for variable
-        if not metadata.shortName:
-            prefix = f'V{metadata.datasetID}-'
+        if not metadata.short_name:
+            prefix = f'V{metadata.dataset_short_name}-'
             number = provider.next_variable_value(dataset_id, prefix)
-            metadata.shortName = f'{prefix}{number}'
-        metadata.variableID = metadata.shortName
-        variable_id = f'Q{metadata.datasetID}-{metadata.variableID}'
+            metadata.short_name = f'{prefix}{number}'
+        variable_id = f'Q{metadata.dataset_short_name}-{metadata.short_name}'
         metadata._variable_id = variable_id
 
         # pprint(metadata.to_dict())
@@ -132,7 +130,7 @@ class VariableMetadataResource(Resource):
         if 'tsv' in request.args:
             tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
             output = make_response(tsv)
-            output.headers['Content-Disposition'] = f'attachment; filename={metadata.datasetID}-{metadata.variableID}.tsv'
+            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_short_name}-{metadata.short_name}.tsv'
             output.headers['Content-type'] = 'text/tsv'
             return output
 
