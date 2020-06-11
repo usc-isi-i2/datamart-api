@@ -59,6 +59,14 @@ class DatasetMetadataResource(Resource):
 
         return content, 200
 
+    def get(self, dataset=None):
+        provider = SQLProvider()
+        results = provider.query_dataset_metadata(dataset)
+        if results is None:
+            return { 'error': "No such dataset" }, 404
+
+        return results, 200
+
 
 class VariableMetadataResource(Resource):
     def post(self, dataset):

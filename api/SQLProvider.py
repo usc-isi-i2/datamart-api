@@ -188,3 +188,107 @@ class SQLProvider:
                 result_dict[country] = None
 
         return result_dict
+
+    def query_dataset_metadata(self, dataset_name=None):
+        """ Returns the metadata of the dataset. If no name is provided, all datasets are returned """
+
+        # Helpers for building the query. These will be refactored out
+        def join_edge(alias, label, satellite_type=None, main_table='e_dataset', qualifier=False, left=False):
+            edge_table_alias = f'e_{alias}'
+
+            if qualifier:
+                main_table_ref = f'{main_table}.id'
+            else:
+                main_table_ref = f'{main_table}.node1'
+
+            if satellite_type:
+                satellites = dict(s='strings', sym='symbols', q='quantities', d='dates', c='coordinates')
+                if satellite_type not in satellites:
+                    raise ValueError('Unsupported satellite type ' + satellite_type)
+                satellite_table_name = satellites[satellite_type]
+                satellite_table_alias = f'{satellite_type}_{alias}'
+
+                satellite_join = f"JOIN {satellite_table_name} {satellite_table_alias} ON ({edge_table_alias}.id={satellite_table_alias}.edge_id)"
+            else:
+                satellite_join = ""
+
+            sql = f"JOIN edges {edge_table_alias} {satellite_join} ON ({edge_table_alias}.node1={main_table_ref} AND {edge_table_alias}.label='{label}')"
+
+            if left:
+                sql = "LEFT " + sql;
+            return '\t' + sql  + '\n';
+
+        if dataset_name:
+            dataset_id = self.get_dataset_id(dataset_name)
+            if not dataset_id:
+                return None
+                
+            filter = f"e_dataset.node1='{dataset_id}'"
+        else:
+            filter = '1=1'
+
+        query = f'''
+        SELECT e_dataset.node1 AS datasetID,
+               s_name.text AS name,
+               s_description.text AS description,
+               s_url.text AS url,
+               s_shortName.text AS shortName,
+               s_keywords.text AS keywords,
+               e_creator.node2 AS creator,
+               e_contributor.node2 AS contributor,
+               s_citesWork.text AS citesWork,
+               e_copyrightLicense.node2 AS copyrightLicense,
+               s_version.text AS version,
+               s_doi.text AS doi,
+               e_mainSubject.node2 AS mainSubject,
+               s_geoshape.text AS geoshape,
+               e_country.node2 AS country,
+               e_location.node2 AS location,
+               to_json(d_startTime.date_and_time)#>>'{{}}' || 'Z' AS startTime,
+               d_startTime.precision AS startTime_precision,
+               to_json(d_endTime.date_and_time)#>>'{{}}' || 'Z' AS endTime,
+               d_endTime.precision AS endTime_precision,
+               e_variableMeasured.node2 AS variableMeasured,
+               s_mappingFile.text AS mappingFile,
+               s_officialWebsite.text AS officialWebsite,
+               to_json(d_dateCreated.date_and_time)#>>'{{}}' || 'Z' AS dateCreated,
+               s_apiEndpoint.text AS apiEndpoint,
+               e_includedInDataCatalog.node2 AS includedInDataCatalog,
+               s_hasPart.text AS hasPart
+
+            FROM edges e_dataset
+        '''
+        # Mandatory First
+        query += join_edge('name', 'P1476', 's')
+        query += join_edge('description', 'description', 's')
+        query += join_edge('url', 'P2699', 's')
+        # Optional
+        query += join_edge('shortName', 'P1813', 's', left=True)
+        query += join_edge('keywords', 'schema:keywords', 's', left=True)
+        query += join_edge('creator', 'P170', left=True)
+        query += join_edge('contributor', 'P767', left=True)
+        query += join_edge('citesWork', 'P2860', 's', left=True)
+        query += join_edge('copyrightLicense', 'P275', left=True)
+        query += join_edge('version', 'schema:version', 's', left=True)
+        query += join_edge('doi', 'P356', 's', left=True)
+        query += join_edge('mainSubject', 'P921', left=True)
+        query += join_edge('geoshape', 'P3896', 's', left=True)
+        query += join_edge('country', 'P17', left=True)
+        query += join_edge('location', 'P276', left=True)
+        query += join_edge('startTime', 'P580', 'd', left=True)
+        query += join_edge('endTime', 'P582', 'd', left=True)
+        query += join_edge('variableMeasured', 'P2006020003', left=True)
+        query += join_edge('mappingFile', 'P2006020005', 's', left=True)
+        query += join_edge('officialWebsite', 'P856', 's', left=True)
+        query += join_edge('dateCreated', 'schema:dateCreated', 'd', left=True)
+        query += join_edge('apiEndpoint', 'P6269', 's', left=True)
+        query += join_edge('includedInDataCatalog', 'schema:includedInDataCatalog', left=True)
+        query += join_edge('hasPart', 'P527', 's', left=True)
+    
+
+        query += f'''               
+        WHERE e_dataset.label='P31' AND e_dataset.node2='Q1172284' AND {filter}
+        ''';
+
+        print(query)
+        return query_to_dicts(query)
