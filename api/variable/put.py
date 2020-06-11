@@ -1,17 +1,10 @@
-# The Flask application
-import csv
-import hashlib
 import json
 import re
-import subprocess
-import time
-
+import hashlib
 import pandas as pd
 from flask import request
-
 from db.sql.utils import query_to_dicts
-from db.sql.kgtk import import_kgtk_dataframe, import_kgtk_tsv
-
+from db.sql.kgtk import import_kgtk_dataframe
 from .country_wikifier import DatamartCountryWikifier
 
 qnode_regex = {}
