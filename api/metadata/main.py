@@ -167,9 +167,11 @@ class FuzzySearchResource(Resource):
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
-        dataset_results = provider.query_dataset_metadata()
-        datasets = { row['dataset_id']: row['short_name'] for row in dataset_results }
+        dataset_results = provider.query_dataset_metadata(include_dataset_qnode=True)
+        datasets = { row['dataset_qnode']: row['dataset_id'] for row in dataset_results }
         for row in results:
-            row['dataset_short_name'] = datasets[row['dataset_id']]
+            row['dataset_id'] = datasets[row['dataset_qnode']]
+            del row['dataset_qnode']
+            del row['variable_text']
 
         return results
