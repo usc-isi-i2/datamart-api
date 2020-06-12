@@ -154,8 +154,13 @@ class Metadata:
     # properties for internal use
     _internal_fields: typing.List[str] = []
 
+    # minimal required properties
     _required_fields: typing.List[str] = []
 
+    # properties for GET metadata collection methods
+    _collection_get_fields: typing.List[str] = []
+
+    # properties containing lists
     _list_fields: typing.List[str] = []
 
     # mapping for properties to pnodes
@@ -227,14 +232,20 @@ class Metadata:
         for key, value in metadata.items():
             setattr(self, key, value)
 
-    def to_dict(self, *, include_internal_fields=False) -> dict:
+    def to_dict(self, *, collection_get_fields=False, include_internal_fields=False) -> dict:
         result = {}
+        if collection_get_fields:
+            for attr in self._collection_get_fields:
+                if getattr(self, attr):
+                    result[attr] = getattr(self, attr)
+            return result
+
         for attr in self._datamart_fields:
-            if not getattr(self, attr):
+            if getattr(self, attr):
                 result[attr] = getattr(self, attr)
         if include_internal_fields:
             for attr in self._internal_fields:
-                if not getattr(self, attr):
+                if getattr(self, attr):
                     result[attr] = getattr(self, attr)
         return result
 
@@ -244,12 +255,13 @@ class Metadata:
                 setattr(self, key, value)
             else:
                 raise ValueError(f'Key not allowed: {key}')
+        return self
 
     def to_json(self, *, include_internal_fields=False, **kwargs) -> str:
         return json.dumps(self.to_dict(include_internal_fields=include_internal_fields), **kwargs)
 
     def from_json(self, desc: str):
-        self.from_dict(json.loads(desc))
+        return self.from_dict(json.loads(desc))
 
     def from_request(self, desc: dict) -> typing.Tuple[dict, int]:
         '''Process description from REST request'''
@@ -393,6 +405,12 @@ class DatasetMetadata(Metadata):
         'has_part'
     ]
     _required_fields = [
+        'name',
+        'description',
+        'url',
+        'short_name'
+    ]
+    _collection_get_fields = [
         'name',
         'description',
         'url',
@@ -556,6 +574,12 @@ class VariableMetadata(Metadata):
     _required_fields = [
         'name',
     ]
+    _collection_get_fields = [
+        'name',
+        'short_name',
+        'dataset_short_name'
+    ]
+
     _internal_fields = [
         '_dataset_id',
         '_variable_id',
@@ -564,7 +588,7 @@ class VariableMetadata(Metadata):
         '_max_admin_level',
         '_precision'
     ]
-    _list_fields = ['mainSubject', 'unitOfMeasure', 'country', 'qualifier']
+    _list_fields = ['main_subject', 'unit_of_measure', 'country', 'qualifier']
     _datamart_field_type = {
         'name': DataType.STRING,
         # 'variable_id': DataType.STRING,

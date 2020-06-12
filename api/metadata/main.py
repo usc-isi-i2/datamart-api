@@ -1,7 +1,5 @@
 import csv
 
-from pprint import pprint
-
 import pandas as pd
 
 from flask import request, make_response
@@ -72,9 +70,10 @@ class DatasetMetadataResource(Resource):
         if results is None:
             return { 'Error': f"No such dataset {dataset}" }, 404
 
-        # Results is a simple list, no need to postprocess it
-        return results, 200
+        # validate
+        results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
 
+        return results, 200
 
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
@@ -142,9 +141,11 @@ class VariableMetadataResource(Resource):
             results = provider.query_dataset_variables(dataset)
             if results is None:
                 return { 'Error': f"No dataset {dataset}" }, 404
+            results = [VariableMetadata().from_dict(x).to_dict() for x in results]
         else:
             results = provider.query_variable_metadata(dataset, variable)
             if results is None:
                 return { 'Error': f"No variable {variable} in dataset {dataset}" }, 404
+            results = VariableMetadata().from_dict(results).to_dict()
 
         return results, 200

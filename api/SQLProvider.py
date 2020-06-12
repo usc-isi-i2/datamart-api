@@ -201,7 +201,7 @@ class SQLProvider:
             dataset_id = self.get_dataset_id(dataset_name)
             if not dataset_id:
                 return None
-                
+
             filter = f"e_dataset.node1='{dataset_id}'"
         else:
             filter = '1=1'
@@ -219,9 +219,9 @@ class SQLProvider:
         query += join_edge('description', 'description', 's')
         query += join_edge('url', 'P2699', 's')
         query += join_edge('short_name', 'P1813', 's')
-    
 
-        query += f'''               
+
+        query += f'''
         WHERE e_dataset.label='P31' AND e_dataset.node2='Q1172284' AND {filter}
         ''';
 
@@ -239,14 +239,14 @@ class SQLProvider:
         query = f"""
         SELECT '{dataset}' AS dataset_short_name,
                s_name.text AS name,
-               e_shortName.node2 AS short_name
+               e_short_name.node2 AS short_name
 
         FROM edges e_var
         JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
         """
 
         # Mandatory fields first
-        query += join_edge('shortName', 'P1813')
+        query += join_edge('short_name', 'P1813')
         # Now optional fields that are supposed to be required
         query += join_edge('name', 'P1476', 's', left=True)
 
@@ -270,7 +270,7 @@ class SQLProvider:
         def fix_interval(row):
             if row['data_interval'] is not None:
                 row['data_interval'] = DataInterval.qnode_to_name(row['data_interval'])
-        
+
         def run_query(select_clause, join_clause):
             nonlocal from_clause, where_clause
             query = f"""
@@ -285,9 +285,9 @@ class SQLProvider:
         def fetch_scalars():
             select = f"""
             SELECT s_name.text AS name,
-                e_shortName.node2 AS shortName,
+                e_short_name.node2 AS short_name,
                 s_description.text AS description,
-                e_correspondsToProperty.node2 AS corresnponds_to_property,
+                e_corresponds_to_property.node2 AS corresponds_to_property,
                 to_json(d_start_time.date_and_time)#>>'{{}}' || 'Z' AS start_time,
                 d_start_time.precision AS start_time_precision,
                 to_json(d_end_time.date_and_time)#>>'{{}}' || 'Z' AS end_time,
@@ -299,9 +299,9 @@ class SQLProvider:
 
             # Mandatory fields first
             join = ""
-            join += join_edge('shortName', 'P1813')
-            join += join_edge('correspondsToProperty', 'P1687')
+            join += join_edge('short_name', 'P1813')
             # Now optional fields that are supposed to be required
+            join += join_edge('corresponds_to_property', 'P1687', left=True)
             join += join_edge('description', 'description', 's', left=True)
             join += join_edge('name', 'P1476', 's', left=True)
             # Now truely optional fields
@@ -315,12 +315,12 @@ class SQLProvider:
 
         def fetch_list(entity, edge_label, return_ids=False):
             select = f"""
-            SELECT e_{entity}.node2 AS {entity}_id, s_{entity}_label.text AS {entity}
+            SELECT e_{entity}.node2 AS identifier, s_{entity}_label.text AS name
             """
 
             join = f"""
             JOIN edges e_{entity} ON (e_var.node1=e_{entity}.node1 AND e_{entity}.label='{edge_label}')
-            LEFT JOIN edges e_{entity}_label 
+            LEFT JOIN edges e_{entity}_label
                 JOIN strings s_{entity}_label ON (e_{entity}_label.id=s_{entity}_label.edge_id)
             ON (e_{entity}.node2=e_{entity}_label.node1 AND e_{entity}_label.label='label')
             """
@@ -331,15 +331,36 @@ class SQLProvider:
                 return rows
 
             # We need to return just the entities, in a simple list
-            entity_list = [row[entity] for row in rows]
+            entity_list = [row['name'] for row in rows]
             return entity_list
 
-            # We need to turn this into a list of the label field. We could in 
+            # We need to turn this into a list of the label field. We could in
+
+        def fetch_stated_as_list(entity, edge_label, return_ids=False):
+            select = f"""
+            SELECT e_{entity}.node2 AS identifier, e_qualifier_stated_as.node2 AS name
+            """
+
+            join = f"""
+            JOIN edges e_{entity} ON (e_var.node1=e_{entity}.node1 AND e_{entity}.label='{edge_label}')
+            LEFT JOIN edges e_{entity}_stated_as ON (e_{entity}_stated_as.node1 = e_{entity}.id)
+            """
+
+            rows = run_query(select, join)
+
+            if return_ids:
+                return rows
+
+            # We need to return just the entities, in a simple list
+            entity_list = [row['name'] for row in rows]
+            return entity_list
+
+            # We need to turn this into a list of the label field. We could in
 
         dataset_id = self.get_dataset_id(dataset)
         if not dataset_id:
             return None
-        
+
         variable_id = self.get_variable_id(dataset_id, variable)
         if not variable_id:
             return None
@@ -356,11 +377,11 @@ class SQLProvider:
 
         result = fetch_scalars()[0]
         fix_time_precisions(result)
-        result['main_subjects'] = fetch_list('main_subject', 'P921')
-        result['units_of_measure'] = fetch_list('unit_of_measure', 'P1880')
-        result['countries'] = fetch_list('country', 'P17')
-        result['locations'] = fetch_list('location', 'P276')
-        result['qualifiers'] = fetch_list('qualifier', 'P2006020002', True)
+        result['main_subject'] = fetch_list('main_subject', 'P921')
+        result['unit_of_measure'] = fetch_list('unit_of_measure', 'P1880')
+        result['country'] = fetch_list('country', 'P17')
+        result['location'] = fetch_list('location', 'P276')
+        result['qualifier'] = fetch_stated_as_list('qualifier', 'P2006020002', True)
         return result
 
     def join_edge(self,  main_table, alias, label, satellite_type=None, qualifier=False, left=False):
@@ -387,5 +408,3 @@ class SQLProvider:
         if left:
             sql = "LEFT " + sql;
         return '\t' + sql  + '\n';
-
-    
