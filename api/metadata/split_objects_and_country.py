@@ -14,18 +14,19 @@ def get_countries_set(country_wikifier_file: str):
     return set(country_wikifier_dict)
 
 def split_objects_and_country(input_str: str, country_set: set=country_set):
+    # For now the countries are not returned - we only support 
     main_parts = []
     countries = []
     for each in input_str.strip().split(" "):
         each = each.lower()
         if each not in stop_words:
-            if each in country_set:
-                countries.append(each)
-            else:
+#            if each in country_set:
+#                countries.append(each)
+#            else:
                 main_parts.append(each)
     # if no country string found and we get multiple main parts, assume last part is country
-    if len(countries) == 0 and len(main_parts) > 1:
-        countries.append(main_parts.pop())
+#    if len(countries) == 0 and len(main_parts) > 1:
+#        countries.append(main_parts.pop())
     return main_parts, countries
 """
 Running example:

@@ -8,6 +8,7 @@ from flask_restful import Resource
 from api.SQLProvider import SQLProvider
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
 from db.sql.kgtk import import_kgtk_dataframe
+from api.metadata.split_objects_and_country import split_objects_and_country
 
 provider = SQLProvider()
 
@@ -149,3 +150,18 @@ class VariableMetadataResource(Resource):
             results = VariableMetadata().from_dict(results).to_dict()
 
         return results, 200
+
+class FuzzySearchResource(Resource):
+    def get(self):
+        q = request.args.get('q')
+        if not q:
+            return { 'Error': 'A variable query must be provided' }, 400
+        provider = SQLProvider()
+
+        # This is a first version, the uses Postgre's ILIKE operator
+        terms, _ = split_objects_and_country(q)
+        results = provider.fuzzy_query_variables(terms)
+        return results
+ 
+
+

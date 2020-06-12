@@ -286,7 +286,7 @@ class SQLProvider:
             select = f"""
             SELECT s_name.text AS name,
                 e_short_name.node2 AS short_name,
-                s_description.text AS description,
+                COALESCE(s_description.text, s_label.text) AS description,
                 e_corresponds_to_property.node2 AS corresponds_to_property,
                 to_json(d_start_time.date_and_time)#>>'{{}}' || 'Z' AS start_time,
                 d_start_time.precision AS start_time_precision,
@@ -300,6 +300,7 @@ class SQLProvider:
             # Mandatory fields first
             join = ""
             join += join_edge('short_name', 'P1813')
+            join += join_edge('label', 'label', 's')
             # Now optional fields that are supposed to be required
             join += join_edge('corresponds_to_property', 'P1687', left=True)
             join += join_edge('description', 'description', 's', left=True)
@@ -408,3 +409,30 @@ class SQLProvider:
         if left:
             sql = "LEFT " + sql;
         return '\t' + sql  + '\n';
+
+    def fuzzy_query_variables(self, terms):
+        if not terms:
+            return []
+
+        # We need to use to SELECTs, as explained here: https://stackoverflow.com/a/12866110/871910
+        fuzzied_terms = [f"(variable_text ILIKE '%{term}%')" for term in terms]
+        fuzzied_clause = " OR".join(fuzzied_terms)
+
+        query = f"""
+        SELECT fuzzy.* FROM (
+        SELECT e_var.node1 AS variable_short_name,
+               e_dataset.node1 AS dataset_short_name,
+               CONCAT(s_description.text, ' ', s_name.text, ' ', s_label.text) AS variable_text
+        FROM edges e_var
+        JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+        LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
+        LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
+		LEFT JOIn edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
+
+        WHERE e_var.label='P31' AND e_var.node2='Q50701') AS fuzzy
+        WHERE {fuzzied_clause}
+        """
+        print(query)
+        results = query_to_dicts(query)
+        return results
+

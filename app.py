@@ -6,7 +6,7 @@ from flask_cors import CORS
 
 import api.hello
 from api.variable import VariableResource
-from api.metadata import DatasetMetadataResource, VariableMetadataResource
+from api.metadata import DatasetMetadataResource, VariableMetadataResource, FuzzySearchResource
 
 app = Flask(__name__)
 CORS(app)
@@ -22,5 +22,7 @@ api.add_resource(VariableResource, '/datasets/<string:dataset>/variables/<string
 api.add_resource(DatasetMetadataResource, '/metadata/datasets', '/metadata/datasets/<string:dataset>')
 api.add_resource(VariableMetadataResource, '/metadata/datasets/<string:dataset>/variables',
                                            '/metadata/datasets/<string:dataset>/variables/<string:variable>')
+api.add_resource(FuzzySearchResource, '/metadata/variables')
+
 if __name__=='__main__':
     app.run()
