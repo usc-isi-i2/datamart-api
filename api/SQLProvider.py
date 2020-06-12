@@ -403,7 +403,8 @@ class SQLProvider:
         result['unit_of_measure'] = fetch_list('unit_of_measure', 'P1880')
         result['country'] = fetch_list('country', 'P17')
         result['location'] = fetch_list('location', 'P276')
-        result['qualifier'] = fetch_stated_as_list('qualifier', 'P2006020002', True)
+        # result['qualifier'] = fetch_stated_as_list('qualifier', 'P2006020002', True)
+        result['qualifier'] = fetch_list('qualifier', 'P2006020002', True)
         return result
 
     def join_edge(self,  main_table, alias, label, satellite_type=None, qualifier=False, left=False):
