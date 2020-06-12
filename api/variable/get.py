@@ -25,8 +25,8 @@ class ColumnStatus(Enum):
     OPTIONAL = 2
 
 COMMON_COLUMN = {
-    'dataset_id': ColumnStatus.DEFAULT,
-    'variable_id': ColumnStatus.DEFAULT,
+    'dataset_short_name': ColumnStatus.DEFAULT,
+    'variable_short_name': ColumnStatus.DEFAULT,
     'variable': ColumnStatus.REQUIRED,
     'category': ColumnStatus.OPTIONAL,
     'main_subject': ColumnStatus.REQUIRED,
@@ -80,7 +80,13 @@ class VariableGetter:
         keyword = 'country'
         if request.args.get(keyword) is not None:
             admins = [x.lower() for x in request.args.get(keyword).split(',')]
-            main_subjects += provider.query_country_qnodes(admins)
+            admin_dict = provider.query_country_qnodes(admins)
+            # Find and report unknown countries
+            unknown = [country for country, qnode in admin_dict.items() if qnode is None]
+            if unknown:
+                return { 'Error': 'Unknown countries: ' + ', '. join(unknown) }, 404
+            qnodes = [qnode for qnode in admin_dict.values() if qnode]
+            main_subjects += qnodes
 
         # Add main subject by qnode
         for keyword in ['main_subject_id', 'country_id', 'admin1_id', 'admin2_id', 'admin3_id']:
@@ -148,28 +154,32 @@ class VariableGetter:
 
         result_df = pd.DataFrame(results, columns=temp_cols)
 
-        if 'dataset_id' in result_df.columns:
-            result_df['dataset_id'] = dataset
-        if 'variable_id' in result_df.columns:
-            result_df['variable_id'] = variable
+        if 'dataset_short_name' in result_df.columns:
+            result_df['dataset_short_name'] = dataset
+        if 'variable_short_name' in result_df.columns:
+            result_df['variable_short_name'] = variable
         result_df.loc[:, 'variable'] = result['variable_name']
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
         # result_df.loc[:, 'time_precision'] = self.get_time_precision([10])
 
 
-        countries = provider.query_country_qnodes(result_df.loc[:, 'main_subject_id'].unique())
-        for main_subject_id in result_df.loc[:, 'main_subject_id'].unique():
-            # For now, assume main subject is always country
-            # place = location.lookup_admin_hierarchy(admin_level, main_subject_id)
-            place = {}
-            if main_subject_id in countries:
-                place['country'] = countries[main_subject_id]
+        # Ke-Thia - this seems unnecessary. The query already returns main_subject, main_subject_id, country, country_id
+        # The query_country_qnodes function converts country names to qnodes, and should be used when filtering by countries
+        # based on the URL
+        # main_subject_ids = result_df.loc[:, 'main_subject_id'].unique()
+        # countries = provider.query_country_qnodes(main_subject_ids)
+        # for main_subject_id in result_df.loc[:, 'main_subject_id'].unique():
+        #     # For now, assume main subject is always country
+        #     # place = location.lookup_admin_hierarchy(admin_level, main_subject_id)
+        #     place = {}
+        #     if main_subject_id in countries:
+        #         place['country'] = countries[main_subject_id]
 
-            index = result_df.loc[:, 'main_subject_id'] == main_subject_id
-            result_df.loc[index, 'main_subject'] = provider.get_label(main_subject_id, '')
-            for col, val in place.items():
-                if col in select_cols:
-                    result_df.loc[index, col] = val
+        #     index = result_df.loc[:, 'main_subject_id'] == main_subject_id
+        #     result_df.loc[index, 'main_subject'] = provider.get_label(main_subject_id, '')
+        #     for col, val in place.items():
+        #         if col in select_cols:
+        #             result_df.loc[index, col] = val
 
         print(result_df.head())
         if 'main_subject_id' not in select_cols:
