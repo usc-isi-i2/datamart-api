@@ -142,7 +142,7 @@ class SQLProvider:
 				JOIN strings AS s_stated_label ON (s_stated_label.edge_id=e_stated_label.id)
 			ON (e_stated_label.node1=e_stated.id AND e_stated_label.label='label')
 
-        WHERE e_main.label='{property_id}' AND e_dataset.node2 IN ('{dataset_id}', 'Q{dataset_id}') AND {places_clause}
+        WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}' AND {places_clause}
         ORDER BY main_subject_id, time
         """
 
@@ -207,7 +207,8 @@ class SQLProvider:
             filter = '1=1'
 
         query = f'''
-        SELECT s_name.text AS name,
+        SELECT e_dataset.node1 AS dataset_id,
+               s_name.text AS name,
                s_description.text AS description,
                s_url.text AS url,
                s_short_name.text AS short_name
@@ -420,14 +421,18 @@ class SQLProvider:
 
         query = f"""
         SELECT fuzzy.* FROM (
-        SELECT e_var.node1 AS variable_short_name,
-               e_dataset.node1 AS dataset_short_name,
+        SELECT e_var.node1 AS variable_id,
+			   e_var_name.node2 AS variable_short_name,
+			   e_dataset.node1 AS dataset_id,
+               -- e_dataset_name.node2 AS dataset_short_name,
                CONCAT(s_description.text, ' ', s_name.text, ' ', s_label.text) AS variable_text
         FROM edges e_var
+		JOIN edges e_var_name ON (e_var_name.node1=e_var.node1 AND e_var_name.label='P1813')
         JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+		-- JOIN edges e_dataset_name ON (e_dataset_name.node1=e_dataset.node1 AND e_dataset_name.label='P1813')
         LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
         LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
-		LEFT JOIn edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
+		LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
 
         WHERE e_var.label='P31' AND e_var.node2='Q50701') AS fuzzy
         WHERE {fuzzied_clause}

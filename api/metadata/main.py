@@ -161,6 +161,14 @@ class FuzzySearchResource(Resource):
         # This is a first version, the uses Postgre's ILIKE operator
         terms, _ = split_objects_and_country(q)
         results = provider.fuzzy_query_variables(terms)
+
+        # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
+        # very inefficient, so results only have dataset_ids. We will now add the short_names
+        dataset_results = provider.query_dataset_metadata()
+        datasets = { row['dataset_id']: row['short_name'] for row in dataset_results }
+        for row in results:
+            row['dataset_short_name'] = datasets[row['dataset_id']]
+
         return results
  
 
