@@ -11,7 +11,7 @@ COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt
 
 COPY . /src
-RUN mkdir /src/instance
+RUN mkdir -p /src/instance
 COPY docker/docker_config.py /src/instance/config.py
 WORKDIR /src
 
