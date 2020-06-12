@@ -147,9 +147,9 @@ class VariableMetadataResource(Resource):
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
         else:
             results = provider.query_variable_metadata(dataset, variable)
-            results['dataset_id'] = dataset
             if results is None:
                 return { 'Error': f"No variable {variable} in dataset {dataset}" }, 404
+            results['dataset_id'] = dataset
             results = VariableMetadata().from_dict(results).to_dict()
 
         return results, 200

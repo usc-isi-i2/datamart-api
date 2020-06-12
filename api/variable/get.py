@@ -46,7 +46,9 @@ COMMON_COLUMN = {
     'place': ColumnStatus.OPTIONAL,
     'place_id': ColumnStatus.OPTIONAL,
     'coordinate': ColumnStatus.DEFAULT,
-    'shape': ColumnStatus.OPTIONAL
+    'shape': ColumnStatus.OPTIONAL,
+    'stated_in': ColumnStatus.DEFAULT,
+    'stated_in_id': ColumnStatus.DEFAULT
 }
 
 class GeographyLevel(Enum):
