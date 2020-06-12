@@ -178,6 +178,7 @@ class SQLProvider:
 	            JOIN strings s_country_label ON (e_country_label.id=s_country_label.edge_id)
             WHERE e_country.label='P31' AND e_country.node2='Q6256' AND LOWER(s_country_label.text) IN ({countries_in})
         ''';
+        print(query)
         rows = query_to_dicts(query)
 
         result_dict = { row['country']: row['qnode'] for row in rows }
@@ -188,6 +189,7 @@ class SQLProvider:
             if country.lower() not in found_countries:
                 result_dict[country] = None
 
+        print(result_dict)
         return result_dict
 
     def query_dataset_metadata(self, dataset_name=None):
@@ -206,12 +208,21 @@ class SQLProvider:
         else:
             filter = '1=1'
 
+        # query = f'''
+        # SELECT e_dataset.node1 AS dataset_id,
+        #        s_name.text AS name,
+        #        s_description.text AS description,
+        #        s_url.text AS url,
+        #        s_short_name.text AS short_name
+
+        #     FROM edges e_dataset
+        # '''
         query = f'''
-        SELECT e_dataset.node1 AS dataset_id,
+        SELECT s_short_name.text AS dataset_id,
                s_name.text AS name,
                s_description.text AS description,
-               s_url.text AS url,
-               s_short_name.text AS short_name
+               s_url.text AS url
+
 
             FROM edges e_dataset
         '''
@@ -237,10 +248,18 @@ class SQLProvider:
         if not dataset_id:
             return None
 
+        # query = f"""
+        # SELECT '{dataset}' AS dataset_short_name,
+        #        s_name.text AS name,
+        #        e_short_name.node2 AS short_name
+
+        # FROM edges e_var
+        # JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+        # """
         query = f"""
-        SELECT '{dataset}' AS dataset_short_name,
+        SELECT '{dataset}' AS dataset_id,
                s_name.text AS name,
-               e_short_name.node2 AS short_name
+               e_short_name.node2 AS variable_id
 
         FROM edges e_var
         JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
@@ -284,9 +303,10 @@ class SQLProvider:
             return query_to_dicts(query)
 
         def fetch_scalars():
+#                e_short_name.node2 AS short_name,
             select = f"""
             SELECT s_name.text AS name,
-                e_short_name.node2 AS short_name,
+                e_short_name.node2 AS variable_id,
                 COALESCE(s_description.text, s_label.text) AS description,
                 e_corresponds_to_property.node2 AS corresponds_to_property,
                 to_json(d_start_time.date_and_time)#>>'{{}}' || 'Z' AS start_time,
@@ -419,13 +439,29 @@ class SQLProvider:
         fuzzied_terms = [f"(variable_text ILIKE '%{term}%')" for term in terms]
         fuzzied_clause = " OR".join(fuzzied_terms)
 
+        # query = f"""
+        # SELECT fuzzy.* FROM (
+        # SELECT e_var.node1 AS variable_id,
+	# 		   e_var_name.node2 AS variable_short_name,
+	# 		   e_dataset.node1 AS dataset_id,
+        #        -- e_dataset_name.node2 AS dataset_short_name,
+        #        CONCAT(s_description.text, ' ', s_name.text, ' ', s_label.text) AS variable_text
+        # FROM edges e_var
+	# 	JOIN edges e_var_name ON (e_var_name.node1=e_var.node1 AND e_var_name.label='P1813')
+        # JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+	# 	-- JOIN edges e_dataset_name ON (e_dataset_name.node1=e_dataset.node1 AND e_dataset_name.label='P1813')
+        # LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
+        # LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
+	# 	LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
+
+        # WHERE e_var.label='P31' AND e_var.node2='Q50701') AS fuzzy
+        # WHERE {fuzzied_clause}
+        # """
         query = f"""
         SELECT fuzzy.* FROM (
-        SELECT e_var.node1 AS variable_id,
-			   e_var_name.node2 AS variable_short_name,
-			   e_dataset.node1 AS dataset_id,
-               -- e_dataset_name.node2 AS dataset_short_name,
-               CONCAT(s_description.text, ' ', s_name.text, ' ', s_label.text) AS variable_text
+        SELECT e_var_name.node2 AS variable_id,
+               e_dataset_name.node2 AS dataset_id,
+               CONCAT(s_description.text, ' ', s_name.text, ' ', s_label.text) AS name
         FROM edges e_var
 		JOIN edges e_var_name ON (e_var_name.node1=e_var.node1 AND e_var_name.label='P1813')
         JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
@@ -440,4 +476,3 @@ class SQLProvider:
         print(query)
         results = query_to_dicts(query)
         return results
-

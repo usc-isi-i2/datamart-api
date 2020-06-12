@@ -25,8 +25,8 @@ class ColumnStatus(Enum):
     OPTIONAL = 2
 
 COMMON_COLUMN = {
-    'dataset_short_name': ColumnStatus.DEFAULT,
-    'variable_short_name': ColumnStatus.DEFAULT,
+    'dataset_id': ColumnStatus.DEFAULT,
+    'variable_id': ColumnStatus.DEFAULT,
     'variable': ColumnStatus.REQUIRED,
     'category': ColumnStatus.OPTIONAL,
     'main_subject': ColumnStatus.REQUIRED,
@@ -43,7 +43,7 @@ COMMON_COLUMN = {
     'admin2_id': ColumnStatus.OPTIONAL,
     'admin3': ColumnStatus.DEFAULT,
     'admin3_id': ColumnStatus.OPTIONAL,
-    'place': ColumnStatus.DEFAULT,
+    'place': ColumnStatus.OPTIONAL,
     'place_id': ColumnStatus.OPTIONAL,
     'coordinate': ColumnStatus.DEFAULT,
     'shape': ColumnStatus.OPTIONAL
@@ -138,7 +138,10 @@ class VariableGetter:
                 'Error': f'Could not find dataset {dataset} variable {variable}'
             }
             return content, 404
-        admin_level = 1
+
+        # Output just the country column
+        admin_level = 0
+
         qualifiers = provider.query_qualifiers(result['variable_id'], result['property_id'])
         qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(admin_level, include_cols, exclude_cols, qualifiers)
@@ -154,10 +157,10 @@ class VariableGetter:
 
         result_df = pd.DataFrame(results, columns=temp_cols)
 
-        if 'dataset_short_name' in result_df.columns:
-            result_df['dataset_short_name'] = dataset
-        if 'variable_short_name' in result_df.columns:
-            result_df['variable_short_name'] = variable
+        if 'dataset_id' in result_df.columns:
+            result_df['dataset_id'] = dataset
+        if 'variable_id' in result_df.columns:
+            result_df['variable_id'] = variable
         result_df.loc[:, 'variable'] = result['variable_name']
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
         # result_df.loc[:, 'time_precision'] = self.get_time_precision([10])

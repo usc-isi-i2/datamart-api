@@ -10,7 +10,6 @@ from api.metadata.metadata import DatasetMetadata, VariableMetadata
 from db.sql.kgtk import import_kgtk_dataframe
 from api.metadata.split_objects_and_country import split_objects_and_country
 
-provider = SQLProvider()
 
 class DatasetMetadataResource(Resource):
     def post(self, dataset=None):
@@ -26,24 +25,26 @@ class DatasetMetadataResource(Resource):
             }
             return content, 400
 
+        provider = SQLProvider()
+
         # print('Post dataset: ', request.json)
         metadata = DatasetMetadata()
         status, code = metadata.from_request(request.json)
         if not code == 200:
             return status, code
 
-        if provider.get_dataset_id(metadata.short_name):
+        if provider.get_dataset_id(metadata.dataset_id):
             content = {
-                'Error': f'Dataset identifier {metadata.short_name} has already been used'
+                'Error': f'Dataset identifier {metadata.dataset_id} has already been used'
             }
             return content, 409
 
-        dataset_id = f'Q{metadata.short_name}'
+        # Create qnode
+        dataset_id = f'Q{metadata.dataset_id}'
         count = 0
         while provider.node_exists(dataset_id):
             count += 1
-            dataset_id = f'Q{metadata.short_name}{count}'
-
+            dataset_id = f'Q{metadata.dataset_id}{count}'
         metadata._dataset_id = dataset_id
 
         # pprint(metadata.to_dict())
@@ -58,7 +59,7 @@ class DatasetMetadataResource(Resource):
         if 'tsv' in request.args:
             tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
             output = make_response(tsv)
-            output.headers['Content-Disposition'] = f'attachment; filename={metadata.short_name}.tsv'
+            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_id}.tsv'
             output.headers['Content-type'] = 'text/tsv'
             return output
 
@@ -78,6 +79,7 @@ class DatasetMetadataResource(Resource):
 
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
+        provider = SQLProvider()
         if not request.json:
             content = {
                 'Error': 'JSON content body is empty'
@@ -91,7 +93,7 @@ class VariableMetadataResource(Resource):
             }
             return content, 400
 
-        metadata = VariableMetadata()
+        metadata: VariableMetadata = VariableMetadata()
         status, code = metadata.from_request(request.json)
         if not code == 200:
             return status, code
@@ -102,20 +104,20 @@ class VariableMetadataResource(Resource):
                 'Error': f'Cannot find dataset {dataset}'
             }
             return  status, 404
-        metadata.dataset_short_name = dataset
+        metadata.dataset_id = dataset
 
-        if metadata.short_name and provider.get_variable_id(dataset_id, metadata.short_name) is not None:
+        if metadata.variable_id and provider.get_variable_id(dataset_id, metadata.variable_id) is not None:
             status = {
-                'Error': f'Variable {metadata.short_name} has already been defined in dataset {dataset}'
+                'Error': f'Variable {metadata.variable_id} has already been defined in dataset {dataset}'
             }
             return status, 409
 
         # Create qnode for variable
-        if not metadata.short_name:
-            prefix = f'V{metadata.dataset_short_name}-'
+        if not metadata.variable_id:
+            prefix = f'V{metadata.dataset_id}-'
             number = provider.next_variable_value(dataset_id, prefix)
-            metadata.short_name = f'{prefix}{number}'
-        variable_id = f'Q{metadata.dataset_short_name}-{metadata.short_name}'
+            metadata.variable_id = f'{prefix}{number}'
+        variable_id = f'Q{metadata.dataset_id}-{metadata.variable_id}'
         metadata._variable_id = variable_id
 
         # pprint(metadata.to_dict())
@@ -130,7 +132,7 @@ class VariableMetadataResource(Resource):
         if 'tsv' in request.args:
             tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
             output = make_response(tsv)
-            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_short_name}-{metadata.short_name}.tsv'
+            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_id}-{metadata.variable_id}.tsv'
             output.headers['Content-type'] = 'text/tsv'
             return output
 
@@ -145,6 +147,7 @@ class VariableMetadataResource(Resource):
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
         else:
             results = provider.query_variable_metadata(dataset, variable)
+            results['dataset_id'] = dataset
             if results is None:
                 return { 'Error': f"No variable {variable} in dataset {dataset}" }, 404
             results = VariableMetadata().from_dict(results).to_dict()
@@ -153,13 +156,13 @@ class VariableMetadataResource(Resource):
 
 class FuzzySearchResource(Resource):
     def get(self):
-        q = request.args.get('q')
-        if not q:
-            return { 'Error': 'A variable query must be provided' }, 400
+        keyword = request.args.get('keyword')
+        if not keyword:
+            return { 'Error': 'A variable query must be provided: keyword' }, 400
         provider = SQLProvider()
 
         # This is a first version, the uses Postgre's ILIKE operator
-        terms, _ = split_objects_and_country(q)
+        terms, _ = split_objects_and_country(keyword)
         results = provider.fuzzy_query_variables(terms)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
@@ -170,6 +173,3 @@ class FuzzySearchResource(Resource):
             row['dataset_short_name'] = datasets[row['dataset_id']]
 
         return results
- 
-
-

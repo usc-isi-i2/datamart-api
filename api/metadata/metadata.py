@@ -87,11 +87,13 @@ def isPnode(name: str) -> bool:
     except:
         return False
 
+# TODO: Replace with actual wikifier
 def wikify(description: str):
     if description.startswith('Q'):
         return description
     return 'Q'+description
 
+# TODO: Replace with actual wikifier
 def wikify_property(description: str):
     if description.startswith('P'):
         return description
@@ -377,7 +379,7 @@ class DatasetMetadata(Metadata):
         'name',
         'description',
         'url',
-        'short_name',
+#        'short_name',
         'dataset_id',
         'keywords',
         'creator',
@@ -408,22 +410,23 @@ class DatasetMetadata(Metadata):
         'name',
         'description',
         'url',
-        'short_name'
+        'dataset_id'
     ]
     _collection_get_fields = [
         'name',
         'description',
         'url',
-        'short_name'
+        'dataset_id'
+#        'short_name'
     ]
     _internal_fields = [
-        '_dataset_id'
+        '_dataset_id'  # qnode
     ]
     _datamart_field_type = {
         'name': DataType.STRING,
         'description': DataType.STRING,
         'url': DataType.URL,
-        'short_name': DataType.STRING,
+#         'short_name': DataType.STRING,
         'dataset_id': DataType.STRING,
         'keywords': DataType.STRING,
         'creator': DataType.QNODE,
@@ -454,8 +457,9 @@ class DatasetMetadata(Metadata):
         'name': 'P1476',
         'description': 'description',
         'url': 'P2699',
-        'short_name': 'P1813',
+        # 'short_name': 'P1813',
         # 'datasetID': 'None',
+        'dataset_id': 'P1813',
         'keywords': 'schema:keywords',
         'creator': 'P170',
         'contributor': 'P767',
@@ -485,8 +489,8 @@ class DatasetMetadata(Metadata):
         self.name = None
         self.description = None
         self.url = None
-        self.short_name = None
-        # self.datasetID = None
+        # self.short_name = None
+        self.dataset_id = None
         self.keywords = None
         self.creator = None
         self.contributor = None
@@ -521,9 +525,10 @@ class DatasetMetadata(Metadata):
         edges.append(self.field_edge(dataset_node, 'name', required=True))
         edges.append(self.field_edge(dataset_node, 'description', required=True))
         edges.append(self.field_edge(dataset_node, 'url', required=True))
+        edges.append(self.field_edge(dataset_node, 'dataset_id', required=True))
 
         # Optional
-        edges.append(self.field_edge(dataset_node, 'short_name'))
+        # edges.append(self.field_edge(dataset_node, 'short_name'))
         edges.append(self.field_edge(dataset_node, 'keywords'))
         edges.append(self.field_edge(dataset_node, 'creator'))
         edges.append(self.field_edge(dataset_node, 'contributor'))
@@ -552,10 +557,10 @@ class VariableMetadata(Metadata):
     '''
     _datamart_fields = [
         'name',
-        # 'variable_id',
-        # 'dataset_id',
-        'short_name',
-        'dataset_short_name',
+        'variable_id',
+        'dataset_id',
+        # 'short_name',
+        # 'dataset_short_name',
         'description',
         'corresponds_to_property',
         'main_subject',
@@ -576,14 +581,14 @@ class VariableMetadata(Metadata):
     ]
     _collection_get_fields = [
         'name',
-        'short_name',
-        'dataset_short_name'
+        'variable_id',
+        'dataset_id'
     ]
 
     _internal_fields = [
-        '_dataset_id',
-        '_variable_id',
-        '_property_id',
+        '_dataset_id',  # qnode
+        '_variable_id',  # qnode
+        '_property_id',  # pnode
         '_aliases',
         '_max_admin_level',
         '_precision'
@@ -591,10 +596,10 @@ class VariableMetadata(Metadata):
     _list_fields = ['main_subject', 'unit_of_measure', 'country', 'qualifier']
     _datamart_field_type = {
         'name': DataType.STRING,
-        # 'variable_id': DataType.STRING,
-        # 'dataset_id': DataType.STRING,
-        'short_name': DataType.STRING,
-        'dataset_short_name': DataType.STRING,
+        'variable_id': DataType.STRING,
+        'dataset_id': DataType.STRING,
+        # 'short_name': DataType.STRING,
+        # 'dataset_short_name': DataType.STRING,
         'description': DataType.STRING,
         'corresponds_to_property' : DataType.PNODE,
         'main_subject': DataType.QLIST,
@@ -614,7 +619,8 @@ class VariableMetadata(Metadata):
         'name': 'P1476',
         # 'variableID': 'None',
         # 'datasetID': 'None',
-        'short_name': 'P1813',
+        # 'short_name': 'P1813',
+        'variable_id': 'P1813',
         'description': 'description',
         'corresponds_to_property': 'P1687',
         'main_subject': 'P921',
@@ -632,9 +638,9 @@ class VariableMetadata(Metadata):
     def __init__(self):
         super().__init__()
         self.name = None
-        # self.variableID = None
-        # self.datasetID = None
-        self.short_name = None
+        self.variable_id = None
+        self.dataset_id = None
+        # self.short_name = None
         self.description = None
         self.corresponds_to_property = None
         self.main_subject = []
@@ -668,7 +674,8 @@ class VariableMetadata(Metadata):
         edges.append(create_triple(variable_node, 'label', json.dumps(self.name)))
         edges.append(self.field_edge(variable_node, 'name', required=True))
 
-        edges.append(self.field_edge(variable_node, 'short_name', required=True))
+        # edges.append(self.field_edge(variable_node, 'short_name', required=True))
+        edges.append(self.field_edge(variable_node, 'variable_id', required=True))
 
         edges.append(self.field_edge(variable_node, 'description'))
 
