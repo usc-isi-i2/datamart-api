@@ -113,17 +113,17 @@ class SQLProvider:
 
         query = f"""
         SELECT e_main.node1 AS main_subject_id,
-			   s_main_label.text AS main_subject,
-			   e_main.node1 AS country_id,    -- Patch for now, until we handle proper regions
-			   s_main_label.text AS country,  -- Still the patch
+               s_main_label.text AS main_subject,
+	       e_main.node1 AS country_id,    -- Patch for now, until we handle proper regions
+	       s_main_label.text AS country,  -- Still the patch
                q_main.number AS value,
                s_value_unit.text AS value_unit,
                to_json(d_value_date.date_and_time)#>>'{{}}' || 'Z' AS time,
                d_value_date.precision AS time_precision,
-        	   'POINT(' || c_coordinate.longitude || ', ' || c_coordinate.latitude || ')' as coordinate,
+               'POINT(' || c_coordinate.longitude || ', ' || c_coordinate.latitude || ')' as coordinate,
                e_dataset.node2 AS dataset_id,
-			   e_stated.node2 AS stated_in_id,
-			   s_stated_label.text AS stated_in  -- May be null even if e_stated exists
+	       e_stated.node2 AS stated_in_id,
+	       s_stated_label.text AS stated_in  -- May be null even if e_stated exists
         FROM edges AS e_main
             JOIN quantities AS q_main ON (e_main.id=q_main.edge_id)
             JOIN edges AS e_value_unit ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
@@ -138,9 +138,8 @@ class SQLProvider:
                 ON (e_coordinate.node1=e_main.node1 AND e_coordinate.label='P625')
 			LEFT JOIN edges AS e_stated ON (e_stated.node1=e_main.id AND e_stated.label='P248')
 			-- Allow the stated_in label to not exist in the database
-			LEFT JOIN edges AS e_stated_label
-				JOIN strings AS s_stated_label ON (s_stated_label.edge_id=e_stated_label.id)
-			ON (e_stated_label.node1=e_stated.id AND e_stated_label.label='label')
+			LEFT JOIN edges AS e_stated_label ON (e_stated_label.node1=e_stated.node2 AND e_stated_label.label='label')
+				LEFT JOIN strings AS s_stated_label ON (s_stated_label.edge_id=e_stated_label.id)
 
         WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}' AND {places_clause}
         ORDER BY main_subject_id, time
