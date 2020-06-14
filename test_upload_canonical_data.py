@@ -22,6 +22,6 @@ def call_service(file_path):
     # return resp.status_code
 
 
-url = "http://localhost:5000/datasets/QUAZ/variables/P2006020015"
-file_path = 'test_data/uaz_sample.csv'
+url = "http://localhost:5000/datasets/UAZ/variables/VUAZ-9"
+file_path = '/Users/amandeep/Github/datamart-api/test_data/oecd_gdp_sample.csv'
 call_service(file_path)

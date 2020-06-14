@@ -29,7 +29,10 @@ def create_sqlalchemy_session(config=None):
     # Creates a new SQLAlchemy session. The engine and session class are initialized once, during the first call
     if not _session_cls:
         if not _engine:
-            pg = _get_postgres_config()
+            if config:
+                pg = config
+            else:
+                pg = _get_postgres_config()
             connstr = f"postgres+psycopg2://{pg['user']}:{pg['password']}@{pg['host']}:{pg['port']}/{pg['database']}"
 
             _engine = create_engine(connstr)

@@ -156,14 +156,13 @@ class VariableMetadataResource(Resource):
 
 class FuzzySearchResource(Resource):
     def get(self):
-        keyword = request.args.get('keyword')
-        if not keyword:
+        queries = request.args.getlist('keyword')
+        if not queries:
             return { 'Error': 'A variable query must be provided: keyword' }, 400
         provider = SQLProvider()
 
-        # This is a first version, the uses Postgre's ILIKE operator
-        terms, _ = split_objects_and_country(keyword)
-        results = provider.fuzzy_query_variables(terms)
+        # We're using Postgres's full text search capabilities for now
+        results = provider.fuzzy_query_variables(queries)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
@@ -172,6 +171,5 @@ class FuzzySearchResource(Resource):
         for row in results:
             row['dataset_id'] = datasets[row['dataset_qnode']]
             del row['dataset_qnode']
-            del row['variable_text']
 
         return results

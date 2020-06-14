@@ -95,9 +95,10 @@ def create_kgtk_measurements(row, dataset_id, variable_id):
             create_triple(main_triple_id, 'P585',
                           '{}/{}'.format('{}{}'.format('^', row['time']),
                                          time_precision_dict[row['time_precision'].lower()])))
-        country_id = row['country_id'].strip()
-        if country_id:
-            kgtk_measurement_temp.append(create_triple(main_triple_id, 'P17', country_id))
+        if 'country_id' in row:
+            country_id = row['country_id'].strip()
+            if country_id:
+                kgtk_measurement_temp.append(create_triple(main_triple_id, 'P17', country_id))
 
         # admin_id = row['admin_id'].strip()
         # if admin_id:
@@ -147,9 +148,11 @@ def canonical_data(dataset, variable):
 
     # dataset and variable has been found, wikify and upload the data
     df = pd.read_csv(request.files['file'], dtype=object, lineterminator='\r')
+    d_columns = list(df.columns)
     country_wikifier = DatamartCountryWikifier()
-    df_wikified_1 = country_wikifier.wikify(df, 'main_subject', output_col_name="main_subject_id")
-    df_wikified = country_wikifier.wikify(df_wikified_1, 'country', output_col_name="country_id")
+    df_wikified = country_wikifier.wikify(df, 'main_subject', output_col_name="main_subject_id")
+    if 'country' in d_columns:
+        df_wikified = country_wikifier.wikify(df_wikified, 'country', output_col_name="country_id")
     units = list(df_wikified['value_unit'].unique())
 
     units_query = "SELECT e.node1, e.node2 FROM edges e WHERE e.node2 in ({}) and e.label = 'label'".format(
