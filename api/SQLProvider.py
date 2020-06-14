@@ -5,9 +5,17 @@
 
 from db.sql.utils import query_to_dicts
 from api.util import TimePrecision, DataInterval
+import re
 
 class SQLProvider:
+    _sanitation_pattern = re.compile(r'[^\w_\- ]')
+    def sanitize(self, term):
+        # Remove all non-alphanumeric or space characters from term
+        sanitized = self._sanitation_pattern.sub('', term)
+        return sanitized
+
     def get_dataset_id(self, dataset):
+        dataset = self.sanitize(dataset)
         dataset_query = f'''
         SELECT e_dataset.node1 AS dataset_id
         	FROM edges e_dataset
@@ -19,6 +27,9 @@ class SQLProvider:
         return None
 
     def get_variable_id(self, dataset_id, variable) -> str:
+        dataset_id = self.sanitize(dataset_id)
+        variable = self.sanitize(variable)
+
         print(f'variable_exists({dataset_id}, {variable})')
         variable_query = f'''
         select e_variable.node1 AS variable_id from edges e_variable
@@ -36,6 +47,9 @@ class SQLProvider:
         return None
 
     def get_label(self, qnode, default=None, lang='en'):
+        qnode = self.sanitize(qnode)
+        lang = self.sanitize(lang)
+
         label_query = f'''
         SELECT node1 as qnode, text as label
         FROM edges e
@@ -48,6 +62,8 @@ class SQLProvider:
         return default
 
     def next_variable_value(self, dataset_id, prefix) -> int:
+        dataset_id = self.sanitize(dataset_id)
+
         query = f'''
         select max(substring(e_variable.node2 from '{prefix}#"[0-9]+#"' for '#')::INTEGER)  from edges e_variable
         where e_variable.node1 in
@@ -66,6 +82,7 @@ class SQLProvider:
         return number
 
     def node_exists(self, node1):
+        node1 = self.sanitize(node1)
         query = f'''
         select e.node1 as node1 from edges e
         where e.node1 = '{node1}'
@@ -74,6 +91,9 @@ class SQLProvider:
         return len(result_dicts) > 0
 
     def query_variable(self, dataset, variable):
+        dataset = self.sanitize(dataset)
+        variable = self.sanitize(variable)
+
         variable_query = f'''
         SELECT e_var.node2 AS variable_id, s_var_label.text AS variable_name, e_property.node2 AS property_id, e_dataset.node1 AS dataset_id, e_dataset_label.node2 AS dataset_name
         	FROM edges e_var
@@ -105,11 +125,14 @@ class SQLProvider:
         # For now just return a limited set of values, since everything else is added from the metadata cache:
         # main_subject_id, time, value, value_unit
         if places:
-            quoted_places = [f"'{place}'" for place in places]
+            sanitized = [self.sanitize(place) for place in places]
+            quoted_places = [f"'{place}'" for place in sanitized]
             commatized_places = ', '.join(quoted_places)
             places_clause = f'e_main.node1 IN ({commatized_places})'
         else:
             places_clause = '(1 = 1)'  # Until we have a main-subject id
+        dataset_id = self.sanitize(dataset_id)
+        property_id = self.sanitize(property_id)
 
         query = f"""
         SELECT e_main.node1 AS main_subject_id,
@@ -166,7 +189,7 @@ class SQLProvider:
         if not countries:
             return {}
 
-        lower_countries = [country.lower() for country in countries]
+        lower_countries = [self.sanitize(country).lower() for country in countries]
         quoted_countries = [f"'{country}'" for country in lower_countries]
         countries_in = ', '.join(quoted_countries)
 
@@ -199,7 +222,7 @@ class SQLProvider:
             return self.join_edge('e_dataset', alias, label, satellite_type, left)
 
         if dataset_name:
-            dataset_id = self.get_dataset_id(dataset_name)
+            dataset_id = self.get_dataset_id(dataset_name)  # Already calls sanitize
             if not dataset_id:
                 return None
 
@@ -248,7 +271,7 @@ class SQLProvider:
         def join_edge(alias, label, satellite_type=None, qualifier=False, left=False):
             return self.join_edge('e_var', alias, label, satellite_type=satellite_type, qualifier=qualifier, left=left)
 
-        dataset_id = self.get_dataset_id(dataset)
+        dataset_id = self.get_dataset_id(dataset) # Already calls sanitize
         if not dataset_id:
             return None
 
@@ -383,11 +406,11 @@ class SQLProvider:
 
             # We need to turn this into a list of the label field. We could in
 
-        dataset_id = self.get_dataset_id(dataset)
+        dataset_id = self.get_dataset_id(dataset)  # Already sanitizes
         if not dataset_id:
             return None
 
-        variable_id = self.get_variable_id(dataset_id, variable)
+        variable_id = self.get_variable_id(dataset_id, variable) # Already sanitizes
         if not variable_id:
             return None
 
@@ -436,13 +459,17 @@ class SQLProvider:
             sql = "LEFT " + sql;
         return '\t' + sql  + '\n';
 
-    def fuzzy_query_variables(self, question):
-        if not question:
+    def fuzzy_query_variables(self, questions):
+
+        if not questions:
             return []
 
+        sanitized = [self.sanitize(question) for question in questions]
+        ts_queries = [f"plainto_tsquery('{question}')" for question in sanitized]
+        combined_ts_query = '(' + ' || '.join(ts_queries) + ')'
         # Use Postgres's full text search capabilities
         sql = f"""
-        SELECT fuzzy.variable_id, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, plainto_tsquery('{question}')) AS rank FROM
+        SELECT fuzzy.variable_id, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, {combined_ts_query}) AS rank FROM
             (SELECT e_var_name.node2 AS variable_id,
                     -- e_dataset_name.node2 AS dataset_id,
                     e_dataset.node1 AS dataset_qnode,
@@ -457,7 +484,7 @@ class SQLProvider:
                 LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
 
             WHERE e_var.label='P31' AND e_var.node2='Q50701') AS fuzzy
-        WHERE variable_text @@ plainto_tsquery('{question}')
+        WHERE variable_text @@ {combined_ts_query}
         ORDER BY rank DESC
         LIMIT 10
         """
