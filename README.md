@@ -6,25 +6,33 @@ The content of the Datamart is a set of datasets, which in turn consists of one 
 
 The canonical data format used by the Datamart is the text delimited file (CSV). Details of the canonical data format and examples are here: [Canonical Data Format](https://datamart-upload.readthedocs.io/en/latest/download/)
 
-Using the default configuration the Datamart REST URL is `http://localhost:5000/`. The details of the individual REST endpoints are described here: [Datamart REST API](https://datamart-upload.readthedocs.io/en/latest/api/)
+Using the default configuration the Datamart REST URL is `http://localhost:14080/`. The details of the individual REST endpoints are described here: [Datamart REST API](https://datamart-upload.readthedocs.io/en/latest/api/)
+
+If for some reason your are running the development version of the Datamart, the URL is `http://localhost:5000/`
 
 See examples in the Datamart Demo Jupyter notebook for sample usage: [Datamart Data API Demo](Datamart%20Data%20API%20Demo.ipynb)
 
-## Configuration
+## Installation
 
-Create a copy of `config.py` in `instance/config.py`. Change the Postgres user password.
+Edit the `docker/docker_config.py` file to change the Postgress suer password.
+
+Change to the `docker` directory and build the docker container.
+
+    docker-compose build
+
+This will build the backend container. It may take a while the first time you do it, as there are *a lot* of Python packages that need to be installed. Every time you change the source you should build the container again. Subsequent building runs will be faster.
 
 ## Running the System
 
-Change directory to `dev-env` and run
+Change to the `docker` directory and run
 
     docker-compose up
 
 The docker compose yaml file, `docker-compose.yml`, uses docker compose version 3.7.
 
-On start up Postgres checks if the `postgres` volume exists. If it does not exist, the volume is created using the contents of the `data/postgres/datamart.sql.gz` file.
+On start up Postgres checks if the `postgres` volume exists. If it does not exist, the volume is created using the contents of the `dev-env/data/postgres/datamart.sql.gz` file.
 
-The ISI Datamart REST endpoints is `http://localhost:5000/`.
+The ISI Datamart REST endpoints is `http://localhost:14080/`.
 
 ## Datasets
 
