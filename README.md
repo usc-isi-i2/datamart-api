@@ -1,37 +1,61 @@
-# Datamart-API
+# ISI Datamart
 
-## Setting up for development
-First clone this repo. *IMPORTANT* this repo uses git-lfs, make sure you have it installed on your computer.
+This git repository contains the ISI Datamart using REST endpoints.
 
-Now set up a virtual environment and activate it (we usually set it up in ./env). Install the requirements.
+The content of the Datamart is a set of datasets, which in turn consists of one or more variables. The Dataset Metadata Schema and the Variable Metadata schema is described here: [Metadata Schema](https://datamart-upload.readthedocs.io/en/latest/)
 
-You need to configure Visual Studio Code to use the environment. Copy `.vscode/settings.linux.json` (for Linux and Macs, or `settings.windows.json` if you're using Windows) to `.vscode/settings.json` and set the `pythonPath` property to point to your virtual environment.
+The canonical data format used the Datamart is the text delimited file (CSV). Details of the canonical data format and examples here: [Canonical Data Format](https://datamart-upload.readthedocs.io/en/latest/download/)
 
-## Folder structure
-The main directory contains the basic Flask files - a thin app.py, wsgi.py and config.py. All other functionality is placed in packages. We have the following subdirectories
+Using the default configuration the Datamart REST URL is `http://localhost:14080/`. The details of the individual REST endpoints are described here: [Datamart REST API](https://datamart-upload.readthedocs.io/en/latest/api/)
 
-* api - a package containing Flask Blueprints and provides the API endpoints. There are no endpoints in app.py, just blueprint registration.
-* metadata - containing metadata configuration files
-* db/sql - a package containing all Postgres related files (SQLAlchemy models, helper functions etc...)
-* db/sparql - a package containing all SPARQL related files (empty at this stage)
-* dev-env - a folder with Docker files to set up a development environment (Postgres and backup files)
-
-## Running the development envirnoment dependencies (Postgres)
-To run Postgres for development, simple switch to the `dev-env` directory and run
-
-    docker-compose up
-
-This will set up the database and make it available on port 5433. You can see the credentials in `docker-compose.yml`. These credentials are also the default configuration, so unless you change them, the system should just work.
-
-*IMPORTANT* do not use the default configuration in production - choose different login credentials
-
-### Updating the database content
-This repo contains a backup of the UAZ data, to ease development. If the data has been changed and you want to load the new data, you need to delete the Postgres volume and restart it:
-
-    docker-compose down --volumes
-    docker-compose up
+See examples in the Datamart Demo Jupyter notebook for sample Datamart usage: [Datamart Data API Demo](Datamart Data API Demo.ipynb)
 
 ## Configuration
-Most of the configuration is in `config.py`. You can override the configuration by adding the file `instance/config.py`. This file overrides the configuration properties in `config.py`.
 
-Note that if a configuration property is a dictionary, you need to override the entire dictionary in `instance/config.py` and not just a few fields.
+Create a copy of `config.py` in `instance/config.py`. Change the Postgres user password.
+
+## Running the System
+
+Change directory to `dev-env` and run
+
+    docker-compose up
+
+The docker compose yaml file, `docker-compose.yml`, use docker compose version 3.7
+
+The ISI Datamart REST endpoints is `http://localhost:5000/`.
+
+## Datasets
+
+The Datamart comes with a few datasets pre-loaded. They include data from OECD, FSI, WGI and indicators collected by the University of Arizona.
+
+## Managing the Datamart Database
+
+### Backing up the existing database
+
+To backup the current Postgres database, run
+
+    docker exec -it datamart-postgres /bin/bash
+    # From inside the docker container
+    psql --username postgres --password <password> | gzip > /backup/datamart-backup.sql.gz
+
+The backup file is place in the `dev-env/data/postgres` directory/
+
+### Adding datasets directly to the database
+
+To add additional datasets in the form of a TSV file, switch to the scripts directory and run
+
+    python import_tsv_postgres.py <filepath/to/.tsv>
+
+The script assumes the default Postgres username and password in `config.py`.
+
+### Wiping existing database and updating with new content
+
+To delete the existing database use the `--volumes` option to bring down docker compose.
+
+    docker-compose down --volumes
+
+Replace the `dev-env/data/postgres/datamart.sql.gz` file with the new `.sql.gz` file.
+
+And, restart the system.
+
+    docker-compose up
