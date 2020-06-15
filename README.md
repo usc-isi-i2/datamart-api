@@ -8,7 +8,7 @@ The canonical data format used by the Datamart is the text delimited file (CSV).
 
 Using the default configuration the Datamart REST URL is `http://localhost:5000/`. The details of the individual REST endpoints are described here: [Datamart REST API](https://datamart-upload.readthedocs.io/en/latest/api/)
 
-See examples in the Datamart Demo Jupyter notebook for sample usage: [Datamart Data API Demo](Datamart Data API Demo.ipynb)
+See examples in the Datamart Demo Jupyter notebook for sample usage: [Datamart Data API Demo](Datamart%20Data%20API%20Demo.ipynb)
 
 ## Configuration
 
