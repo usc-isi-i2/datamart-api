@@ -20,7 +20,9 @@ Change directory to `dev-env` and run
 
     docker-compose up
 
-The docker compose yaml file, `docker-compose.yml`, use docker compose version 3.7
+The docker compose yaml file, `docker-compose.yml`, uses docker compose version 3.7.
+
+On start up Postgres checks if the `postgres` volume exists. If it does not exist, the volume is created using the contents of the `data/postgres/datamart.sql.gz` file.
 
 The ISI Datamart REST endpoints is `http://localhost:5000/`.
 
@@ -50,7 +52,7 @@ The script assumes the default Postgres username and password in `config.py`.
 
 ### Wiping existing database and updating with new content
 
-To delete the existing database use the `--volumes` option to bring down docker compose.
+To delete the existing database use the `--volumes` option to bring down docker compose. This command destroy the `postgres` volume.
 
     docker-compose down --volumes
 
