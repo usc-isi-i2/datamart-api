@@ -149,8 +149,8 @@ class SQLProvider:
 	       s_stated_label.text AS stated_in  -- May be null even if e_stated exists
         FROM edges AS e_main
             JOIN quantities AS q_main ON (e_main.id=q_main.edge_id)
-            JOIN edges AS e_value_unit ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
-            JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
+            LEFT JOIN edges AS e_value_unit ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
+            LEFT JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
 			JOIN edges AS e_main_label ON (e_main.node1=e_main_label.node1 AND e_main_label.label='label')
 			JOIN strings AS s_main_label ON (e_main_label.id=s_main_label.edge_id)
             JOIN edges AS e_value_date ON (e_value_date.node1=e_main.id AND e_value_date.label='P585')
@@ -464,9 +464,12 @@ class SQLProvider:
         if not questions:
             return []
 
+        print('questions:', questions)
         sanitized = [self.sanitize(question) for question in questions]
         ts_queries = [f"plainto_tsquery('{question}')" for question in sanitized]
+        print('ts_queries', ts_queries)
         combined_ts_query = '(' + ' || '.join(ts_queries) + ')'
+        print('combined_ts_query:', combined_ts_query)
         # Use Postgres's full text search capabilities
         sql = f"""
         SELECT fuzzy.variable_id, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, {combined_ts_query}) AS rank FROM
