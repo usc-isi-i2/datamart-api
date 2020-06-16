@@ -10,10 +10,11 @@ from enum import Enum
 
 from api.util import DataInterval, Literal, TimePrecision
 
-from api.variable.put import create_triple
+from api.variable.put import PutCanonicalData
 from api.variable.get import SQLProvider
 
 provider = SQLProvider
+pcd = PutCanonicalData()
 
 DEFAULT_DATE = datetime.datetime(1900, 1, 1)
 
@@ -214,20 +215,20 @@ class Metadata:
 
         if is_time:
             precision = getattr(self, f'{field_name}_precision')
-            edge = create_triple(
+            edge = pcd.create_triple(
                 # node1, label, json.dumps(Literal.time_int_precision(value, precision)))
                 node1, label, Literal.time_int_precision(value, precision))
         elif is_item:
             if isinstance(value, str):
                 if not (value.startswith('Q') or value.startswith('P')):
                     print(f'Object for {field_name} should be a qnode or pnode: {value}')
-                edge = create_triple(node1, label, value)
+                edge = pcd.create_triple(node1, label, value)
             elif isinstance(value, dict):
-                edge = create_triple(node1, label, value['identifier'])
+                edge = pcd.create_triple(node1, label, value['identifier'])
             else:
-                edge = create_triple(node1, label, value)
+                edge = pcd.create_triple(node1, label, value)
         else:
-            edge = create_triple(node1, label, json.dumps(value))
+            edge = pcd.create_triple(node1, label, json.dumps(value))
         return edge
 
     def update(self, metadata: dict) -> None:
@@ -514,14 +515,14 @@ class DatasetMetadata(Metadata):
         edges = []
 
         # isa data set
-        edge = create_triple(dataset_node, 'P31', 'Q1172284')
+        edge = pcd.create_triple(dataset_node, 'P31', 'Q1172284')
         edges.append(edge)
 
         # stated as
         # edges.append(create_triple(edge['id'], 'P1932', json.dumps(self.shortName)))
 
         # label and title
-        edges.append(create_triple(dataset_node, 'label', json.dumps(self.name)))
+        edges.append(pcd.create_triple(dataset_node, 'label', json.dumps(self.name)))
         edges.append(self.field_edge(dataset_node, 'name', required=True))
         edges.append(self.field_edge(dataset_node, 'description', required=True))
         edges.append(self.field_edge(dataset_node, 'url', required=True))
@@ -665,13 +666,13 @@ class VariableMetadata(Metadata):
         edges = []
 
         # is instance of variable
-        edge = create_triple(variable_node, 'P31', 'Q50701')
+        edge = pcd.create_triple(variable_node, 'P31', 'Q50701')
         edges.append(edge)
 
         # edges.append(create_triple(edge['id'], 'P1932', self.variableID))
 
         # has title
-        edges.append(create_triple(variable_node, 'label', json.dumps(self.name)))
+        edges.append(pcd.create_triple(variable_node, 'label', json.dumps(self.name)))
         edges.append(self.field_edge(variable_node, 'name', required=True))
 
         # edges.append(self.field_edge(variable_node, 'short_name', required=True))
@@ -679,8 +680,8 @@ class VariableMetadata(Metadata):
 
         edges.append(self.field_edge(variable_node, 'description'))
 
-        edges.append(create_triple(dataset_node, 'P2006020003', variable_node))
-        edges.append(create_triple(variable_node, 'P2006020004', dataset_node))
+        edges.append(pcd.create_triple(dataset_node, 'P2006020003', variable_node))
+        edges.append(pcd.create_triple(variable_node, 'P2006020004', dataset_node))
 
         # Wikidata property (P1687) expects object to be a property. KGTK
         # does not support object with type property (May 2020).
@@ -689,22 +690,22 @@ class VariableMetadata(Metadata):
 
         if self.unit_of_measure:
             for unit in self.unit_of_measure:
-                edges.append(create_triple(variable_node, 'P1880', unit['identifier']))
+                edges.append(pcd.create_triple(variable_node, 'P1880', unit['identifier']))
                 if defined_labels is not None and unit['identifier'] not in defined_labels:
                     defined_labels.add(unit['identifier'])
-                    edges.append(create_triple(unit['identifier'], 'label', json.dumps(unit['name'])))
+                    edges.append(pcd.create_triple(unit['identifier'], 'label', json.dumps(unit['name'])))
 
         if self.main_subject:
             for main_subject_obj in self.main_subject:
                 edges.append(
-                    create_triple(variable_node, 'P921', main_subject_obj['identifier']))
+                    pcd.create_triple(variable_node, 'P921', main_subject_obj['identifier']))
 
         # precision = DataInterval.name_to_int(self.data_interval)
         edges.append(self.field_edge(variable_node, 'start_time', is_time=True))
         edges.append(self.field_edge(variable_node, 'end_time', is_time=True))
 
         if self.data_interval:
-            edges.append(create_triple(
+            edges.append(pcd.create_triple(
                 # variable_node, 'P6339', DataInterval.name_to_qnode(self.data_interval))
                 variable_node, 'P6339', self.data_interval))
 
@@ -717,18 +718,18 @@ class VariableMetadata(Metadata):
                 qualifier_node = qualifier_obj['identifier']
                 if qualifier_node.startswith('pq:'):
                     qualifier_node = qualifier_node[3:]
-                edge = create_triple(variable_node, 'P2006020002', qualifier_node)
+                edge = pcd.create_triple(variable_node, 'P2006020002', qualifier_node)
                 edges.append(edge)
                 # qualifier stated as
-                edges.append(create_triple(edge['id'], 'P1932', json.dumps(qualifier_obj['name'])))
+                edges.append(pcd.create_triple(edge['id'], 'P1932', json.dumps(qualifier_obj['name'])))
 
         if self.country:
             for country_obj in self.country:
-                edges.append(create_triple(variable_node, 'P17', country_obj['identifier']))
+                edges.append(pcd.create_triple(variable_node, 'P17', country_obj['identifier']))
 
         if self.location:
             for location_obj in self.location:
-                edges.append(create_triple(variable_node, 'P276', location_obj['identifier']))
+                edges.append(pcd.create_triple(variable_node, 'P276', location_obj['identifier']))
 
         edges = [edge for edge in edges if edge is not None]
         return edges
