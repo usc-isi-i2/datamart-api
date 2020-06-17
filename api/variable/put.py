@@ -18,14 +18,11 @@ class PutCanonicalData(object):
         self.all_ids_dict = {}
         self.tp = TimePrecision()
         self.required_fields = [
-            'dataset_id',
-            'variable_id',
             'main_subject',
             'value',
             'time',
             'time_precision',
-            'country',
-            'source'
+            'country'
         ]
 
     @staticmethod
@@ -126,6 +123,8 @@ class PutCanonicalData(object):
         validator_log = []
         valid_file = True
 
+        d_columns = list(df.columns)
+
         for i, row in df.iterrows():
             valid_value = self.validate_number(row['value'])
             if not valid_value:
@@ -138,16 +137,18 @@ class PutCanonicalData(object):
             try:
                 precision = self.tp.to_int(row['time_precision'])
             except ValueError:
-                validator_log.append(self.error_row(f"Illegal precision value: \'{row['time_precision']}\'", i + 2, 'time_precision',
-                                                    f"Legal precision values are: \'{','.join(list(self.tp.name_int_map))}\'"
-                                                    ))
+                validator_log.append(
+                    self.error_row(f"Illegal precision value: \'{row['time_precision']}\'", i + 2, 'time_precision',
+                                   f"Legal precision values are: \'{','.join(list(self.tp.name_int_map))}\'"
+                                   ))
                 valid_file = False
 
             if row['main_subject_id'] is None:
-                validator_log.append(self.error_row(f"Could not wikify: \'{row['main_subject']}\'", i + 2, 'main_subject',
-                                                    f"Could not find a Wikidata Qnode for the main subject: "
-                                                    f"\'{row['main_subject']}.\' "
-                                                    f"Please check for spelling mistakes in the country name."))
+                validator_log.append(
+                    self.error_row(f"Could not wikify: \'{row['main_subject']}\'", i + 2, 'main_subject',
+                                   f"Could not find a Wikidata Qnode for the main subject: "
+                                   f"\'{row['main_subject']}.\' "
+                                   f"Please check for spelling mistakes in the country name."))
                 valid_file = False
 
             if row['country_id'] is None:
@@ -157,21 +158,23 @@ class PutCanonicalData(object):
                                                     f"Please check for spelling mistakes in the country name."))
                 valid_file = False
 
-            if row['dataset_id'].strip() != dataset_id:
-                validator_log.append(self.error_row(f"Dataset ID in the file: \'{row['dataset_id']}\' "
-                                                    f"is not same as Dataset ID in the url : \'{dataset_id}\'",
-                                                    i + 2, 'dataset_id',
-                                                    "Dataset IDs in the input file should match the "
-                                                    "Dataset Id in the API url"))
-                valid_file = False
+            if 'dataset_id' in d_columns:
+                if row['dataset_id'].strip() != dataset_id:
+                    validator_log.append(self.error_row(f"Dataset ID in the file: \'{row['dataset_id']}\' "
+                                                        f"is not same as Dataset ID in the url : \'{dataset_id}\'",
+                                                        i + 2, 'dataset_id',
+                                                        "Dataset IDs in the input file should match the "
+                                                        "Dataset Id in the API url"))
+                    valid_file = False
 
-            if row['variable_id'].strip() != variable_id:
-                validator_log.append(self.error_row(f"Variable ID in the file: \'{row['variable_id']}\' "
-                                                    f"is not same as Variable ID in the url : \'{variable_id}\'",
-                                                    i + 2, 'variable_id',
-                                                    "Variable IDs in the input file should match the "
-                                                    "Variable Id in the API url"))
-                valid_file = False
+            if 'variable_id' in d_columns:
+                if row['variable_id'].strip() != variable_id:
+                    validator_log.append(self.error_row(f"Variable ID in the file: \'{row['variable_id']}\' "
+                                                        f"is not same as Variable ID in the url : \'{variable_id}\'",
+                                                        i + 2, 'variable_id',
+                                                        "Variable IDs in the input file should match the "
+                                                        "Variable Id in the API url"))
+                    valid_file = False
 
             valid_time = self.validate_time(row['time'])
             if not valid_time:
