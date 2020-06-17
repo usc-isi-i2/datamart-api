@@ -14,7 +14,7 @@ See examples in the Datamart Demo Jupyter notebook for sample usage: [Datamart D
 
 ## Installation
 
-Edit the `docker/docker_config.py` file to change the Postgress suer password.
+Edit the `docker/docker_config.py` file to change the Postgres user password.
 
 Change to the `docker` directory and build the docker container.
 
