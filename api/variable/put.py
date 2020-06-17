@@ -84,8 +84,11 @@ class PutCanonicalData(object):
         main_subject = row['main_subject_id'].strip()
         if main_subject:
 
-            main_triple = self.create_triple(main_subject, variable_id,
-                                             '{}{}'.format(row['value'], row['value_unit_id']))
+            if 'value_unit_id' in row:
+                main_triple = self.create_triple(main_subject, variable_id,
+                                                 '{}{}'.format(row['value'], row['value_unit_id']))
+            else:
+                main_triple = self.create_triple(main_subject, variable_id, '{}'.format(row['value']))
             kgtk_measurement_temp.append(main_triple)
 
             main_triple_id = main_triple['id']
@@ -100,9 +103,10 @@ class PutCanonicalData(object):
                 if country_id:
                     kgtk_measurement_temp.append(self.create_triple(main_triple_id, 'P17', country_id))
 
-            source_id = row['source_id'].strip()
-            if source_id:
-                kgtk_measurement_temp.append(self.create_triple(main_triple_id, 'P248', source_id))
+            if 'source_id' in row:
+                source_id = row['source_id'].strip()
+                if source_id:
+                    kgtk_measurement_temp.append(self.create_triple(main_triple_id, 'P248', source_id))
 
         return kgtk_measurement_temp
 
@@ -256,8 +260,9 @@ class PutCanonicalData(object):
 
         variable_pnode = variable_result[0]['node2']
 
+        kgtk_format_list = list()
+
         # dataset and variable has been found, wikify and upload the data
-        # df = pd.read_csv(request.files['file'], dtype=object, lineterminator='\r')
         df = pd.read_csv(request.files['file'], dtype=object)
         column_map = {}
         _d_columns = list(df.columns)
@@ -265,6 +270,8 @@ class PutCanonicalData(object):
             column_map[c] = c.lower().strip()
 
         df = df.rename(columns=column_map)
+
+        d_columns = list(df.columns)
 
         # validate file headers first
         validator_header_log, valid_file = self.validate_headers(df)
@@ -286,57 +293,57 @@ class PutCanonicalData(object):
         if not valid_file:
             return validator_file_log, 400
 
-        units = list(df['value_unit'].unique())
+        if 'value_unit' in d_columns:
+            units = list(df['value_unit'].unique())
 
-        units_query = "SELECT e.node1, e.node2 FROM edges e WHERE e.node2 in ({}) and e.label = 'label'".format(
-            self.format_sql_string(units))
+            units_query = "SELECT e.node1, e.node2 FROM edges e WHERE e.node2 in ({}) and e.label = 'label'".format(
+                self.format_sql_string(units))
 
-        units_results = query_to_dicts(units_query)
+            units_results = query_to_dicts(units_query)
 
-        unit_qnode_dict = {}
+            unit_qnode_dict = {}
 
-        for ur in units_results:
-            unit_qnode_dict[ur['node2']] = ur['node1']
+            for ur in units_results:
+                unit_qnode_dict[ur['node2']] = ur['node1']
 
-        no_qnode_units = list()
-        no_qnode_units.extend([u for u in units if u not in unit_qnode_dict])
+            no_qnode_units = list()
+            no_qnode_units.extend([u for u in units if u not in unit_qnode_dict])
 
-        no_unit_qnode_dict = self.create_new_qnodes(dataset_id, no_qnode_units, 'Unit')
+            no_unit_qnode_dict = self.create_new_qnodes(dataset_id, no_qnode_units, 'Unit')
 
-        df['value_unit_id'] = df['value_unit'].map(
-            lambda x: unit_qnode_dict[x] if x in unit_qnode_dict else no_unit_qnode_dict[x])
+            df['value_unit_id'] = df['value_unit'].map(
+                lambda x: unit_qnode_dict[x] if x in unit_qnode_dict else no_unit_qnode_dict[x])
 
-        sources = list(df['source'].unique())
+            # create rows for new created variables Unit Qnodes and Source Qnodes
+            for k in no_unit_qnode_dict:
+                _q = no_unit_qnode_dict[k]
+                kgtk_format_list.append(self.create_triple(_q, 'label', json.dumps(k)))
+                kgtk_format_list.append(self.create_triple(_q, 'P31', 'Q47574'))  # unit of measurement
 
-        sources_query = "SELECT  e.node1, e.node2 FROM edges e WHERE e.label = 'label' and e.node2 in  ({})".format(
-            self.format_sql_string(sources))
+        if 'source' in d_columns:
+            sources = list(df['source'].unique())
 
-        sources_results = query_to_dicts(sources_query)
+            sources_query = "SELECT  e.node1, e.node2 FROM edges e WHERE e.label = 'label' and e.node2 in  ({})".format(
+                self.format_sql_string(sources))
 
-        source_qnode_dict = {}
-        for sr in sources_results:
-            source_qnode_dict[sr['node2']] = sr['node1']
+            sources_results = query_to_dicts(sources_query)
 
-        no_qnode_sources = list()
-        no_qnode_sources.extend([s for s in sources if s not in source_qnode_dict])
+            source_qnode_dict = {}
+            for sr in sources_results:
+                source_qnode_dict[sr['node2']] = sr['node1']
 
-        no_source_qnode_dict = self.create_new_qnodes(dataset_id, no_qnode_sources, 'Source')
+            no_qnode_sources = list()
+            no_qnode_sources.extend([s for s in sources if s not in source_qnode_dict])
 
-        df['source_id'] = df['source'].map(
-            lambda x: source_qnode_dict[x] if x in source_qnode_dict else no_source_qnode_dict[x])
+            no_source_qnode_dict = self.create_new_qnodes(dataset_id, no_qnode_sources, 'Source')
 
-        kgtk_format_list = list()
+            df['source_id'] = df['source'].map(
+                lambda x: source_qnode_dict[x] if x in source_qnode_dict else no_source_qnode_dict[x])
+            for k in no_source_qnode_dict:
+                kgtk_format_list.append(self.create_triple(no_source_qnode_dict[k], 'label', json.dumps(k)))
+
         for i, row in df.iterrows():
             kgtk_format_list.extend(self.create_kgtk_measurements(row, dataset_id, variable_pnode))
-
-        # create rows for new created variables Unit Qnodes and Source Qnodes
-        for k in no_unit_qnode_dict:
-            _q = no_unit_qnode_dict[k]
-            kgtk_format_list.append(self.create_triple(_q, 'label', json.dumps(k)))
-            kgtk_format_list.append(self.create_triple(_q, 'P31', 'Q47574'))  # unit of measurement
-
-        for k in no_source_qnode_dict:
-            kgtk_format_list.append(self.create_triple(no_source_qnode_dict[k], 'label', json.dumps(k)))
 
         df_kgtk = pd.DataFrame(kgtk_format_list)
         import_kgtk_dataframe(df_kgtk)
