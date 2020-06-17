@@ -138,7 +138,7 @@ class PutCanonicalData(object):
             try:
                 precision = self.tp.to_int(row['time_precision'])
             except ValueError:
-                validator_log.append(self.error_row(f"Illegal precision value: \'{row['time_precision']}\', i + 2, 'time_precision',"
+                validator_log.append(self.error_row(f"Illegal precision value: \'{row['time_precision']}\'", i + 2, 'time_precision',
                                                     f"Legal precision values are: \'{','.join(list(self.tp.name_int_map))}\'"
                                                     ))
                 valid_file = False
