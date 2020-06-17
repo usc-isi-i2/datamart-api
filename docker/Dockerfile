@@ -15,4 +15,4 @@ RUN mkdir -p /src/instance
 COPY docker/docker_config.py /src/instance/config.py
 WORKDIR /src
 
-CMD ["gunicorn", "-b", "0.0.0.0:80", "wsgi:app"] 
+CMD ["gunicorn", "-b", "0.0.0.0:80", "--timeout", "3600", "wsgi:app"] 
