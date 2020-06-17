@@ -1,7 +1,6 @@
-
 from flask_restful import Resource
 from .get import VariableGetter
-from .put import canonical_data
+from .put import PutCanonicalData
 
 
 class VariableResource(Resource):
@@ -10,4 +9,5 @@ class VariableResource(Resource):
         return imp.get(dataset, variable)
 
     def put(self, dataset, variable):
-        return canonical_data(dataset, variable)
+        put_data = PutCanonicalData()
+        return put_data.canonical_data(dataset, variable)
