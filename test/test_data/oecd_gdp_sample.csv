@@ -1,3 +1,3 @@
-main_subject,value,value_unit,time,time_precision,country,source
-Belgium,1.8,Annual growth %,2019-01-01T00:00:00Z,year,Belgium,OECD
-Belgium,1.9,Annual growth %,2020-01-01T00:00:00Z,year,Belgium,OECD
+main_subject,value,value_unit,time,time_precision,country,source,dataset_id,variable_id
+belllgium,1.8,Annual growth %,2021-01-01T00:00:00Z,year,belllgium,OECD,OECD,real_gdp_growth
+bellgium,1.9,Annual growth %,2022-01-01T00:00:00Z,year,bellgium,OECD,OECD,real_gdp_growth
