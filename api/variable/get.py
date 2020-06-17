@@ -81,7 +81,8 @@ class VariableGetter:
         # For now assume only country:
         keyword = 'country'
         if request.args.get(keyword) is not None:
-            admins = [x.lower() for x in request.args.get(keyword).split(',')]
+            admins = request.args.getlist('country')
+            # admins = [x.lower() for x in request.args.get(keyword).split(',')]
             admin_dict = provider.query_country_qnodes(admins)
             # Find and report unknown countries
             unknown = [country for country, qnode in admin_dict.items() if qnode is None]
