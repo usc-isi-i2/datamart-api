@@ -3,7 +3,7 @@
 #
 # We need to reorganize this in the future, all queries shouldn't be in the same place
 
-from db.sql.utils import query_to_dicts
+from db.sql.utils import postgres_connection, query_to_dicts
 from api.util import TimePrecision, DataInterval
 import re
 
@@ -121,7 +121,7 @@ class SQLProvider:
         # Qualifier querying is not implemented yet in SQL
         return {}
 
-    def query_data(self, dataset_id, property_id, places, qualifiers, limit, cols):
+    def query_variable_data(self, dataset_id, property_id, places, qualifiers, limit, cols):
         # For now just return a limited set of values, since everything else is added from the metadata cache:
         # main_subject_id, time, value, value_unit
         if places:
@@ -182,6 +182,35 @@ class SQLProvider:
         print(query)
 
         return query_to_dicts(query)
+
+    def delete_variable(self, dataset_id, variable_id, property_id):
+        with postgres_connection() as conn:
+            with conn.cursor() as cursor:
+                # Everything here is running under the same transaction
+
+                # Delete properties
+                query = f"""
+                DELETE FROM edges WHERE node1 IN (
+                        SELECT e_main.id
+                            FROM edges AS e_main
+                            JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
+                        WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
+                );"""
+                print(query)
+                cursor.execute(query)
+
+                # Now delete the main edges
+                query = f"""
+                DELETE FROM edges e_main WHERE id IN (
+                        SELECT e_main.id
+                            FROM edges AS e_main
+                            JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
+                        WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
+                );
+                """
+                print(query)
+                cursor.execute(query)
+
 
     def query_country_qnodes(self, countries):
         # Translates countries to Q-nodes. Returns a dictionary of each input country and its QNode (None if not found)
