@@ -156,7 +156,7 @@ class VariableGetter:
         else:
             temp_cols = ['main_subject_id'] + select_cols
 
-        results = provider.query_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
+        results = provider.query_variable_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
 
         result_df = pd.DataFrame(results, columns=temp_cols)
 
