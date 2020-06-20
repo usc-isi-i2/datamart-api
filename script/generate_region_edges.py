@@ -7,9 +7,9 @@ import sys
 # Q13220204	second-level administrative country subdivision
 # Q13221722	third-level administrative country subdivision
 # P17 country
-# P2006190001	label	"located in the first-level administrative country subdivision"	P2006190001-label-1
-# P2006190002	label	"located in the second-level administrative country subdivision"	P2006190002-label-1
-# P2006190003	label	"located in the first-level administrative country subdivision"	P2006190003-label-1
+# P2006190001	label	"located in the first-level administrative country subdivision"
+# P2006190002	label	"located in the second-level administrative country subdivision"
+# P2006190003	label	"located in the third-level administrative country subdivision"
 
 def print_triple(outfile, node1, label, node2):
     id = hashlib.sha256(bytes('{}{}{}'.format(node1, label, node2), encoding='utf-8')).hexdigest()
