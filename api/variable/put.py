@@ -4,7 +4,7 @@ import hashlib
 import pandas as pd
 from flask import request
 from db.sql.utils import query_to_dicts
-from api.SQLProvider import SQLProvider
+from db.sql import dal
 from db.sql.kgtk import import_kgtk_dataframe
 from .country_wikifier import DatamartCountryWikifier
 from api.util import TimePrecision
@@ -13,7 +13,6 @@ import time
 
 class PutCanonicalData(object):
     def __init__(self):
-        self.provider = SQLProvider()
         self.qnode_regex = {}
         self.all_ids_dict = {}
         self.tp = TimePrecision()
@@ -232,7 +231,7 @@ class PutCanonicalData(object):
     def canonical_data(self, dataset, variable):
 
         # check if the dataset exists
-        dataset_id = self.provider.get_dataset_id(dataset)
+        dataset_id = dal.get_dataset_id(dataset)
 
         if not dataset_id:
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404

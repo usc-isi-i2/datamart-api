@@ -5,11 +5,10 @@ import pandas as pd
 from flask import request, make_response
 from flask_restful import Resource
 
-from api.SQLProvider import SQLProvider
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
 from db.sql.kgtk import import_kgtk_dataframe
 from api.metadata.split_objects_and_country import split_objects_and_country
-
+from db.sql import dal
 
 class DatasetMetadataResource(Resource):
     def post(self, dataset=None):
@@ -25,15 +24,13 @@ class DatasetMetadataResource(Resource):
             }
             return content, 400
 
-        provider = SQLProvider()
-
         # print('Post dataset: ', request.json)
         metadata = DatasetMetadata()
         status, code = metadata.from_request(request.json)
         if not code == 200:
             return status, code
 
-        if provider.get_dataset_id(metadata.dataset_id):
+        if dal.get_dataset_id(metadata.dataset_id):
             content = {
                 'Error': f'Dataset identifier {metadata.dataset_id} has already been used'
             }
@@ -42,7 +39,7 @@ class DatasetMetadataResource(Resource):
         # Create qnode
         dataset_id = f'Q{metadata.dataset_id}'
         count = 0
-        while provider.node_exists(dataset_id):
+        while dal.node_exists(dataset_id):
             count += 1
             dataset_id = f'Q{metadata.dataset_id}{count}'
         metadata._dataset_id = dataset_id
@@ -67,8 +64,7 @@ class DatasetMetadataResource(Resource):
         return content, 201
 
     def get(self, dataset=None):
-        provider = SQLProvider()
-        results = provider.query_dataset_metadata(dataset)
+        results = dal.query_dataset_metadata(dataset)
         if results is None:
             return { 'Error': f"No such dataset {dataset}" }, 404
 
@@ -79,7 +75,6 @@ class DatasetMetadataResource(Resource):
 
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
-        provider = SQLProvider()
         if not request.json:
             content = {
                 'Error': 'JSON content body is empty'
@@ -98,7 +93,7 @@ class VariableMetadataResource(Resource):
         if not code == 200:
             return status, code
 
-        dataset_id = provider.get_dataset_id(dataset)
+        dataset_id = dal.get_dataset_id(dataset)
         if not dataset_id:
             status = {
                 'Error': f'Cannot find dataset {dataset}'
@@ -106,7 +101,7 @@ class VariableMetadataResource(Resource):
             return  status, 404
         metadata.dataset_id = dataset
 
-        if metadata.variable_id and provider.get_variable_id(dataset_id, metadata.variable_id) is not None:
+        if metadata.variable_id and dal.get_variable_id(dataset_id, metadata.variable_id) is not None:
             status = {
                 'Error': f'Variable {metadata.variable_id} has already been defined in dataset {dataset}'
             }
@@ -115,7 +110,7 @@ class VariableMetadataResource(Resource):
         # Create qnode for variable
         if not metadata.variable_id:
             prefix = f'V{metadata.dataset_id}-'
-            number = provider.next_variable_value(dataset_id, prefix)
+            number = dal.next_variable_value(dataset_id, prefix)
             metadata.variable_id = f'{prefix}{number}'
         variable_id = f'Q{metadata.dataset_id}-{metadata.variable_id}'
         metadata._variable_id = variable_id
@@ -139,14 +134,13 @@ class VariableMetadataResource(Resource):
         return content, 201
 
     def get(self, dataset, variable=None):
-        provider = SQLProvider()
         if variable is None:
-            results = provider.query_dataset_variables(dataset)
+            results = dal.query_dataset_variables(dataset)
             if results is None:
                 return { 'Error': f"No dataset {dataset}" }, 404
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
         else:
-            results = provider.query_variable_metadata(dataset, variable)
+            results = dal.query_variable_metadata(dataset, variable)
             if results is None:
                 return { 'Error': f"No variable {variable} in dataset {dataset}" }, 404
             results['dataset_id'] = dataset
@@ -159,14 +153,13 @@ class FuzzySearchResource(Resource):
         queries = request.args.getlist('keyword')
         if not queries:
             return { 'Error': 'A variable query must be provided: keyword' }, 400
-        provider = SQLProvider()
 
         # We're using Postgres's full text search capabilities for now
-        results = provider.fuzzy_query_variables(queries)
+        results = dal.fuzzy_query_variables(queries)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
-        dataset_results = provider.query_dataset_metadata(include_dataset_qnode=True)
+        dataset_results = dal.query_dataset_metadata(include_dataset_qnode=True)
         datasets = { row['dataset_qnode']: row['dataset_id'] for row in dataset_results }
         for row in results:
             row['dataset_id'] = datasets[row['dataset_qnode']]

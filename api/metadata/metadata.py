@@ -11,9 +11,8 @@ from enum import Enum
 from api.util import DataInterval, Literal, TimePrecision
 
 from api.variable.put import PutCanonicalData
-from api.variable.get import SQLProvider
+from db.sql import dal
 
-provider = SQLProvider
 pcd = PutCanonicalData()
 
 DEFAULT_DATE = datetime.datetime(1900, 1, 1)
@@ -104,7 +103,7 @@ def process_qnode_obj(item: typing.Union[str, dict]) -> dict:
     if isinstance(item, str):
         if isQnode(item):
             qnode = item
-            name = provider.get_label(qnode, qnode)
+            name = dal.get_label(qnode, qnode)
         else:
             name = item
             qnode = wikify(item)
@@ -121,7 +120,7 @@ def process_pnode_obj(item: typing.Union[str, dict]) -> dict:
     if isinstance(item, str):
         if isQnode(item):
             qnode = item
-            name = provider.get_label(qnode, qnode)
+            name = dal.get_label(qnode, qnode)
         else:
             name = item
             qnode = wikify_property(item)

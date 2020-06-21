@@ -11,7 +11,7 @@ from api.util import TimePrecision
 
 from db.sql.utils import query_to_dicts
 from flask.blueprints import Blueprint
-from api.SQLProvider import SQLProvider
+from db.sql import dal
 
 DROP_QUALIFIERS = [
     'pq:P585', 'P585' # time
@@ -75,15 +75,13 @@ class VariableGetter:
             except:
                 pass
 
-        provider = SQLProvider()
-
         # Add main subject by exact English label
         # For now assume only country:
         keyword = 'country'
         if request.args.get(keyword) is not None:
             admins = request.args.getlist('country')
             # admins = [x.lower() for x in request.args.get(keyword).split(',')]
-            admin_dict = provider.query_country_qnodes(admins)
+            admin_dict = dal.query_country_qnodes(admins)
             # Find and report unknown countries
             unknown = [country for country, qnode in admin_dict.items() if qnode is None]
             if unknown:
@@ -133,9 +131,7 @@ class VariableGetter:
             return 'N/A'
 
     def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, main_subjects=[]):
-        provider = SQLProvider()
-
-        result = provider.query_variable(dataset, variable)
+        result = dal.query_variable(dataset, variable)
         if not result:
             content = {
                 'Error': f'Could not find dataset {dataset} variable {variable}'
@@ -145,7 +141,7 @@ class VariableGetter:
         # Output just the country column
         admin_level = 0
 
-        qualifiers = provider.query_qualifiers(result['variable_id'], result['property_id'])
+        qualifiers = dal.query_qualifiers(result['variable_id'], result['property_id'])
         qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(admin_level, include_cols, exclude_cols, qualifiers)
         print(select_cols)
@@ -156,7 +152,7 @@ class VariableGetter:
         else:
             temp_cols = ['main_subject_id'] + select_cols
 
-        results = provider.query_variable_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
+        results = dal.query_variable_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
 
         result_df = pd.DataFrame(results, columns=temp_cols)
 
@@ -173,7 +169,7 @@ class VariableGetter:
         # The query_country_qnodes function converts country names to qnodes, and should be used when filtering by countries
         # based on the URL
         # main_subject_ids = result_df.loc[:, 'main_subject_id'].unique()
-        # countries = provider.query_country_qnodes(main_subject_ids)
+        # countries = dal.query_country_qnodes(main_subject_ids)
         # for main_subject_id in result_df.loc[:, 'main_subject_id'].unique():
         #     # For now, assume main subject is always country
         #     # place = location.lookup_admin_hierarchy(admin_level, main_subject_id)
@@ -182,7 +178,7 @@ class VariableGetter:
         #         place['country'] = countries[main_subject_id]
 
         #     index = result_df.loc[:, 'main_subject_id'] == main_subject_id
-        #     result_df.loc[index, 'main_subject'] = provider.get_label(main_subject_id, '')
+        #     result_df.loc[index, 'main_subject'] = dal.get_label(main_subject_id, '')
         #     for col, val in place.items():
         #         if col in select_cols:
         #             result_df.loc[index, col] = val
