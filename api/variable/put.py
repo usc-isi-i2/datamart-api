@@ -1,14 +1,15 @@
-import json
 import re
+import json
+import time
 import hashlib
 import pandas as pd
-from flask import request
-from db.sql.utils import query_to_dicts
 from db.sql import dal
+from flask import request
+from api.util import TimePrecision
+from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
 from .country_wikifier import DatamartCountryWikifier
-from api.util import TimePrecision
-import time
+from api.variable.delete import VariableDeleter
 
 
 class PutCanonicalData(object):
@@ -23,6 +24,7 @@ class PutCanonicalData(object):
             'time_precision',
             'country'
         ]
+        self.vd = VariableDeleter()
 
     @staticmethod
     def format_sql_string(values, value_type='str'):
@@ -343,6 +345,9 @@ class PutCanonicalData(object):
 
         for i, row in df.iterrows():
             kgtk_format_list.extend(self.create_kgtk_measurements(row, dataset_id, variable_pnode))
+
+        # this is a PUT request, delete all data for this variable and upload the current data
+        self.vd.delete(dataset, variable)
 
         df_kgtk = pd.DataFrame(kgtk_format_list)
         import_kgtk_dataframe(df_kgtk)
