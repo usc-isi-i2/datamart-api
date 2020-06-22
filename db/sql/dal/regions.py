@@ -1,16 +1,29 @@
 
+from typing import Dict, List, Optional
+from typing_extensions import TypedDict
+
 from db.sql.dal.general import sanitize
 from db.sql.utils import query_to_dicts
-from typing import List, Optional, Dict
 
-def query_country_qnodes(countries: List[str]) -> Dict[str, str]:
+class Region(TypedDict):
+    country: str
+    country_id: str
+    admin1: Optional[str]
+    admin1_id: Optional[str]
+    admin2: Optional[str]
+    admin2_id: Optional[str]
+    admin3: Optional[str]
+    admin3_id: Optional[str]
+
+
+def query_country_qnodes(countries: List[str]) -> Dict[str, Optional[str]]:
     # Translates countries to Q-nodes. Returns a dictionary of each input country and its QNode (None if not found)
     # We look for countries in a case-insensitive fashion.
     if not countries:
         return {}
 
     rows = query_countries(countries)
-    result_dict = { row['country']: row['country_id'] for row in rows }
+    result_dict: Dict[str, Optional[str]] = { row['country']: row['country_id'] for row in rows }
 
     # The result dictionary contains all the countries we have found, we need to add those we did not find
     found_countries = set([country.lower() for country in result_dict.keys()])
@@ -46,7 +59,7 @@ def region_where_clause(region_field: str, region_list: List[str], region_id_fie
     else:
         return "1=1"
 
-def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Dict]:
+def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Region]:
     """ Returns a list of countries:
     If countries or country_ids are not empty, only those countries are returned (all of those in both lists)
     Otherwise, all countries are returned
@@ -71,7 +84,7 @@ def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Di
 
     return query_to_dicts(query)
 
-def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, admin1s: List[str]=[], admin1_ids: List[str]=[]) -> List[Dict]:
+def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, admin1s: List[str]=[], admin1_ids: List[str]=[]) -> List[Region]:
     """
     Returns a list of admin1s. If country or country_id is specified, return the admin1s only of that country.
     If admin1s or admin1_ids are provided, only those admins are returned.
@@ -110,7 +123,7 @@ def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, a
     print(query)
     return query_to_dicts(query)
 
-def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, admin2s: List[str]=[], admin2_ids: List[str]=[]) -> List[Dict]:
+def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, admin2s: List[str]=[], admin2_ids: List[str]=[]) -> List[Region]:
     """
     Returns a list of admin2s. If admin1 or admin1_id is specified, return the admin2s only of that admin1.
     If admin2s or admin2_ids are provided, only those admins are returned.
@@ -153,7 +166,7 @@ def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, adm
     return query_to_dicts(query)
 
 
-def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admin3s: List[str]=[], admin3_ids: List[str]=[]) -> List[Dict]:
+def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admin3s: List[str]=[], admin3_ids: List[str]=[]) -> List[Region]:
     """
     Returns a list of admin3s. If admin2 or admin2_id is specified, return the admin3s only of that admin2.
     If admin3s or admin3_ids are provided, only those admins are returned.
@@ -199,4 +212,3 @@ def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admi
     print(query)
 
     return query_to_dicts(query)
-

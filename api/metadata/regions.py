@@ -3,6 +3,7 @@ from flask import request
 from flask_restful import Resource
 from db.sql.utils import query_to_dicts
 from db.sql import dal
+from db.sql.dal.regions import get_region
 
 class InvalidArgumentsError(Exception):
     def __init__(self, err, *args, **kwargs):
