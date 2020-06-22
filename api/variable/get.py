@@ -1,6 +1,6 @@
 
 import os
-import typing
+from typing import List, Any, Dict
 
 from enum import Enum
 
@@ -12,6 +12,7 @@ from api.util import TimePrecision
 from db.sql.utils import query_to_dicts
 from flask.blueprints import Blueprint
 from db.sql import dal
+from db.sql.dal import Region
 
 DROP_QUALIFIERS = [
     'pq:P585', 'P585' # time
@@ -58,6 +59,20 @@ class GeographyLevel(Enum):
     ADMIN3 = 3
     OTHER = 4
 
+class UnknownSubjectError(Exception):
+    def __init__(self, unknown_names, unknown_ids):
+        super().__init__()
+        self.unknown_names = unknown_names
+        self.unknown_ids = unknown_ids
+
+    def get_error_dict(self):
+        errors: List[str] = []
+        if self.unknown_names:
+            errors.append('Unknown regions ' + ', '.join(self.unknown_names))
+        if self.unknown_ids:
+            errors.append('Uknown region ids ' + ', '.join(self.unknown_ids))
+        return { 'Error': errors }
+
 class VariableGetter:
     def get(self, dataset, variable):
 
@@ -75,54 +90,59 @@ class VariableGetter:
             except:
                 pass
 
-        # Add main subject by exact English label
-        # For now assume only country:
-        keyword = 'country'
-        if request.args.get(keyword) is not None:
-            admins = request.args.getlist('country')
-            # admins = [x.lower() for x in request.args.get(keyword).split(',')]
-            admin_dict = dal.query_country_qnodes(admins)
-            # Find and report unknown countries
-            unknown = [country for country, qnode in admin_dict.items() if qnode is None]
-            if unknown:
-                return { 'Error': 'Unknown countries: ' + ', '. join(unknown) }, 404
-            qnodes = [qnode for qnode in admin_dict.values() if qnode]
-            main_subjects += qnodes
-
-        # Add main subject by qnode
-        for keyword in ['main_subject_id', 'country_id', 'admin1_id', 'admin2_id', 'admin3_id']:
-            if request.args.get(keyword) is not None:
-                qnodes = request.args.get(keyword).split(',')
-                print(f'Add {keyword}:', qnodes)
-                main_subjects += qnodes
-
-        # Not needed for Causex release
-        # # Add administrative locations using the name of parent administrative location
-        # for keyword, admin_col, lower_admin_col in zip(
-        #         ['in_country', 'in_admin1', 'in_admin2'],
-        #         ['country', 'admin1', 'admin2'],
-        #         ['admin1_id', 'admin2_id', 'admin3_id']):
-        #     if request.args.get(keyword) is not None:
-        #         admins = [x.lower() for x in request.args.get(keyword).split(',')]
-        #         index = region_df.loc[:, admin_col].isin(admins)
-        #         print(f'Add {keyword}({request.args.get(keyword)}):',
-        #               region_df.loc[index, lower_admin_col].unique())
-        #         main_subjects += qnodes
-
-        # # Add administrative locations using the qnode of parent administrative location
-        # for keyword, admin_col, lower_admin_col in zip(
-        #         ['in_country_id', 'in_admin1_id', 'in_admin2_id'],
-        #         ['country_id', 'admin1_id', 'admin2_id'],
-        #         ['admin1_id', 'admin2_id', 'admin3_id']):
-        #     if request.args.get(keyword) is not None:
-        #         admin_ids = request.args.get(keyword).split(',')
-        #         index = region_df.loc[:, admin_col].isin(admin_ids)
-        #         print(f'Add {keyword}({request.args.get(keyword)}):',
-        #               region_df.loc[index, lower_admin_col].unique())
-        #         main_subjects += [x for x in region_df.loc[index, lower_admin_col].unique()]
+        try:
+            regions = self.get_subject_regions()
+        except UnknownSubjectError as ex:
+            return ex.get_error_dict(), 404
 
         print((dataset, variable, include_cols, exclude_cols, limit, main_subjects))
-        return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, main_subjects=main_subjects)
+        return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, regions=regions)
+
+    def get_subject_regions(self) -> Dict[str, Region]:
+        main_subjects: List[str] = []
+        unknown_names: List[str] = []
+        unknown_ids: List[str] = []
+
+        args = { 
+            'country': lambda names, ids: dal.query_countries(countries=names, country_ids=ids), 
+            'admin1': lambda names, ids: dal.query_admin1s(admin1s=names, admin1_ids=ids), 
+            'admin2': lambda names, ids: dal.query_admin2s(admin2s=names, admin2_ids=ids),
+            'admin3': lambda names, ids: dal.query_admin3s(admin3s=names, admin3_ids=ids),
+        }
+        
+
+        all_regions: Dict[str, Region] = {}
+
+        for (arg, query) in args.items():
+            arg_id = f'{arg}_id'
+
+            region_names = request.args.getlist(arg)
+            region_ids = request.args.getlist(arg_id)
+            if not region_names and not region_ids:
+                continue
+
+
+            regions = query(region_names, region_ids)
+
+            # Find unknown regions and ids
+            found_names = set([region[arg].lower() for region in regions]) # type: ignore
+            found_ids = set([region[arg_id] for region in regions]) # type: ignore
+            for name in region_names:
+                if name.lower() not in found_names:
+                    unknown_names.append(name)
+
+            for id in region_ids:
+                if id not in found_ids:
+                    unknown_ids.append(id)
+
+            for region in regions:
+                all_regions[region[arg_id]] = region # type: ignore
+
+        if unknown_names or unknown_ids:
+            raise UnknownSubjectError(unknown_names, unknown_ids)
+
+        return all_regions
+        
 
     def fix_time_precision(self, precision):
         try:
@@ -130,7 +150,7 @@ class VariableGetter:
         except ValueError:
             return 'N/A'
 
-    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, main_subjects=[]):
+    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, Region]={}):
         result = dal.query_variable(dataset, variable)
         if not result:
             content = {
@@ -152,6 +172,7 @@ class VariableGetter:
         else:
             temp_cols = ['main_subject_id'] + select_cols
 
+        main_subjects = regions.keys()
         results = dal.query_variable_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
 
         result_df = pd.DataFrame(results, columns=temp_cols)
@@ -162,27 +183,8 @@ class VariableGetter:
             result_df['variable_id'] = variable
         result_df.loc[:, 'variable'] = result['variable_name']
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
-        # result_df.loc[:, 'time_precision'] = self.get_time_precision([10])
 
-
-        # Ke-Thia - this seems unnecessary. The query already returns main_subject, main_subject_id, country, country_id
-        # The query_country_qnodes function converts country names to qnodes, and should be used when filtering by countries
-        # based on the URL
-        # main_subject_ids = result_df.loc[:, 'main_subject_id'].unique()
-        # countries = dal.query_country_qnodes(main_subject_ids)
-        # for main_subject_id in result_df.loc[:, 'main_subject_id'].unique():
-        #     # For now, assume main subject is always country
-        #     # place = location.lookup_admin_hierarchy(admin_level, main_subject_id)
-        #     place = {}
-        #     if main_subject_id in countries:
-        #         place['country'] = countries[main_subject_id]
-
-        #     index = result_df.loc[:, 'main_subject_id'] == main_subject_id
-        #     result_df.loc[index, 'main_subject'] = dal.get_label(main_subject_id, '')
-        #     for col, val in place.items():
-        #         if col in select_cols:
-        #             result_df.loc[index, col] = val
-
+        self.add_region_columns(result_df, select_cols, regions)
         print(result_df.head())
         if 'main_subject_id' not in select_cols:
             result_df = result_df.drop(columns=['main_subject_id'])
@@ -193,7 +195,7 @@ class VariableGetter:
         output.headers['Content-type'] = 'text/csv'
         return output
 
-    def get_columns(self, admin_level, include_cols, exclude_cols, qualifiers) -> typing.List[str]:
+    def get_columns(self, admin_level, include_cols, exclude_cols, qualifiers) -> List[str]:
         result = []
         for col, status in COMMON_COLUMN.items():
             if status == ColumnStatus.REQUIRED or col in include_cols:
@@ -215,3 +217,9 @@ class VariableGetter:
             if col_id in include_cols:
                 result.append(col_id)
         return result
+
+    def add_region_columns(self, df, select_cols: List[str], regions: Dict[str, Region]):
+        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id']
+        for col in region_columns:
+            if col in select_cols:
+                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col]) # type: ignore

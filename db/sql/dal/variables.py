@@ -70,8 +70,6 @@ def query_variable_data(dataset_id, property_id, places, qualifiers, limit, cols
     query = f"""
     SELECT e_main.node1 AS main_subject_id,
             s_main_label.text AS main_subject,
-        e_main.node1 AS country_id,    -- Patch for now, until we handle proper regions
-        s_main_label.text AS country,  -- Still the patch
             q_main.number AS value,
             s_value_unit.text AS value_unit,
             to_json(d_value_date.date_and_time)#>>'{{}}' || 'Z' AS time,

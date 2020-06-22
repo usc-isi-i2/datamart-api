@@ -159,7 +159,7 @@ def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, adm
         JOIN edges e_country ON (e_country.node1=e_admin1.node2 AND e_country.label='P17')
         JOIN edges e_country_label JOIN strings s_country_label ON (e_country_label.id=s_country_label.edge_id)
             ON (e_country.node2=e_country_label.node1 AND e_country_label.label='label')
-    WHERE e_admin2.label='P31' AND e_admin2.node2='Q13220204' AND {admin1_where}
+    WHERE e_admin2.label='P31' AND e_admin2.node2='Q13220204' AND {admin1_where} AND {admin2_where}
     ORDER BY admin2
     '''
 
