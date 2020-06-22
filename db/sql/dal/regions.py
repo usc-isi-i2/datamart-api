@@ -6,6 +6,8 @@ from db.sql.dal.general import sanitize
 from db.sql.utils import query_to_dicts
 
 class Region(TypedDict):
+    admin: str
+    admin_id: str
     country: str
     country_id: str
     admin1: Optional[str]
@@ -66,7 +68,9 @@ def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Re
     """
     where = region_where_clause('s_country_label.text', countries, 'e_country.node1', country_ids)
     query = f'''
-    SELECT e_country.node1 AS country_id,
+    SELECT  e_country.node1 AS admin_id,
+            s_country_label.text AS admin,
+            e_country.node1 AS country_id,
             s_country_label.text AS country,
             NULL as admin1_id,
             NULL as admin1,
@@ -102,7 +106,9 @@ def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, a
     admin1_where = region_where_clause('s_admin1_label.text', admin1s, 'e_admin1.node1', admin1_ids)
 
     query = f'''
-    SELECT e_country.node2 AS country_id,
+    SELECT  e_admin1.node1 AS admin_id,
+            s_admin1_label.text AS admin,
+            e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node1 as admin1_id,
             s_admin1_label.text as admin1,
@@ -142,7 +148,9 @@ def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, adm
     admin2_where = region_where_clause('s_admin2_label.text', admin2s, 'e_admin2.node1', admin2_ids)
 
     query = f'''
-    SELECT e_country.node2 AS country_id,
+    SELECT  e_admin2.node1 AS admin_id,
+            s_admin2_label.text AS admin,
+            e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node2 AS admin1_id,
             s_admin1_label.text AS admin1,
@@ -185,7 +193,9 @@ def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admi
     admin3_where = region_where_clause('s_admin3_label.text', admin3s, 'e_admin3.node1', admin3_ids)
 
     query = f'''
-    SELECT e_country.node2 AS country_id,
+    SELECT  e_admin3.node1 AS admin_id,
+            s_admin3_label.text AS admin,
+            e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node2 AS admin1_id,
             s_admin1_label.text AS admin1,
@@ -211,4 +221,38 @@ def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admi
     '''
     print(query)
 
+    return query_to_dicts(query)
+
+def query_admins(admins: List[str]=[], admin_ids: List[str]=[]) -> List[Region]:
+    where = region_where_clause('s_region_label.text', admins, 'e_region.node1', admin_ids)
+
+    query = f'''
+    SELECT e_region.node1 AS admin_id, s_region_label.text AS admin,
+        e_country.node2 AS country_id, s_country_label.text AS country,
+        e_admin1.node2 AS admin1_id, s_admin1_label.text AS admin1,
+        e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2
+        FROM edges e_region
+        JOIN edges e_region_label ON (e_region_label.node1=e_region.node1 AND e_region_label.label='label')
+        JOIN strings s_region_label ON (e_region_label.id=s_region_label.edge_id)
+        JOIN edges e_country 
+            JOIN edges e_country_label
+                JOIN strings s_country_label 
+                ON (s_country_label.edge_id=e_country_label.id)
+            ON (e_country.node2=e_country_label.node1 AND e_country_label.label='label')
+        ON (e_region.node1=e_country.node1 AND e_country.label='P17')
+        LEFT JOIN edges e_admin1
+            JOIN edges e_admin1_label
+                JOIN strings s_admin1_label
+                ON (s_admin1_label.edge_id=e_admin1_label.id)
+            ON (e_admin1.node2=e_admin1_label.node1 AND e_admin1_label.label='label')
+        ON (e_region.node1=e_admin1.node1 AND e_admin1.label='P2006190001')
+        LEFT JOIN edges e_admin2
+            JOIN edges e_admin2_label
+                JOIN strings s_admin2_label
+                ON (s_admin2_label.edge_id=e_admin2_label.id)
+            ON (e_admin2.node2=e_admin2_label.node1 AND e_admin2_label.label='label')
+        ON (e_region.node1=e_admin2.node1 AND e_admin2.label='P2006190002')
+    WHERE e_region.label='P31' AND e_region.node2 IN ('Q6256', 'Q10864048', 'Q13220204', 'Q13221722') AND {where}
+    '''
+    # print(query)
     return query_to_dicts(query)

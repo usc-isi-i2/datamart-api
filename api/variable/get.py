@@ -139,6 +139,11 @@ class VariableGetter:
 
         return all_regions
         
+    def get_result_regions(self, df) -> Dict[str, Region]:
+        # Get all the regions that have rows in the dataframe
+        region_ids = list(df['main_subject_id'].unique())
+        regions = dal.query_admins(admin_ids=region_ids)
+        return { region['admin_id']: region for region in regions }
 
     def fix_time_precision(self, precision):
         try:
@@ -215,6 +220,9 @@ class VariableGetter:
         return result
 
     def add_region_columns(self, df, select_cols: List[str], regions: Dict[str, Region]):
+        if not regions:
+            regions = self.get_result_regions(df)
+
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id']
         for col in region_columns:
             if col in select_cols:
