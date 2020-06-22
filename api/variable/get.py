@@ -76,14 +76,10 @@ class UnknownSubjectError(Exception):
 class VariableGetter:
     def get(self, dataset, variable):
 
-        include_cols = []
-        exclude_cols = []
+        include_cols = request.args.getlist('include') or []
+        exclude_cols = request.args.getlist('exclude') or []
         main_subjects = []
         limit = -1
-        if request.args.get('include') is not None:
-            include_cols = request.args.get('include').split(',')
-        if request.args.get('exclude') is not None:
-            exclude_cols = request.args.get('exclude').split(',')
         if request.args.get('limit') is not None:
             try:
                 limit = int(request.args.get('limit'))
