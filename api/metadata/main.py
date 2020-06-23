@@ -10,6 +10,7 @@ from db.sql.kgtk import import_kgtk_dataframe
 from api.metadata.split_objects_and_country import split_objects_and_country
 from db.sql import dal
 
+
 class DatasetMetadataResource(Resource):
     def post(self, dataset=None):
         if not request.json:
@@ -60,18 +61,18 @@ class DatasetMetadataResource(Resource):
             output.headers['Content-type'] = 'text/tsv'
             return output
 
-
         return content, 201
 
     def get(self, dataset=None):
         results = dal.query_dataset_metadata(dataset)
         if results is None:
-            return { 'Error': f"No such dataset {dataset}" }, 404
+            return {'Error': f"No such dataset {dataset}"}, 404
 
         # validate
         results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
 
         return results, 200
+
 
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
@@ -98,7 +99,7 @@ class VariableMetadataResource(Resource):
             status = {
                 'Error': f'Cannot find dataset {dataset}'
             }
-            return  status, 404
+            return status, 404
         metadata.dataset_id = dataset
 
         if metadata.variable_id and dal.get_variable_id(dataset_id, metadata.variable_id) is not None:
@@ -113,7 +114,9 @@ class VariableMetadataResource(Resource):
             number = dal.next_variable_value(dataset_id, prefix)
             metadata.variable_id = f'{prefix}{number}'
         variable_id = f'Q{metadata.dataset_id}-{metadata.variable_id}'
+        variable_pnode = f'P{metadata.dataset_id}-{metadata.variable_id}'
         metadata._variable_id = variable_id
+        metadata.corresponds_to_property = variable_pnode
 
         # pprint(metadata.to_dict())
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id, variable_id))
@@ -127,7 +130,8 @@ class VariableMetadataResource(Resource):
         if 'tsv' in request.args:
             tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
             output = make_response(tsv)
-            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_id}-{metadata.variable_id}.tsv'
+            output.headers[
+                'Content-Disposition'] = f'attachment; filename={metadata.dataset_id}-{metadata.variable_id}.tsv'
             output.headers['Content-type'] = 'text/tsv'
             return output
 
@@ -137,22 +141,23 @@ class VariableMetadataResource(Resource):
         if variable is None:
             results = dal.query_dataset_variables(dataset)
             if results is None:
-                return { 'Error': f"No dataset {dataset}" }, 404
+                return {'Error': f"No dataset {dataset}"}, 404
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
         else:
             results = dal.query_variable_metadata(dataset, variable)
             if results is None:
-                return { 'Error': f"No variable {variable} in dataset {dataset}" }, 404
+                return {'Error': f"No variable {variable} in dataset {dataset}"}, 404
             results['dataset_id'] = dataset
             results = VariableMetadata().from_dict(results).to_dict()
 
         return results, 200
 
+
 class FuzzySearchResource(Resource):
     def get(self):
         queries = request.args.getlist('keyword')
         if not queries:
-            return { 'Error': 'A variable query must be provided: keyword' }, 400
+            return {'Error': 'A variable query must be provided: keyword'}, 400
 
         # We're using Postgres's full text search capabilities for now
         results = dal.fuzzy_query_variables(queries)
@@ -160,7 +165,7 @@ class FuzzySearchResource(Resource):
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
         dataset_results = dal.query_dataset_metadata(include_dataset_qnode=True)
-        datasets = { row['dataset_qnode']: row['dataset_id'] for row in dataset_results }
+        datasets = {row['dataset_qnode']: row['dataset_id'] for row in dataset_results}
         for row in results:
             row['dataset_id'] = datasets[row['dataset_qnode']]
             del row['dataset_qnode']

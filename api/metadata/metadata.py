@@ -684,7 +684,7 @@ class VariableMetadata(Metadata):
 
         # Wikidata property (P1687) expects object to be a property. KGTK
         # does not support object with type property (May 2020).
-        # edges.append(create_triple(variable_node, 'P1687', self.corresponds_to_property))
+        # edges.append(pcd.create_triple(variable_node, 'P1687', self.corresponds_to_property))
         edges.append(self.field_edge(variable_node, 'corresponds_to_property', is_item=True))
 
         if self.unit_of_measure:

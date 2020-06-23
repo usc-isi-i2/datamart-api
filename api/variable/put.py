@@ -8,8 +8,8 @@ from flask import request
 from api.util import TimePrecision
 from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
-from .country_wikifier import DatamartCountryWikifier
 from api.variable.delete import VariableDeleter
+from .country_wikifier import DatamartCountryWikifier
 
 
 class PutCanonicalData(object):
@@ -231,7 +231,8 @@ class PutCanonicalData(object):
         }
 
     def canonical_data(self, dataset, variable):
-
+        wikify = request.args.get('wikify', 'false').lower() == 'true'
+        print(wikify)
         # check if the dataset exists
         dataset_id = dal.get_dataset_id(dataset)
 
@@ -254,7 +255,7 @@ class PutCanonicalData(object):
                                 )
                                 and e.label = 'P1687'
                                     """
-
+        print(variable_query)
         variable_result = query_to_dicts(variable_query)
         if len(variable_result) == 0:
             return {'error': 'Variable: {} not found for the dataset: {}'.format(variable, dataset)}, 404
@@ -281,20 +282,22 @@ class PutCanonicalData(object):
 
         country_wikifier = DatamartCountryWikifier()
 
-        main_subjects = list(df['main_subject'].unique())
-        main_subjects_wikified = country_wikifier.wikify(main_subjects)
-        df['main_subject_id'] = df['main_subject'].map(lambda x: main_subjects_wikified[x])
+        if 'main_subject_id' not in d_columns or wikify:
+            main_subjects = list(df['main_subject'].unique())
+            main_subjects_wikified = country_wikifier.wikify(main_subjects)
+            df['main_subject_id'] = df['main_subject'].map(lambda x: main_subjects_wikified[x])
 
-        countries = list(df['country'].unique())
-        countries_wikified = country_wikifier.wikify(countries)
-        df['country_id'] = df['country'].map(lambda x: countries_wikified[x])
+        if 'country_id' not in d_columns or wikify:
+            countries = list(df['country'].unique())
+            countries_wikified = country_wikifier.wikify(countries)
+            df['country_id'] = df['country'].map(lambda x: countries_wikified[x])
 
         # validate file contents
         validator_file_log, valid_file = self.validate_input_file(df, dataset, variable)
         if not valid_file:
             return validator_file_log, 400
 
-        if 'value_unit' in d_columns:
+        if 'value_unit' in d_columns and ('value_unit_id' not in d_columns or wikify):
             units = list(df['value_unit'].unique())
 
             units_query = "SELECT e.node1, e.node2 FROM edges e WHERE e.node2 in ({}) and e.label = 'label'".format(
@@ -321,7 +324,7 @@ class PutCanonicalData(object):
                 kgtk_format_list.append(self.create_triple(_q, 'label', json.dumps(k)))
                 kgtk_format_list.append(self.create_triple(_q, 'P31', 'Q47574'))  # unit of measurement
 
-        if 'source' in d_columns:
+        if 'source' in d_columns and ('source_id' not in d_columns or wikify):
             sources = list(df['source'].unique())
 
             sources_query = "SELECT  e.node1, e.node2 FROM edges e WHERE e.label = 'label' and e.node2 in  ({})".format(
