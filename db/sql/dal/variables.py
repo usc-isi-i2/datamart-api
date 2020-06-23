@@ -82,8 +82,9 @@ def query_variable_data(dataset_id, property_id, places, qualifiers, limit, cols
         JOIN quantities AS q_main ON (e_main.id=q_main.edge_id)
         LEFT JOIN edges AS e_value_unit ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
         LEFT JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
-        JOIN edges AS e_main_label ON (e_main.node1=e_main_label.node1 AND e_main_label.label='label')
-        JOIN strings AS s_main_label ON (e_main_label.id=s_main_label.edge_id)
+        -- Allow missing main_subject labels
+        LEFT JOIN edges AS e_main_label ON (e_main.node1=e_main_label.node1 AND e_main_label.label='label')
+        LEFT JOIN strings AS s_main_label ON (e_main_label.id=s_main_label.edge_id)
         JOIN edges AS e_value_date ON (e_value_date.node1=e_main.id AND e_value_date.label='P585')
         JOIN dates AS d_value_date ON (e_value_date.id=d_value_date.edge_id)
         JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
@@ -141,5 +142,3 @@ def delete_variable(dataset_id, variable_id, property_id):
             """
             print(query)
             cursor.execute(query)
-
-
