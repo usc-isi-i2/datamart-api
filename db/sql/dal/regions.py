@@ -5,9 +5,10 @@ from typing_extensions import TypedDict
 from db.sql.dal.general import sanitize
 from db.sql.utils import query_to_dicts
 
-class Region(TypedDict):
+class Region:
     admin: str
     admin_id: str
+    admin_type: str
     country: str
     country_id: str
     admin1: Optional[str]
@@ -16,6 +17,36 @@ class Region(TypedDict):
     admin2_id: Optional[str]
     admin3: Optional[str]
     admin3_id: Optional[str]
+    coordinate: Optional[str]
+
+    COUNTRY = 'Q6256'
+    ADMIN1 = 'Q10864048'
+    ADMIN2 = 'Q13220204'
+    ADMIN3 = 'Q13221722'
+
+    def __init__(self, **kwargs):
+        self.admin = kwargs['admin']
+        self.admin_id = kwargs['admin_id']
+        self.admin_type = kwargs['admin_type']
+        self.country = kwargs['country']
+        self.country_id = kwargs['country_id']
+        self.admin1 = kwargs.get('admin1')
+        self.admin1_id = kwargs.get('admin1_id')
+        self.admin2 = kwargs.get('admin2')
+        self.admin2_id = kwargs.get('admin2_id')
+        self.admin3 = kwargs.get('admin3')
+        self.admin3_id = kwargs.get('admin3_id')
+        self.coordinate = kwargs.get('coordinate')
+
+        # country, admin1 and admin2 queries return both admin and country,admin1,admin2 fields.
+        # admin3 queries do not, so we need to feel these fields ourselves
+        if self.admin_type == Region.ADMIN3:
+            self.admin3_id, self.admin_3 = self.admin_id, self.admin
+
+    def __getitem__(self, key:str) -> str:
+        return getattr(self, key)
+
+    
 
 
 def query_country_qnodes(countries: List[str]) -> Dict[str, Optional[str]]:
@@ -24,8 +55,8 @@ def query_country_qnodes(countries: List[str]) -> Dict[str, Optional[str]]:
     if not countries:
         return {}
 
-    rows = query_countries(countries)
-    result_dict: Dict[str, Optional[str]] = { row['country']: row['country_id'] for row in rows }
+    regions = query_countries(countries)
+    result_dict: Dict[str, Optional[str]] = { region.country: region.country_id for region in regions }
 
     # The result dictionary contains all the countries we have found, we need to add those we did not find
     found_countries = set([country.lower() for country in result_dict.keys()])
@@ -61,6 +92,10 @@ def region_where_clause(region_field: str, region_list: List[str], region_id_fie
     else:
         return "1=1"
 
+def _query_regions(query: str) -> List[Region]:
+    dicts = query_to_dicts(query)
+    return [Region(**d) for d in dicts]
+
 def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Region]:
     """ Returns a list of countries:
     If countries or country_ids are not empty, only those countries are returned (all of those in both lists)
@@ -70,6 +105,7 @@ def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Re
     query = f'''
     SELECT  e_country.node1 AS admin_id,
             s_country_label.text AS admin,
+            'Q6256' AS admin_type,
             e_country.node1 AS country_id,
             s_country_label.text AS country,
             NULL as admin1_id,
@@ -85,8 +121,7 @@ def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Re
     ORDER BY country
     '''
 
-
-    return query_to_dicts(query)
+    return _query_regions(query)
 
 def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, admin1s: List[str]=[], admin1_ids: List[str]=[]) -> List[Region]:
     """
@@ -108,6 +143,7 @@ def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, a
     query = f'''
     SELECT  e_admin1.node1 AS admin_id,
             s_admin1_label.text AS admin,
+            'Q10864048' AS admin_type, 
             e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node1 as admin1_id,
@@ -126,8 +162,7 @@ def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, a
     ORDER BY admin1
     '''
 
-    print(query)
-    return query_to_dicts(query)
+    return _query_regions(query)
 
 def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, admin2s: List[str]=[], admin2_ids: List[str]=[]) -> List[Region]:
     """
@@ -150,6 +185,7 @@ def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, adm
     query = f'''
     SELECT  e_admin2.node1 AS admin_id,
             s_admin2_label.text AS admin,
+            'Q13220204' AS admin_type,
             e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node2 AS admin1_id,
@@ -171,7 +207,7 @@ def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, adm
     ORDER BY admin2
     '''
 
-    return query_to_dicts(query)
+    return _query_regions(query)
 
 
 def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admin3s: List[str]=[], admin3_ids: List[str]=[]) -> List[Region]:
@@ -195,6 +231,7 @@ def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admi
     query = f'''
     SELECT  e_admin3.node1 AS admin_id,
             s_admin3_label.text AS admin,
+            'Q13221722' AS admin_type,
             e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node2 AS admin1_id,
@@ -221,13 +258,13 @@ def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admi
     '''
     print(query)
 
-    return query_to_dicts(query)
+    return _query_regions(query)
 
 def query_admins(admins: List[str]=[], admin_ids: List[str]=[]) -> List[Region]:
     where = region_where_clause('s_region_label.text', admins, 'e_region.node1', admin_ids)
 
     query = f'''
-    SELECT e_region.node1 AS admin_id, s_region_label.text AS admin,
+    SELECT e_region.node1 AS admin_id, s_region_label.text AS admin, e_region.node2 AS admin_type,
         e_country.node2 AS country_id, s_country_label.text AS country,
         e_admin1.node2 AS admin1_id, s_admin1_label.text AS admin1,
         e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2
@@ -255,4 +292,4 @@ def query_admins(admins: List[str]=[], admin_ids: List[str]=[]) -> List[Region]:
     WHERE e_region.label='P31' AND e_region.node2 IN ('Q6256', 'Q10864048', 'Q13220204', 'Q13221722') AND {where}
     '''
     # print(query)
-    return query_to_dicts(query)
+    return _query_regions(query)

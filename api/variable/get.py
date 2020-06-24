@@ -121,8 +121,8 @@ class VariableGetter:
             regions = query(region_names, region_ids)
 
             # Find unknown regions and ids
-            found_names = set([region[arg].lower() for region in regions]) # type: ignore
-            found_ids = set([region[arg_id] for region in regions]) # type: ignore
+            found_names = set([region[arg].lower() for region in regions])
+            found_ids = set([region[arg_id] for region in regions])
             for name in region_names:
                 if name.lower() not in found_names:
                     unknown_names.append(name)
@@ -132,7 +132,7 @@ class VariableGetter:
                     unknown_ids.append(id)
 
             for region in regions:
-                all_regions[region[arg_id]] = region # type: ignore
+                all_regions[region[arg_id]] = region
 
         if unknown_names or unknown_ids:
             raise UnknownSubjectError(unknown_names, unknown_ids)
@@ -143,7 +143,7 @@ class VariableGetter:
         # Get all the regions that have rows in the dataframe
         region_ids = list(df['main_subject_id'].unique())
         regions = dal.query_admins(admin_ids=region_ids)
-        return { region['admin_id']: region for region in regions }
+        return { region.admin_id: region for region in regions }
 
     def fix_time_precision(self, precision):
         try:
@@ -226,4 +226,4 @@ class VariableGetter:
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id']
         for col in region_columns:
             if col in select_cols:
-                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col]) # type: ignore
+                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col])

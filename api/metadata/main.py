@@ -7,7 +7,6 @@ from flask_restful import Resource
 
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
 from db.sql.kgtk import import_kgtk_dataframe
-from api.metadata.split_objects_and_country import split_objects_and_country
 from db.sql import dal
 
 
