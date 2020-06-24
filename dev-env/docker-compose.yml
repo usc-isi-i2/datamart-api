@@ -12,7 +12,7 @@ services:
     volumes:
         - postgres:/var/lib/postgresql/data
         - ./data/postgres/datamart.sql.gz:/docker-entrypoint-initdb.d/01-datamart.sql.gz
-        - ./data/postgres/patches.sql:/docker-entry-point-initdb.d/02-patches.sql
+        - ./data/postgres/patches.sql:/docker-entrypoint-initdb.d/02-patches.sql
         - ./data/postgres:/backup
     ports:
         - "5433:5432"
