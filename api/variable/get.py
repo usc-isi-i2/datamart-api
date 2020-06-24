@@ -222,7 +222,7 @@ class VariableGetter:
     def add_region_columns(self, df, select_cols: List[str]):
         regions = self.get_result_regions(df)
 
-        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id']
+        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']
         for col in region_columns:
             if col in select_cols:
                 df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col])

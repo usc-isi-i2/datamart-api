@@ -267,7 +267,8 @@ def query_admins(admins: List[str]=[], admin_ids: List[str]=[]) -> List[Region]:
     SELECT e_region.node1 AS admin_id, s_region_label.text AS admin, e_region.node2 AS region_type,
         e_country.node2 AS country_id, s_country_label.text AS country,
         e_admin1.node2 AS admin1_id, s_admin1_label.text AS admin1,
-        e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2
+        e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2,
+        'POINT(' || c_coordinate.longitude || ', ' || c_coordinate.latitude || ')' as coordinate
         FROM edges e_region
         JOIN edges e_region_label ON (e_region_label.node1=e_region.node1 AND e_region_label.label='label')
         JOIN strings s_region_label ON (e_region_label.id=s_region_label.edge_id)
@@ -289,6 +290,10 @@ def query_admins(admins: List[str]=[], admin_ids: List[str]=[]) -> List[Region]:
                 ON (s_admin2_label.edge_id=e_admin2_label.id)
             ON (e_admin2.node2=e_admin2_label.node1 AND e_admin2_label.label='label')
         ON (e_region.node1=e_admin2.node1 AND e_admin2.label='P2006190002')
+        LEFT JOIN edges e_coordinate
+            JOIN coordinates c_coordinate
+            ON (c_coordinate.edge_id=e_coordinate.id)
+        ON (e_region.node1=e_coordinate.node1 AND e_coordinate.label='P625')
     WHERE e_region.label='P31' AND e_region.node2 IN ('Q6256', 'Q10864048', 'Q13220204', 'Q13221722') AND {where}
     '''
     # print(query)

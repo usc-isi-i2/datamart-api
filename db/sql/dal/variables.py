@@ -74,7 +74,6 @@ def query_variable_data(dataset_id, property_id, places, qualifiers, limit, cols
             s_value_unit.text AS value_unit,
             to_json(d_value_date.date_and_time)#>>'{{}}' || 'Z' AS time,
             d_value_date.precision AS time_precision,
-            'POINT(' || c_coordinate.longitude || ', ' || c_coordinate.latitude || ')' as coordinate,
             e_dataset.node2 AS dataset_id,
         e_stated.node2 AS stated_in_id,
         s_stated_label.text AS stated_in  -- May be null even if e_stated exists
@@ -88,9 +87,6 @@ def query_variable_data(dataset_id, property_id, places, qualifiers, limit, cols
         JOIN edges AS e_value_date ON (e_value_date.node1=e_main.id AND e_value_date.label='P585')
         JOIN dates AS d_value_date ON (e_value_date.id=d_value_date.edge_id)
         JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
-        LEFT JOIN edges AS e_coordinate
-            JOIN coordinates AS c_coordinate ON (e_coordinate.id=c_coordinate.edge_id)
-            ON (e_coordinate.node1=e_main.node1 AND e_coordinate.label='P625')
         LEFT JOIN edges AS e_stated ON (e_stated.node1=e_main.id AND e_stated.label='P248')
         -- Allow the stated_in label to not exist in the database
         LEFT JOIN edges AS e_stated_label ON (e_stated_label.node1=e_stated.node2 AND e_stated_label.label='label')
