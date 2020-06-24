@@ -1,6 +1,6 @@
 
 import os
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Set
 
 from enum import Enum
 
@@ -61,18 +61,12 @@ class GeographyLevel(Enum):
     OTHER = 4
 
 class UnknownSubjectError(Exception):
-    def __init__(self, unknown_names, unknown_ids):
+    def __init__(self, *errors):
         super().__init__()
-        self.unknown_names = unknown_names
-        self.unknown_ids = unknown_ids
+        self.errors = errors
 
     def get_error_dict(self):
-        errors: List[str] = []
-        if self.unknown_names:
-            errors.append('Unknown regions ' + ', '.join(self.unknown_names))
-        if self.unknown_ids:
-            errors.append('Uknown region ids ' + ', '.join(self.unknown_ids))
-        return { 'Error': errors }
+        return { 'Error': self.errors }
 
 class VariableGetter:
     def get(self, dataset, variable):
@@ -88,56 +82,78 @@ class VariableGetter:
                 pass
 
         try:
-            regions = self.get_subject_regions()
+            regions = self.get_query_region_ids()
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 
-        print((dataset, variable, include_cols, exclude_cols, limit, main_subjects))
-        return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, regions=regions)
+        print((dataset, variable, include_cols, exclude_cols, limit, regions))
+        return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, regions)
 
-    def get_subject_regions(self) -> Dict[str, Region]:
-        main_subjects: List[str] = []
+    def get_query_region_ids(self) -> Dict[str, List[str]]:  
+        # Returns all ids pf regions specifed in the URL in a dictionary based on region_type:
+        # { country_id: [all countries in the query],
+        #   admin1_id: [all admin1s in the query],
+        #   admin2_id: [all admin2s in the query],
+        #   admin3_id: [all admin3s in the query] }
+        # Raises an exception if non-existing regions are specified (by name or by ID)
+
         unknown_names: List[str] = []
         unknown_ids: List[str] = []
 
+        # Consolidate all names and ids into two lists
         args = { 
             'country': Region.COUNTRY, 
             'admin1': Region.ADMIN1, 
             'admin2': Region.ADMIN2,
             'admin3': Region.ADMIN3,
         }
-        
-
-        all_regions: Dict[str, Region] = {}
-        for (arg, region_type) in args.items():
+        arg_names = []
+        arg_ids = []
+        for arg in args.keys():
             arg_id = f'{arg}_id'
+            arg_names += request.args.getlist(arg)
+            arg_ids += request.args.getlist(arg_id)
 
-            region_names = request.args.getlist(arg)
-            region_ids = request.args.getlist(arg_id)
-            if not region_names and not region_ids:
-                continue
+        # Query those regions
+        found_regions_by_id = region_cache.get_regions(region_names=arg_names, region_ids=arg_ids)
+        found_regions_by_name: Dict[str, Set[Region]] = { }  # Organize by name for easy lookup, there can be numerous regions per name
+        for region in found_regions_by_id.values():
+            name = region.admin.lower()
+            if not name in found_regions_by_name:
+                found_regions_by_name[name] = { region }
+            else:
+                found_regions_by_name[name].add(region)
 
+        # Now go over the queried regions and make sure we have everything we asked for
+        errors = []
+        result_regions: Dict[str, List[str]] = {}
+        for arg, arg_type in args.items():
+            result_regions[arg] = []
 
-            regions = region_cache.get_regions(region_names=region_names, region_ids=region_ids, region_type=region_type)
+            arg_names = [name for name in request.args.getlist(arg)]
+            for name in arg_names:
+                found = False
+                for candidate in found_regions_by_name.get(name.lower(), set()):
+                    if candidate.region_type == arg_type:
+                        result_regions[arg].append(candidate.admin_id)
+                        found = True
+                if not found:
+                    errors.append(f'No {arg} {name}')
 
-            # Find unknown regions and ids
-            found_names = set([region[arg].lower() for region in regions.values()])
-            found_ids = set([region[arg_id] for region in regions.values()])
-            for name in region_names:
-                if name.lower() not in found_names:
-                    unknown_names.append(name)
+            arg_id = f'{arg}_id'
+            arg_ids = request.args.getlist(arg_id) or []
+            for arg_id in arg_ids:
+                c = found_regions_by_id.get(arg_id)
+                if c and c.region_type == arg_type:
+                    result_regions[arg].append(c.admin_id)
+                else:
+                    errors.append(f'No {arg}_id {arg_id}')
 
-            for id in region_ids:
-                if id not in found_ids:
-                    unknown_ids.append(id)
+        if errors:
+            raise UnknownSubjectError(errors)
 
-            for region in regions.values():
-                all_regions[region[arg_id]] = region
+        return result_regions
 
-        if unknown_names or unknown_ids:
-            raise UnknownSubjectError(unknown_names, unknown_ids)
-
-        return all_regions
         
     def get_result_regions(self, df) -> Dict[str, Region]:
         # Get all the regions that have rows in the dataframe
@@ -151,7 +167,7 @@ class VariableGetter:
         except ValueError:
             return 'N/A'
 
-    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, Region]={}):
+    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, List[str]]={}):
         result = dal.query_variable(dataset, variable)
         if not result:
             content = {
@@ -173,8 +189,7 @@ class VariableGetter:
         else:
             temp_cols = ['main_subject_id'] + select_cols
 
-        main_subjects = regions.keys()
-        results = dal.query_variable_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
+        results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit, temp_cols)
 
         result_df = pd.DataFrame(results, columns=temp_cols)
 
@@ -222,7 +237,12 @@ class VariableGetter:
     def add_region_columns(self, df, select_cols: List[str]):
         regions = self.get_result_regions(df)
 
+        # Add main_subject, which is mandatory so we always set it
+        df['main_subject'] = df['main_subject_id'].map(lambda msid: regions[msid].admin)
+
+        # Add the other columns
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']
         for col in region_columns:
             if col in select_cols:
                 df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col])
+
