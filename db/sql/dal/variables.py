@@ -1,6 +1,6 @@
 from db.sql.dal.general import sanitize
 from db.sql.utils import postgres_connection, query_to_dicts
-from typing import Union
+from typing import Union, Dict, List, Tuple, Any
 
 def get_variable_id(dataset_id, variable) -> Union[str, None]:
     dataset_id = sanitize(dataset_id)
@@ -54,48 +54,64 @@ def query_qualifiers(variable_id, property_id):
     # Qualifier querying is not implemented yet in SQL
     return {}
 
-def query_variable_data(dataset_id, property_id, places, qualifiers, limit, cols):
-    # For now just return a limited set of values, since everything else is added from the metadata cache:
-    # main_subject_id, time, value, value_unit
-    if places:
-        sanitized = [sanitize(place) for place in places]
-        quoted_places = [f"'{place}'" for place in sanitized]
-        commatized_places = ', '.join(quoted_places)
-        places_clause = f'e_main.node1 IN ({commatized_places})'
-    else:
-        places_clause = '(1 = 1)'  # Until we have a main-subject id
+def preprocess_places(places: Dict[str, List[str]]) -> Tuple[str, str]:
+    joins: List[str] = []
+    wheres: List[str] = []
+
+    admin_edges = { 
+        'country': 'P17',
+        'admin1': 'P2006190001',
+        'admin2': 'P2006190002',
+        'admin3': 'P2006190003',
+    }
+
+    for (type, ids) in places.items():
+        if not ids:
+            continue
+
+        label = admin_edges[type]
+        joins.append(f"LEFT JOIN edges e_{type} ON (e_main.node1=e_{type}.node1 AND e_{type}.label='{label}')")
+
+        quoted_ids = [f"'{id}'" for id in ids]
+        ids_string = ', '.join(quoted_ids)
+        wheres.append(f"e_{type}.node2 IN ({ids_string})")
+
+    if not joins or not wheres:
+        return ('', '1=1')
+    join = '\n'.join(joins)
+    where = ' OR '.join(wheres)
+
+    return join, where
+
+def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], qualifiers, limit, cols) -> List[Dict[str, Any]]:
     dataset_id = sanitize(dataset_id)
     property_id = sanitize(property_id)
 
+    places_join, places_where = preprocess_places(places)
+
     query = f"""
     SELECT e_main.node1 AS main_subject_id,
-            s_main_label.text AS main_subject,
             q_main.number AS value,
             s_value_unit.text AS value_unit,
             to_json(d_value_date.date_and_time)#>>'{{}}' || 'Z' AS time,
             d_value_date.precision AS time_precision,
-            'POINT(' || c_coordinate.longitude || ', ' || c_coordinate.latitude || ')' as coordinate,
             e_dataset.node2 AS dataset_id,
         e_stated.node2 AS stated_in_id,
         s_stated_label.text AS stated_in  -- May be null even if e_stated exists
     FROM edges AS e_main
         JOIN quantities AS q_main ON (e_main.id=q_main.edge_id)
-        LEFT JOIN edges AS e_value_unit ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
-        LEFT JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
-        JOIN edges AS e_main_label ON (e_main.node1=e_main_label.node1 AND e_main_label.label='label')
-        JOIN strings AS s_main_label ON (e_main_label.id=s_main_label.edge_id)
         JOIN edges AS e_value_date ON (e_value_date.node1=e_main.id AND e_value_date.label='P585')
         JOIN dates AS d_value_date ON (e_value_date.id=d_value_date.edge_id)
         JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
-        LEFT JOIN edges AS e_coordinate
-            JOIN coordinates AS c_coordinate ON (e_coordinate.id=c_coordinate.edge_id)
-            ON (e_coordinate.node1=e_main.node1 AND e_coordinate.label='P625')
+        { places_join }
+        LEFT JOIN edges AS e_value_unit ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
+        LEFT JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
         LEFT JOIN edges AS e_stated ON (e_stated.node1=e_main.id AND e_stated.label='P248')
         -- Allow the stated_in label to not exist in the database
         LEFT JOIN edges AS e_stated_label ON (e_stated_label.node1=e_stated.node2 AND e_stated_label.label='label')
             LEFT JOIN strings AS s_stated_label ON (s_stated_label.edge_id=e_stated_label.id)
 
-    WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}' AND {places_clause}
+    WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}' AND ({places_where})
     ORDER BY main_subject_id, time
     """
 
@@ -141,5 +157,3 @@ def delete_variable(dataset_id, variable_id, property_id):
             """
             print(query)
             cursor.execute(query)
-
-

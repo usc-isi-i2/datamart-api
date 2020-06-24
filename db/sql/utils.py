@@ -1,3 +1,4 @@
+from typing import Dict, List
 from timeit import default_timer
 
 import psycopg2
@@ -40,7 +41,7 @@ def create_sqlalchemy_session(config=None):
 
     return _session_cls()
 
-def query_to_dicts(sql, conn=None, config=None):
+def query_to_dicts(sql: str, conn=None, config=None) -> List[Dict]:
     """ Runs an SQL query, return a list of dictionaries - one for each row """
     # If conn is none, a new connection is opened by using config
     row_dicts = []
@@ -63,4 +64,3 @@ def query_to_dicts(sql, conn=None, config=None):
             conn.close()
 
     return row_dicts
-

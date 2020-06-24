@@ -27,14 +27,14 @@ def generate_edges(infile, outfile):
         if row['admin1_id'] and not row['admin1_id'] in generated:
             generated.add(row['admin1_id'])
             print_triple(outfile, row['admin1_id'], 'P31', 'Q10864048')  # instance of
-            print_triple(outfile, row['admin1_id'], 'label', row['admin1'])
+            print_triple(outfile, row['admin1_id'], 'label', '"' + row['admin1'] + '"')
             print_triple(outfile, row['admin1_id'], 'P17', row['country_id'])  # in country
             print_triple(outfile, row['admin1_id'], 'P2006190001', row['admin1_id'])  # in admin1 (itself)
 
         if row['admin2_id'] and not row['admin2_id'] in generated:
             generated.add(row['admin2_id'])
             print_triple(outfile, row['admin2_id'], 'P31', 'Q13220204')  # instance of
-            print_triple(outfile, row['admin2_id'], 'label', row['admin2'])
+            print_triple(outfile, row['admin2_id'], 'label', '"' + row['admin2'] + '"')
             print_triple(outfile, row['admin2_id'], 'P17', row['country_id'])  # in country
             print_triple(outfile, row['admin2_id'], 'P2006190001', row['admin1_id'])  # in admin1
             print_triple(outfile, row['admin2_id'], 'P2006190002', row['admin2_id'])  # in admin2 (itself)
@@ -42,7 +42,7 @@ def generate_edges(infile, outfile):
         if row['admin3_id'] and not row['admin3_id'] in generated:
             generated.add(row['admin3_id'])
             print_triple(outfile, row['admin3_id'], 'P31', 'Q13221722')  # instance of
-            print_triple(outfile, row['admin3_id'], 'label', row['admin3'])
+            print_triple(outfile, row['admin3_id'], 'label', '"' + row['admin3'] + '"')
             print_triple(outfile, row['admin3_id'], 'P17', row['country_id'])  # in country
             print_triple(outfile, row['admin3_id'], 'P2006190001', row['admin1_id'])  # in admin1
             print_triple(outfile, row['admin3_id'], 'P2006190002', row['admin2_id'])  # in admin2

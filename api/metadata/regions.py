@@ -3,6 +3,8 @@ from flask import request
 from flask_restful import Resource
 from db.sql.utils import query_to_dicts
 from db.sql import dal
+from typing import List, Dict
+from db.sql.dal.regions import Region
 
 class InvalidArgumentsError(Exception):
     def __init__(self, err, *args, **kwargs):
@@ -21,6 +23,9 @@ class RegionSearchResource(Resource):
 
         return allowed_args
 
+    def jsonize(self, regions: List[Region]) -> List[Dict]:
+        return [r.__dict__ for r in regions]
+
     def get(self):
         try:
             args = self.parse_args()
@@ -29,18 +34,18 @@ class RegionSearchResource(Resource):
 
         # All countries
         if not args:
-            return dal.query_countries()
+            return self.jsonize(dal.query_countries())
 
         # Admin1s of country
         if 'country' in args or 'country_id' in args:
-            return dal.query_admin1s(args.get('country'), args.get('country_id'))
+            return self.jsonize(dal.query_admin1s(args.get('country'), args.get('country_id')))
 
         # Admin2s of admin1
         if 'admin1' in args or 'admin1_id' in args:
-            return dal.query_admin2s(args.get('admin1'), args.get('admin1_id'))
+            return self.jsonize(dal.query_admin2s(args.get('admin1'), args.get('admin1_id')))
 
         # Admin3s of admin2
         if 'admin2' in args or 'admin2_id' in args:
-            return dal.query_admin3s(args.get('admin2'), args.get('admin2_id'))
+            return self.jsonize(dal.query_admin3s(args.get('admin2'), args.get('admin2_id')))
         
         return {}
