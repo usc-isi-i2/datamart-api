@@ -13,6 +13,7 @@ from db.sql.utils import query_to_dicts
 from flask.blueprints import Blueprint
 from db.sql import dal
 from db.sql.dal import Region
+from api.region_cache import region_cache
 
 DROP_QUALIFIERS = [
     'pq:P585', 'P585' # time
@@ -100,16 +101,15 @@ class VariableGetter:
         unknown_ids: List[str] = []
 
         args = { 
-            'country': lambda names, ids: dal.query_countries(countries=names, country_ids=ids), 
-            'admin1': lambda names, ids: dal.query_admin1s(admin1s=names, admin1_ids=ids), 
-            'admin2': lambda names, ids: dal.query_admin2s(admin2s=names, admin2_ids=ids),
-            'admin3': lambda names, ids: dal.query_admin3s(admin3s=names, admin3_ids=ids),
+            'country': Region.COUNTRY, 
+            'admin1': Region.ADMIN1, 
+            'admin2': Region.ADMIN2,
+            'admin3': Region.ADMIN3,
         }
         
 
         all_regions: Dict[str, Region] = {}
-
-        for (arg, query) in args.items():
+        for (arg, region_type) in args.items():
             arg_id = f'{arg}_id'
 
             region_names = request.args.getlist(arg)
@@ -118,11 +118,11 @@ class VariableGetter:
                 continue
 
 
-            regions = query(region_names, region_ids)
+            regions = region_cache.get_regions(region_names=region_names, region_ids=region_ids, region_type=region_type)
 
             # Find unknown regions and ids
-            found_names = set([region[arg].lower() for region in regions])
-            found_ids = set([region[arg_id] for region in regions])
+            found_names = set([region[arg].lower() for region in regions.values()])
+            found_ids = set([region[arg_id] for region in regions.values()])
             for name in region_names:
                 if name.lower() not in found_names:
                     unknown_names.append(name)
@@ -131,7 +131,7 @@ class VariableGetter:
                 if id not in found_ids:
                     unknown_ids.append(id)
 
-            for region in regions:
+            for region in regions.values():
                 all_regions[region[arg_id]] = region
 
         if unknown_names or unknown_ids:
@@ -142,8 +142,8 @@ class VariableGetter:
     def get_result_regions(self, df) -> Dict[str, Region]:
         # Get all the regions that have rows in the dataframe
         region_ids = list(df['main_subject_id'].unique())
-        regions = dal.query_admins(admin_ids=region_ids)
-        return { region.admin_id: region for region in regions }
+        regions = region_cache.get_regions(region_ids=region_ids)
+        return regions
 
     def fix_time_precision(self, precision):
         try:
@@ -185,7 +185,7 @@ class VariableGetter:
         result_df.loc[:, 'variable'] = result['variable_name']
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
 
-        self.add_region_columns(result_df, select_cols, regions)
+        self.add_region_columns(result_df, select_cols)
         print(result_df.head())
         if 'main_subject_id' not in select_cols:
             result_df = result_df.drop(columns=['main_subject_id'])
@@ -219,9 +219,8 @@ class VariableGetter:
                 result.append(col_id)
         return result
 
-    def add_region_columns(self, df, select_cols: List[str], regions: Dict[str, Region]):
-        if not regions:
-            regions = self.get_result_regions(df)
+    def add_region_columns(self, df, select_cols: List[str]):
+        regions = self.get_result_regions(df)
 
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id']
         for col in region_columns:
