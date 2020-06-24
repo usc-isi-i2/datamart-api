@@ -1,6 +1,6 @@
 from flask_restful import Resource
 from .get import VariableGetter
-from .put import PutCanonicalData
+from .put import CanonicalData
 from .delete import VariableDeleter
 
 
@@ -10,8 +10,12 @@ class VariableResource(Resource):
         return imp.get(dataset, variable)
 
     def put(self, dataset, variable):
-        put_data = PutCanonicalData()
+        put_data = CanonicalData()
         return put_data.canonical_data(dataset, variable)
+
+    def post(self, dataset, variable):
+        put_data = CanonicalData()
+        return put_data.canonical_data(dataset, variable, is_request_put=False)
 
     def delete(self, dataset, variable):
         imp = VariableDeleter()
