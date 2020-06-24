@@ -238,11 +238,11 @@ class VariableGetter:
         regions = self.get_result_regions(df)
 
         # Add main_subject, which is mandatory so we always set it
-        df['main_subject'] = df['main_subject_id'].map(lambda msid: regions[msid].admin)
+        df['main_subject'] = df['main_subject_id'].map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']
         for col in region_columns:
             if col in select_cols:
-                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col])
+                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
 
