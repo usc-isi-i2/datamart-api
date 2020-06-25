@@ -10,10 +10,10 @@ from enum import Enum
 
 from api.util import DataInterval, Literal, TimePrecision
 
-from api.variable.put import PutCanonicalData
+from api.variable.put import CanonicalData
 from db.sql import dal
 
-pcd = PutCanonicalData()
+pcd = CanonicalData()
 
 DEFAULT_DATE = datetime.datetime(1900, 1, 1)
 

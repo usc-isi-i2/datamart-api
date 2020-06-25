@@ -12,7 +12,7 @@ from api.variable.delete import VariableDeleter
 from .country_wikifier import DatamartCountryWikifier
 
 
-class PutCanonicalData(object):
+class CanonicalData(object):
     def __init__(self):
         self.qnode_regex = {}
         self.all_ids_dict = {}
@@ -230,7 +230,7 @@ class PutCanonicalData(object):
             'Description': description
         }
 
-    def canonical_data(self, dataset, variable):
+    def canonical_data(self, dataset, variable, is_request_put=True):
         wikify = request.args.get('wikify', 'false').lower() == 'true'
         print(wikify)
         # check if the dataset exists
@@ -349,8 +349,9 @@ class PutCanonicalData(object):
         for i, row in df.iterrows():
             kgtk_format_list.extend(self.create_kgtk_measurements(row, dataset_id, variable_pnode))
 
-        # this is a PUT request, delete all data for this variable and upload the current data
-        self.vd.delete(dataset, variable)
+        if is_request_put:
+            # this is a PUT request, delete all data for this variable and upload the current data
+            self.vd.delete(dataset, variable)
 
         df_kgtk = pd.DataFrame(kgtk_format_list)
         import_kgtk_dataframe(df_kgtk)
