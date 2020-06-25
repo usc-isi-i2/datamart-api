@@ -46,7 +46,7 @@ To backup the current Postgres database, run
 
     docker exec -it datamart-postgres /bin/bash
     # From inside the docker container
-    psql --username postgres --password <password> | gzip > /backup/datamart-backup.sql.gz
+    pg_dump --user postgres wikidata | gzip > /backup/datamart-backup.sql.gz
 
 The backup file is place in the `dev-env/data/postgres` directory.
 
