@@ -142,5 +142,9 @@ class DatamartCountryWikifier:
                             no_wifiy_memo.add(each)
                             wikified[each] = None
                             self._logger.warning("Not wikify for input value `{}`".format(each))
+                else:
+                    wikified[each] = self.memo.get(input_str, None) or self.memo.get(input_str_processed,
+                                                                                     None) or self.memo.get(
+                        input_str_processed_no_bracket, None)
 
         return wikified
