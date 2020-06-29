@@ -175,12 +175,9 @@ class VariableGetter:
             }
             return content, 404
 
-        # Output just the country column
-        admin_level = 0
-
-        qualifiers = dal.query_qualifiers(result['variable_id'], result['property_id'])
-        qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
-        select_cols = self.get_columns(admin_level, include_cols, exclude_cols, qualifiers)
+        qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
+        # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
+        select_cols = self.get_columns(include_cols, exclude_cols, qualifiers) 
         print(select_cols)
 
         # Needed for place columns
@@ -211,7 +208,7 @@ class VariableGetter:
         output.headers['Content-type'] = 'text/csv'
         return output
 
-    def get_columns(self, admin_level, include_cols, exclude_cols, qualifiers) -> List[str]:
+    def get_columns(self, include_cols, exclude_cols, qualifiers) -> List[str]:
         result = []
         for col, status in COMMON_COLUMN.items():
             if status == ColumnStatus.REQUIRED or col in include_cols:
@@ -220,18 +217,22 @@ class VariableGetter:
             if col in exclude_cols:
                 continue
             if status == ColumnStatus.DEFAULT:
-                if col.startswith('admin'):
-                    level = int(col[5])
-                    if level <= admin_level:
-                        result.append(col)
-                else:
-                    result.append(col)
-        for pq_node, col in qualifiers.items():
-            if col not in exclude_cols:
                 result.append(col)
-            col_id = f'{col}_id'
-            if col_id in include_cols:
-                result.append(col_id)
+        # Ignore qualifier fields for now
+        #for pq_node, col in qualifiers.items():
+        #    if col not in exclude_cols:
+        #        result.append(col)
+        #    col_id = f'{col}_id'
+        #    if col_id in include_cols:
+        #        result.append(col_id)
+
+        # Now go over the qualifiers, and add the main column of each qualifier by default
+        for qualifier in qualifiers:
+            for field in qualifier.fields.keys():
+                if (field == qualifier.main_column and field not in exclude_cols) or field in include_cols:
+                    if field not in result:
+                        result.append(field)
+
         return result
 
     def add_region_columns(self, df, select_cols: List[str]):
