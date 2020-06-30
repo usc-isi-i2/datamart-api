@@ -66,7 +66,7 @@ class EthiopiaWikifier:
                                 res = [current_node1, "label", each]
                                 _ = output_f.write("\t".join(res) + "\n")
                         for each in self.get_permunations(names, [[]], 0):
-                            res = [current_node1, "aliases", ",".join(each[::-1])]
+                            res = [current_node1, "aliases", "<".join(each[::-1])]
                             _ = output_f.write("\t".join(res) + "\n")
                         current_node1 = node1
                         names = [[], [], []]
@@ -284,8 +284,6 @@ class EthiopiaWikifier:
             # no candidates
             if len(each_group.dropna()) == 0:
                 temp = each_group.iloc[0, :]
-                # if temp["label"] is np.nan:
-                #     continue
                 # temp_kg_id = "Q{}".format(temp["label"].lower())
                 # while temp_kg_id in self.
                 # temp["kg_id"] =
@@ -354,15 +352,15 @@ class EthiopiaWikifier:
         return output_df
 
     def check_level_information(self, match_candidate):
-        level = max([len(each.split(",")) for each in match_candidate["kg_labels"].split("|")])
+        level = max([len(each.split("<")) for each in match_candidate["kg_labels"].split("|")])
         self.level_memo[level] += 1
 
     def get_higher_score_candidate(self, match_res, keep_multiple_highest=False, level=None):
         filtered_level_res = pd.DataFrame()
         if level is not None:
             for _, each in match_res.iterrows():
-                max_level = max([len(each.split(",")) for each in each["kg_labels"].split("|")])
-                if max_level >= level:
+                max_level = max([len(each.split("<")) for each in each["kg_labels"].split("|")])
+                if max_level == level:
                     filtered_level_res = filtered_level_res.append(each)
             if len(filtered_level_res) > 0:
                 match_res = filtered_level_res
@@ -371,7 +369,7 @@ class EthiopiaWikifier:
         res = []
         for _, each_row in match_res.iterrows():
             other_info = set(each.lower() for each in each_row["||other_information||"].split("|"))
-            candidate_info = set(each.lower() for each in re.split(r'[,|]', each_row['kg_labels']))
+            candidate_info = set(each.lower() for each in re.split(r'[,|<]', each_row['kg_labels']))
             score = len(candidate_info.intersection(other_info))
             if score > highest_score:
                 res = [each_row]
@@ -387,17 +385,13 @@ def test_run():
     test = EthiopiaWikifier()
     # kgtk_file = "/Users/minazuki/Desktop/vector/woreda_wikifier/region-ethiopia-exploded-edges.tsv"
     # output_path = "/Users/minazuki/Desktop/vector/woreda_wikifier/region-ethiopia-exploded-edges_out.tsv"
-    input_file_path = "ethiopia_regions.csv"
-    target_column = "admin1"
+    input_file_path = "~/Desktop/vector/woreda_wikifier/ethiopia_regions.csv"
+    target_column = "admin3"
     result = test.produce(input_file=input_file_path, target_column=target_column, output_column_name=None)
     wrong_res = pd.DataFrame()
     for _, each_row in result.iterrows():
-        if each_row["admin1_wikifier"] != each_row["admin1_id"]:
+        if each_row["admin3_wikifier"] != each_row["admin3_id"]:
             wrong_res = wrong_res.append(each_row)
     print("wrong_res")
     print(wrong_res)
     return result
-
-
-# df = test_run()
-# df.to_csv('ethiopia_results.csv', index=False)
