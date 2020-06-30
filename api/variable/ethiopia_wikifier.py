@@ -146,9 +146,10 @@ class EthiopiaWikifier:
         if input_file is not None:
             input_df = pd.read_csv(input_file)
         else:
-            input_file = tempfile.NamedTemporaryFile(mode='r+')
-            input_df.to_csv(input_file, index=False)
-            _ = input_file.seek(0)
+            temp_file_obj = tempfile.NamedTemporaryFile(mode='r+')
+            input_df.to_csv(temp_file_obj, index=False)
+            _ = temp_file_obj.seek(0)
+            input_file = temp_file_obj.name
 
         df_all = self.run_table_linker(input_file, target_column)
         final_answer = self.find_best_candidates(df_all)
