@@ -1,4 +1,5 @@
 import re
+import copy
 import json
 import time
 import hashlib
@@ -10,6 +11,7 @@ from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from .country_wikifier import DatamartCountryWikifier
+from .ethiopia_wikifier import EthiopiaWikifier
 
 
 class CanonicalData(object):
@@ -24,7 +26,17 @@ class CanonicalData(object):
             'time_precision',
             'country'
         ]
+        self.non_qualifier_columns = [
+            'main_subject_id',
+            'country_id',
+            'source_id',
+            'value_unit_id',
+            'source',
+            'value_unit'
+        ]
         self.vd = VariableDeleter()
+        self.country_wikifier = DatamartCountryWikifier()
+        self.ethiopia_wikifier = EthiopiaWikifier()
 
     @staticmethod
     def format_sql_string(values, value_type='str'):
@@ -140,7 +152,15 @@ class CanonicalData(object):
                 valid_file = False
 
             try:
-                precision = self.tp.to_int(row['time_precision'])
+                if row['time_precision'].strip() != '':
+                    precision = self.tp.to_int(row['time_precision'])
+                else:
+                    validator_log.append(
+                        self.error_row(f"Time precision cannot be blank", i + 2, 'time_precision',
+                                       f"Legal precision values are: \'{','.join(list(self.tp.name_int_map))}\'"
+                                       ))
+                    valid_file = False
+
             except ValueError:
                 validator_log.append(
                     self.error_row(f"Illegal precision value: \'{row['time_precision']}\'", i + 2, 'time_precision',
@@ -230,9 +250,36 @@ class CanonicalData(object):
             'Description': description
         }
 
+    def get_qualifiers(self, variable_qnode, qualifier_labels):
+        formatted_qualifiers = self.format_sql_string(qualifier_labels)
+
+        # noinspection SqlNoDataSourceInspection
+        qualifier_query = f"""select e_qual.node1, e_qual.node2
+                                from edges e_var
+                                join edges e_qual ON e_var.node2 = e_qual.node1
+                                where e_var.label = 'P2006020002'
+                                and e_qual.label = 'label'
+                                and e_qual.node2 in ({formatted_qualifiers})
+                            and e_var.node1 = '{variable_qnode}'"""
+
+        qualifier_results = query_to_dicts(qualifier_query)
+
+        _ = {}
+        for r in qualifier_results:
+            _[r['node2']] = r['node1']
+        return _
+
+    def create_qualifier_edges(self, qualifiers_to_be_created, variable_qnode):
+        edges = []
+        for qualifier in qualifiers_to_be_created:
+            _pnode = f"P{variable_qnode}-QUALIFIER-{qualifier.strip()}"
+            edges.append(self.create_triple(variable_qnode, 'P2006020002', _pnode))
+            edges.append(self.create_triple(_pnode, 'label', json.dumps(qualifier)))
+        return edges
+
     def canonical_data(self, dataset, variable, is_request_put=True):
         wikify = request.args.get('wikify', 'false').lower() == 'true'
-        print(wikify)
+
         # check if the dataset exists
         dataset_id = dal.get_dataset_id(dataset)
 
@@ -243,6 +290,7 @@ class CanonicalData(object):
         # P2006020003 - Variable Measured
         # P1687 - Corresponds to property
 
+        # noinspection SqlNoDataSourceInspection
         variable_query = f"""Select e.node1, e.node2 from edges e where e.node1 in (
                                 select e_variable.node1 from edges e_variable
                                         where e_variable.node1 in
@@ -255,17 +303,18 @@ class CanonicalData(object):
                                 )
                                 and e.label = 'P1687'
                                     """
-        print(variable_query)
+
         variable_result = query_to_dicts(variable_query)
         if len(variable_result) == 0:
             return {'error': 'Variable: {} not found for the dataset: {}'.format(variable, dataset)}, 404
 
         variable_pnode = variable_result[0]['node2']
+        variable_qnode = variable_result[0]['node1']
 
         kgtk_format_list = list()
 
         # dataset and variable has been found, wikify and upload the data
-        df = pd.read_csv(request.files['file'], dtype=object)
+        df = pd.read_csv(request.files['file'], dtype=object).fillna('')
         column_map = {}
         _d_columns = list(df.columns)
         for c in _d_columns:
@@ -275,23 +324,44 @@ class CanonicalData(object):
 
         d_columns = list(df.columns)
 
+        qualifier_columns = [x for x in d_columns if
+                             x not in self.non_qualifier_columns and x not in self.required_fields]
+
+        if qualifier_columns:
+            # extra columns in the file, qualifier time
+            # first see if any qualifier already exist
+            qualifer_dict = self.get_qualifiers(variable_qnode, qualifier_columns)
+            qualifier_to_be_created = [x for x in qualifier_columns if x not in qualifer_dict]
+            qualifier_edges = self.create_qualifier_edges(qualifier_to_be_created, variable_qnode)
+            kgtk_format_list.extend(qualifier_edges)
+
         # validate file headers first
         validator_header_log, valid_file = self.validate_headers(df)
         if not valid_file:
             return validator_header_log, 400
 
-        country_wikifier = DatamartCountryWikifier()
+        countries = list(df['country'].unique())
 
         if 'main_subject_id' not in d_columns or wikify:
             main_subjects = list(df['main_subject'].unique())
-            main_subjects_wikified = country_wikifier.wikify(main_subjects)
-            df['main_subject_id'] = df['main_subject'].map(lambda x: main_subjects_wikified[x])
+            main_subjects_wikified = self.country_wikifier.wikify(main_subjects)
+            all_invalid = all([main_subjects_wikified[k] is None for k in main_subjects_wikified])
+            _country = df['country']
+            if all_invalid and countries[0].strip().lower() == 'ethiopia':
+                # must be Ethiopia regions
+                df = self.ethiopia_wikifier.produce(input_df=df, target_column='main_subject',
+                                                    output_column_name='main_subject_id')
+
+
+            else:
+                df['main_subject_id'] = df['main_subject'].map(lambda x: main_subjects_wikified[x])
 
         if 'country_id' not in d_columns or wikify:
-            countries = list(df['country'].unique())
-            countries_wikified = country_wikifier.wikify(countries)
+            countries_wikified = self.country_wikifier.wikify(countries)
             df['country_id'] = df['country'].map(lambda x: countries_wikified[x])
 
+        # TODO delete this
+        df.fillna('NONE').to_csv('/tmp/ethiopia_sample.csv', index=False)
         # validate file contents
         validator_file_log, valid_file = self.validate_input_file(df, dataset, variable)
         if not valid_file:
