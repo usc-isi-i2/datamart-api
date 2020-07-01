@@ -92,7 +92,7 @@ class CanonicalData(object):
                 hashlib.sha256(bytes('{}{}{}{}'.format(node1, label, node2, id_index), encoding='utf-8')).hexdigest())
         }
 
-    def create_kgtk_measurements(self, row, dataset_id, variable_id):
+    def create_kgtk_measurements(self, row, dataset_id, variable_id, qualifier_dict):
         kgtk_measurement_temp = list()
         main_subject = row['main_subject_id'].strip()
         if main_subject:
@@ -111,6 +111,9 @@ class CanonicalData(object):
                 self.create_triple(main_triple_id, 'P585',
                                    '{}/{}'.format('{}{}'.format('^', row['time']),
                                                   self.tp.to_int(row['time_precision'].lower()))))
+            for k in qualifier_dict:
+                if row[k].strip():
+                    kgtk_measurement_temp.append(self.create_triple(main_triple_id, qualifier_dict[k], row[k]))
             if 'country_id' in row:
                 country_id = row['country_id'].strip()
                 if country_id:
@@ -271,11 +274,13 @@ class CanonicalData(object):
 
     def create_qualifier_edges(self, qualifiers_to_be_created, variable_qnode):
         edges = []
+        q_dict = {}
         for qualifier in qualifiers_to_be_created:
             _pnode = f"P{variable_qnode}-QUALIFIER-{qualifier.strip()}"
+            q_dict[qualifier] = _pnode
             edges.append(self.create_triple(variable_qnode, 'P2006020002', _pnode))
             edges.append(self.create_triple(_pnode, 'label', json.dumps(qualifier)))
-        return edges
+        return edges, q_dict
 
     def canonical_data(self, dataset, variable, is_request_put=True):
         wikify = request.args.get('wikify', 'false').lower() == 'true'
@@ -327,13 +332,15 @@ class CanonicalData(object):
         qualifier_columns = [x for x in d_columns if
                              x not in self.non_qualifier_columns and x not in self.required_fields]
 
+        qualifer_dict = {}
         if qualifier_columns:
             # extra columns in the file, qualifier time
             # first see if any qualifier already exist
             qualifer_dict = self.get_qualifiers(variable_qnode, qualifier_columns)
             qualifier_to_be_created = [x for x in qualifier_columns if x not in qualifer_dict]
-            qualifier_edges = self.create_qualifier_edges(qualifier_to_be_created, variable_qnode)
+            qualifier_edges, new_q_dict = self.create_qualifier_edges(qualifier_to_be_created, variable_qnode)
             kgtk_format_list.extend(qualifier_edges)
+            qualifer_dict.update(new_q_dict)
 
         # validate file headers first
         validator_header_log, valid_file = self.validate_headers(df)
@@ -360,8 +367,6 @@ class CanonicalData(object):
             countries_wikified = self.country_wikifier.wikify(countries)
             df['country_id'] = df['country'].map(lambda x: countries_wikified[x])
 
-        # TODO delete this
-        df.fillna('NONE').to_csv('/tmp/ethiopia_sample.csv', index=False)
         # validate file contents
         validator_file_log, valid_file = self.validate_input_file(df, dataset, variable)
         if not valid_file:
@@ -417,7 +422,7 @@ class CanonicalData(object):
                 kgtk_format_list.append(self.create_triple(no_source_qnode_dict[k], 'label', json.dumps(k)))
 
         for i, row in df.iterrows():
-            kgtk_format_list.extend(self.create_kgtk_measurements(row, dataset_id, variable_pnode))
+            kgtk_format_list.extend(self.create_kgtk_measurements(row, dataset_id, variable_pnode, qualifer_dict))
 
         if is_request_put:
             # this is a PUT request, delete all data for this variable and upload the current data
