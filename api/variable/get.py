@@ -176,6 +176,7 @@ class VariableGetter:
             return content, 404
 
         qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
+        location_qualifier = 'location' in [q.name for q in qualifiers]
         # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(include_cols, exclude_cols, qualifiers) 
         print(select_cols)
@@ -186,7 +187,7 @@ class VariableGetter:
         else:
             temp_cols = ['main_subject_id'] + select_cols
 
-        if 'location_id' not in temp_cols:
+        if location_qualifier and 'location_id' not in temp_cols:
             temp_cols = ['location_id'] + temp_cols
 
         results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit, temp_cols)
@@ -239,17 +240,17 @@ class VariableGetter:
         return result
 
     def add_region_columns(self, df, select_cols: List[str]):
-        try:
+        if 'location_id' in df:
             location_df = df['location_id']
             location_in_qualifier = True
-        except KeyError:
+        else:
             location_df = df['main_subject_id']
             location_in_qualifier = False
 
         regions = self.get_result_regions(location_df)
 
-        if not location_in_qualifier:
-            df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
+        #if not location_in_qualifier:
+        #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']

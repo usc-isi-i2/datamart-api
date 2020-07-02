@@ -235,7 +235,7 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
 
     location_qualifiers = [q for q in qualifiers if q.data_type == 'location']
     if len(location_qualifiers) == 0:
-        location_name = 'e_main.node1'
+        location_node = 'e_main.node1'
     elif len(location_qualifiers) == 1:
         location_node = 'e_location.node2'
     else:
@@ -245,7 +245,8 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
     qualifier_fields, qualifier_joins = preprocess_qualifiers(qualifiers, cols)
 
     query = f"""
-    SELECT e_main.node1 AS main_subject_id,
+    SELECT  e_main.node1 AS main_subject_id,
+            s_main_label.text AS main_subject,
             e_dataset.node2 AS dataset_id,
             q_main.number AS value,
             s_value_unit.text AS value_unit,
@@ -257,7 +258,10 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
         { places_join }
         LEFT JOIN edges AS e_value_unit
             LEFT JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
-         ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
+        ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
+        LEFT JOIN edges AS e_main_label
+            JOIN strings AS s_main_label ON (e_main_label.id=s_main_label.edge_id)
+        ON (e_main.node1=e_main_label.node1 AND e_main_label.label='label')
 
     WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}' AND ({places_where})
     ORDER BY main_subject_id, time
