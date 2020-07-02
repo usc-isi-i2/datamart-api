@@ -155,9 +155,9 @@ class VariableGetter:
         return result_regions
 
         
-    def get_result_regions(self, df) -> Dict[str, Region]:
+    def get_result_regions(self, df_location) -> Dict[str, Region]:
         # Get all the regions that have rows in the dataframe
-        region_ids = list(df['main_subject_id'].unique())
+        region_ids = [id for id in df_location.unique() if id is not None]
         regions = region_cache.get_regions(region_ids=region_ids)
         return regions
 
@@ -185,6 +185,9 @@ class VariableGetter:
             temp_cols = select_cols
         else:
             temp_cols = ['main_subject_id'] + select_cols
+
+        if 'location_id' not in temp_cols:
+            temp_cols = ['location_id'] + temp_cols
 
         results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit, temp_cols)
 
@@ -236,14 +239,21 @@ class VariableGetter:
         return result
 
     def add_region_columns(self, df, select_cols: List[str]):
-        regions = self.get_result_regions(df)
+        try:
+            location_df = df['location_id']
+            location_in_qualifier = True
+        except KeyError:
+            location_df = df['main_subject_id']
+            location_in_qualifier = False
 
-        # Add main_subject, which is mandatory so we always set it
-        df['main_subject'] = df['main_subject_id'].map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
+        regions = self.get_result_regions(location_df)
+
+        if not location_in_qualifier:
+            df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']
         for col in region_columns:
             if col in select_cols:
-                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
+                df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
 

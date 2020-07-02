@@ -1,6 +1,6 @@
 from db.sql.dal.general import sanitize
 from db.sql.utils import postgres_connection, query_to_dicts
-from typing import Union, Dict, List, Tuple, Any
+from typing import Union, Dict, List, Tuple, Any, Set
 from abc import ABC, abstractmethod, abstractproperty
 
 class Qualifier:
@@ -11,6 +11,8 @@ class Qualifier:
     is_optional: bool
     join_clause: str
     fields: Dict[str, str]  # Field name to select_clause_field
+
+    DATA_TYPES = ['date_and_time', 'string', 'symbol', 'quantity', 'coordinate', 'location' ]
 
     def __init__(self, name, label, data_type=None):
         if name == 'point in time':  # Override hardly for now
@@ -24,21 +26,29 @@ class Qualifier:
         else:
             self.data_type = self._get_data_type()
 
+        if self.data_type == 'location':
+            self.name = 'location'
 
         self._init_sql()
 
+    LOCATION_PROPS = {'P17': 'country', 'P2006190001': 'admin1', 'P2006190002': 'admin2', 'P2006190003': 'admin3', 'P131': 'location'}
     def _get_data_type(self):
-        # For now, hard-code types based on name
-        if self.name == 'time':
+        # The heuristic is simple - we know the types of a few well known qualifiers. All the others
+        # are strings
+        if self.label == "P585": # point in time
             return 'date_and_time'
-        elif self.name == 'stated in':
+        if self.label == 'P248':  # stated in
             return 'symbol'
-        elif self.name == 'holders':
+        if self.label in self.LOCATION_PROPS.keys(): # Various locations
+            return 'location'
+
+        
+        if self.name == 'holders' or self.name == 'weight':  # Hard coded to fit an example dataset
             return 'quantity'
-        elif self.name == 'fertilizer':
-            return 'symbol'
-        else:
-            return 'symbol'  # For now this is our default
+
+        # Everything else is a string
+        return 'string'
+
 
     @property
     def main_column(self):
@@ -76,7 +86,7 @@ class Qualifier:
                 main_name + "_unit_id": f"{satellite_table}.unit",
                 main_name + "_unit": f"{unit_string_table}.text"
             }
-        elif self.data_type == 'symbol':
+        elif self.data_type == 'symbol' or self.data_type == 'location':  # Locations are just symbols at this point
             label_table = 'e_' + main_name + '_label'
             label_string_table = 's' + label_table[1:]
             satellite_join = f"""
@@ -89,11 +99,19 @@ class Qualifier:
             }
         elif self.data_type == 'string':
             satellite_table = 's_' + main_name
-            satellite_join - f"""
+            satellite_join = f"""
                 JOIN strings {satellite_table} ON ({main_table}.id={satellite_table}.edge_id)
             """
             self.fields = {
                 main_name: f"{satellite_table}.text",
+            }
+        elif self.data_type == 'coordinate':
+            satellite_table = 'c_' + main_name
+            satellite_join = f"""
+                JOIN coordinates {satellite_table} ON ({main_table}.id={satellite_table}.edge_id)
+            """
+            self.fields = {
+                main_name: f"""'POINT(' || {satellite_table}.longitude || ', ' || {satellite_table}.latitude || ')'"""
             }
         else:
             raise ValueError('Qualifiers of type ' + self.data_type + ' are not supported yet')
@@ -155,7 +173,7 @@ def query_qualifiers(dataset_id, variable_qnode):
         FROM edges e_var
         JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
         JOIN edges e_qualifier ON (e_var.node1=e_qualifier.node1 AND e_qualifier.label='P2006020002')
-        JOIN edges e_qualifier_label
+        LEFT JOIN edges e_qualifier_label  -- Location qualifiers have no name
             JOIN strings s_qualifier_label ON (e_qualifier_label.id=s_qualifier_label.edge_id)
         ON (e_qualifier.node2=e_qualifier_label.node1 AND e_qualifier_label.label='label')
     WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'  AND e_var.node1='{variable_qnode}'
@@ -165,7 +183,7 @@ def query_qualifiers(dataset_id, variable_qnode):
     qualifiers = query_to_dicts(query)
     return [Qualifier(**q) for q in qualifiers]
 
-def preprocess_places(places: Dict[str, List[str]]) -> Tuple[str, str]:
+def preprocess_places(places: Dict[str, List[str]], region_field) -> Tuple[str, str]:
     joins: List[str] = []
     wheres: List[str] = []
 
@@ -181,7 +199,7 @@ def preprocess_places(places: Dict[str, List[str]]) -> Tuple[str, str]:
             continue
 
         label = admin_edges[type]
-        joins.append(f"LEFT JOIN edges e_{type} ON (e_main.node1=e_{type}.node1 AND e_{type}.label='{label}')")
+        joins.append(f"LEFT JOIN edges e_{type} ON ({region_field}=e_{type}.node1 AND e_{type}.label='{label}')")
 
         quoted_ids = [f"'{id}'" for id in ids]
         ids_string = ', '.join(quoted_ids)
@@ -200,7 +218,7 @@ def preprocess_qualifiers(qualifiers: List[Qualifier], cols: List[str]) -> Tuple
     joins = []
     for qualifier in qualifiers:
         qualifier_field_set = set(qualifier.fields.keys())
-        used_fields = qualifier_field_set & col_set
+        used_fields = qualifier_field_set & col_set #  | qualifier.required_fields
         if not used_fields:
             continue
         
@@ -215,7 +233,15 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
     dataset_id = sanitize(dataset_id)
     property_id = sanitize(property_id)
 
-    places_join, places_where = preprocess_places(places)
+    location_qualifiers = [q for q in qualifiers if q.data_type == 'location']
+    if len(location_qualifiers) == 0:
+        location_name = 'e_main.node1'
+    elif len(location_qualifiers) == 1:
+        location_node = 'e_location.node2'
+    else:
+        raise ValueError("There are more than one location qualifiers for variable")
+
+    places_join, places_where = preprocess_places(places, location_node)
     qualifier_fields, qualifier_joins = preprocess_qualifiers(qualifiers, cols)
 
     query = f"""
