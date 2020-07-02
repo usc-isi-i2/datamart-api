@@ -9,10 +9,11 @@ RUN pip install gunicorn
 
 COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt
-
+RUN cd /src && git clone https://github.com/usc-isi-i2/table-linker.git && cd table-linker && git checkout 21446966df409110af50098bacc91100b2521cd4 && pip install -e .
+ 
 COPY . /src
 RUN mkdir -p /src/instance
 COPY docker/docker_config.py /src/instance/config.py
 WORKDIR /src
 
-CMD ["gunicorn", "-b", "0.0.0.0:80", "--timeout", "3600", "wsgi:app"] 
+CMD sh /src/docker/datamart-start.sh
