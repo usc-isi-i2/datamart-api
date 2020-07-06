@@ -113,7 +113,7 @@ class CanonicalData(object):
                                                   self.tp.to_int(row['time_precision'].lower()))))
             for k in qualifier_dict:
                 if row[k].strip():
-                    kgtk_measurement_temp.append(self.create_triple(main_triple_id, qualifier_dict[k], row[k]))
+                    kgtk_measurement_temp.append(self.create_triple(main_triple_id, qualifier_dict[k], json.dumps(row[k])))
             if 'country_id' in row:
                 country_id = row['country_id'].strip()
                 if country_id:
