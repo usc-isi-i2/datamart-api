@@ -155,9 +155,9 @@ class VariableGetter:
         return result_regions
 
         
-    def get_result_regions(self, df) -> Dict[str, Region]:
+    def get_result_regions(self, df_location) -> Dict[str, Region]:
         # Get all the regions that have rows in the dataframe
-        region_ids = list(df['main_subject_id'].unique())
+        region_ids = [id for id in df_location.unique() if id is not None]
         regions = region_cache.get_regions(region_ids=region_ids)
         return regions
 
@@ -175,12 +175,10 @@ class VariableGetter:
             }
             return content, 404
 
-        # Output just the country column
-        admin_level = 0
-
-        qualifiers = dal.query_qualifiers(result['variable_id'], result['property_id'])
-        qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
-        select_cols = self.get_columns(admin_level, include_cols, exclude_cols, qualifiers)
+        qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
+        location_qualifier = 'location' in [q.name for q in qualifiers]
+        # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
+        select_cols = self.get_columns(include_cols, exclude_cols, qualifiers) 
         print(select_cols)
 
         # Needed for place columns
@@ -188,6 +186,9 @@ class VariableGetter:
             temp_cols = select_cols
         else:
             temp_cols = ['main_subject_id'] + select_cols
+
+        if location_qualifier and 'location_id' not in temp_cols:
+            temp_cols = ['location_id'] + temp_cols
 
         results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit, temp_cols)
 
@@ -211,7 +212,7 @@ class VariableGetter:
         output.headers['Content-type'] = 'text/csv'
         return output
 
-    def get_columns(self, admin_level, include_cols, exclude_cols, qualifiers) -> List[str]:
+    def get_columns(self, include_cols, exclude_cols, qualifiers) -> List[str]:
         result = []
         for col, status in COMMON_COLUMN.items():
             if status == ColumnStatus.REQUIRED or col in include_cols:
@@ -220,29 +221,40 @@ class VariableGetter:
             if col in exclude_cols:
                 continue
             if status == ColumnStatus.DEFAULT:
-                if col.startswith('admin'):
-                    level = int(col[5])
-                    if level <= admin_level:
-                        result.append(col)
-                else:
-                    result.append(col)
-        for pq_node, col in qualifiers.items():
-            if col not in exclude_cols:
                 result.append(col)
-            col_id = f'{col}_id'
-            if col_id in include_cols:
-                result.append(col_id)
+        # Ignore qualifier fields for now
+        #for pq_node, col in qualifiers.items():
+        #    if col not in exclude_cols:
+        #        result.append(col)
+        #    col_id = f'{col}_id'
+        #    if col_id in include_cols:
+        #        result.append(col_id)
+
+        # Now go over the qualifiers, and add the main column of each qualifier by default
+        for qualifier in qualifiers:
+            for field in qualifier.fields.keys():
+                if (field == qualifier.main_column and field not in exclude_cols) or field in include_cols:
+                    if field not in result:
+                        result.append(field)
+
         return result
 
     def add_region_columns(self, df, select_cols: List[str]):
-        regions = self.get_result_regions(df)
+        if 'location_id' in df:
+            location_df = df['location_id']
+            location_in_qualifier = True
+        else:
+            location_df = df['main_subject_id']
+            location_in_qualifier = False
 
-        # Add main_subject, which is mandatory so we always set it
-        df['main_subject'] = df['main_subject_id'].map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
+        regions = self.get_result_regions(location_df)
+
+        #if not location_in_qualifier:
+        #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']
         for col in region_columns:
             if col in select_cols:
-                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
+                df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
 

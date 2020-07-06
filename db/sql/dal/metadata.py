@@ -172,29 +172,6 @@ def query_variable_metadata(dataset, variable):
         entity_list = [row['name'] for row in rows]
         return entity_list
 
-        # We need to turn this into a list of the label field. We could in
-
-    def fetch_stated_as_list(entity, edge_label, return_ids=False):
-        select = f"""
-        SELECT e_{entity}.node2 AS identifier, e_qualifier_stated_as.node2 AS name
-        """
-
-        join = f"""
-        JOIN edges e_{entity} ON (e_var.node1=e_{entity}.node1 AND e_{entity}.label='{edge_label}')
-        LEFT JOIN edges e_{entity}_stated_as ON (e_{entity}_stated_as.node1 = e_{entity}.id)
-        """
-
-        rows = run_query(select, join)
-
-        if return_ids:
-            return rows
-
-        # We need to return just the entities, in a simple list
-        entity_list = [row['name'] for row in rows]
-        return entity_list
-
-        # We need to turn this into a list of the label field. We could in
-
     dataset_id = get_dataset_id(dataset)  # Already sanitizes
     if not dataset_id:
         return None
