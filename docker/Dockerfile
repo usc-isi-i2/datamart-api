@@ -9,6 +9,8 @@ RUN pip install gunicorn
 
 COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt
+RUN git clone https://github.com/usc-isi-i2/table-linker && cd table-linker && git checkout jun_devel
+RUN pip install -e table-linker
 
 COPY . /src
 RUN mkdir -p /src/instance
