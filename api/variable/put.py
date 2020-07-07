@@ -1,5 +1,4 @@
 import re
-import copy
 import json
 import time
 import hashlib
@@ -53,9 +52,11 @@ class CanonicalData(object):
         # q_type can be 'Unit' or 'Source' for now
         # create qnodes for units with this scheme {dataset_id}Unit-{d}
         if q_type == 'Unit':
+            # noinspection SqlNoDataSourceInspection
             _query = "SELECT max(e.node1) as qnode_max FROM edges e WHERE e.label = 'P31' and e.node2 = 'Q47574' and" \
                      " e.node1 like '{}{}-%'".format(dataset_id, q_type)
         else:
+            # noinspection SqlNoDataSourceInspection
             _query = "SELECT max(e.node1) as qnode_max FROM edges e WHERE e.node1 like '{}{}-%'".format(dataset_id,
                                                                                                         q_type)
 
@@ -375,6 +376,7 @@ class CanonicalData(object):
         if 'value_unit' in d_columns and ('value_unit_id' not in d_columns or wikify):
             units = list(df['value_unit'].unique())
 
+            # noinspection SqlNoDataSourceInspection
             units_query = "SELECT e.node1, e.node2 FROM edges e WHERE e.node2 in ({}) and e.label = 'label'".format(
                 self.format_sql_string(units))
 
@@ -402,6 +404,7 @@ class CanonicalData(object):
         if 'source' in d_columns and ('source_id' not in d_columns or wikify):
             sources = list(df['source'].unique())
 
+            # noinspection SqlNoDataSourceInspection
             sources_query = "SELECT  e.node1, e.node2 FROM edges e WHERE e.label = 'label' and e.node2 in  ({})".format(
                 self.format_sql_string(sources))
 
