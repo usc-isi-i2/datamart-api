@@ -3,7 +3,7 @@ from db.sql.dal.variables import get_variable_id
 from db.sql.utils import query_to_dicts
 from api.util import DataInterval, TimePrecision
 
-def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False):
+def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug=False):
     """ Returns the metadata of the dataset. If no name is provided, all datasets are returned """
 
     # Shortcut to helper, with only the parameters we need
@@ -53,10 +53,11 @@ def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False):
     WHERE e_dataset.label='P31' AND e_dataset.node2='Q1172284' AND {filter}
     ''';
 
-    print(query)
+    if debug:
+        print(query)
     return query_to_dicts(query)
 
-def query_dataset_variables(dataset):
+def query_dataset_variables(dataset, debug=False):
     def join_edge(alias, label, satellite_type=None, qualifier=False, left=False):
         return _join_edge_helper('e_var', alias, label, satellite_type=satellite_type, qualifier=qualifier, left=left)
 
@@ -90,7 +91,8 @@ def query_dataset_variables(dataset):
     WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'
     """
 
-    print(query)
+    if debug:
+        print(query)
     return query_to_dicts(query)
 
 def query_variable_metadata(dataset, variable):
@@ -107,7 +109,7 @@ def query_variable_metadata(dataset, variable):
         if row['data_interval'] is not None:
             row['data_interval'] = DataInterval.qnode_to_name(row['data_interval'])
 
-    def run_query(select_clause, join_clause):
+    def run_query(select_clause, join_clause, debug=False):
         nonlocal from_clause, where_clause
         query = f"""
         {select_clause}
@@ -115,7 +117,8 @@ def query_variable_metadata(dataset, variable):
         {join_clause}
         {where_clause}
         """
-        print(query)
+        if debug:
+            print(query)
         return query_to_dicts(query)
 
     def fetch_scalars():

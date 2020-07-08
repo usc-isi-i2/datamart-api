@@ -1,30 +1,24 @@
-
-import os
-from typing import List, Any, Dict, Set
-
-from enum import Enum
-
-from flask import request, make_response, current_app
-
 import pandas as pd
-from api.util import TimePrecision
-
-from db.sql.utils import query_to_dicts
-from flask.blueprints import Blueprint
+from enum import Enum
 from db.sql import dal
 from db.sql.dal import Region
+from typing import List, Dict, Set
+from api.util import TimePrecision
+from flask import request, make_response
 from api.region_cache import region_cache
 
 DROP_QUALIFIERS = [
-    'pq:P585', 'P585' # time
-    'pq:P1640',  # curator
-    'pq:Pdataset', 'P2006020004' # dataset
+    'pq:P585', 'P585'  # time
+               'pq:P1640',  # curator
+    'pq:Pdataset', 'P2006020004'  # dataset
 ]
+
 
 class ColumnStatus(Enum):
     REQUIRED = 0
     DEFAULT = 1
     OPTIONAL = 2
+
 
 COMMON_COLUMN = {
     'dataset_id': ColumnStatus.DEFAULT,
@@ -53,6 +47,7 @@ COMMON_COLUMN = {
     'stated_in_id': ColumnStatus.DEFAULT
 }
 
+
 class GeographyLevel(Enum):
     COUNTRY = 0
     ADMIN1 = 1
@@ -60,13 +55,15 @@ class GeographyLevel(Enum):
     ADMIN3 = 3
     OTHER = 4
 
+
 class UnknownSubjectError(Exception):
     def __init__(self, *errors):
         super().__init__()
         self.errors = errors
 
     def get_error_dict(self):
-        return { 'Error': self.errors }
+        return {'Error': self.errors}
+
 
 class VariableGetter:
     def get(self, dataset, variable):
@@ -86,10 +83,10 @@ class VariableGetter:
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 
-        print((dataset, variable, include_cols, exclude_cols, limit, regions))
+        # print((dataset, variable, include_cols, exclude_cols, limit, regions))
         return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, regions)
 
-    def get_query_region_ids(self) -> Dict[str, List[str]]:  
+    def get_query_region_ids(self) -> Dict[str, List[str]]:
         # Returns all ids pf regions specifed in the URL in a dictionary based on region_type:
         # { country_id: [all countries in the query],
         #   admin1_id: [all admin1s in the query],
@@ -97,13 +94,10 @@ class VariableGetter:
         #   admin3_id: [all admin3s in the query] }
         # Raises an exception if non-existing regions are specified (by name or by ID)
 
-        unknown_names: List[str] = []
-        unknown_ids: List[str] = []
-
         # Consolidate all names and ids into two lists
-        args = { 
-            'country': Region.COUNTRY, 
-            'admin1': Region.ADMIN1, 
+        args = {
+            'country': Region.COUNTRY,
+            'admin1': Region.ADMIN1,
             'admin2': Region.ADMIN2,
             'admin3': Region.ADMIN3,
         }
@@ -116,11 +110,12 @@ class VariableGetter:
 
         # Query those regions
         found_regions_by_id = region_cache.get_regions(region_names=arg_names, region_ids=arg_ids)
-        found_regions_by_name: Dict[str, Set[Region]] = { }  # Organize by name for easy lookup, there can be numerous regions per name
+        found_regions_by_name: Dict[
+            str, Set[Region]] = {}  # Organize by name for easy lookup, there can be numerous regions per name
         for region in found_regions_by_id.values():
             name = region.admin.lower()
             if not name in found_regions_by_name:
-                found_regions_by_name[name] = { region }
+                found_regions_by_name[name] = {region}
             else:
                 found_regions_by_name[name].add(region)
 
@@ -154,7 +149,6 @@ class VariableGetter:
 
         return result_regions
 
-        
     def get_result_regions(self, df_location) -> Dict[str, Region]:
         # Get all the regions that have rows in the dataframe
         region_ids = [id for id in df_location.unique() if id is not None]
@@ -167,7 +161,8 @@ class VariableGetter:
         except ValueError:
             return 'N/A'
 
-    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, List[str]]={}):
+    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, List[str]] = {},
+                   return_df=False):
         result = dal.query_variable(dataset, variable)
         if not result:
             content = {
@@ -202,9 +197,12 @@ class VariableGetter:
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
 
         self.add_region_columns(result_df, select_cols)
-        print(result_df.head())
+
         if 'main_subject_id' not in select_cols:
             result_df = result_df.drop(columns=['main_subject_id'])
+
+        if return_df:
+            return result_df
 
         csv = result_df.to_csv(index=False)
         output = make_response(csv)
@@ -253,8 +251,8 @@ class VariableGetter:
         #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
-        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']
+        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id',
+                          'coordinate']
         for col in region_columns:
             if col in select_cols:
                 df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
-

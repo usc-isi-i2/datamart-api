@@ -1,1 +1,1 @@
-from .main import VariableResource
+from .main import VariableResource, VariableResourceAll
