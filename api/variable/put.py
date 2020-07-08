@@ -1,5 +1,4 @@
 import re
-import copy
 import json
 import time
 import hashlib
@@ -32,7 +31,9 @@ class CanonicalData(object):
             'source_id',
             'value_unit_id',
             'source',
-            'value_unit'
+            'value_unit',
+            'dataset_id',
+            'variable_id'
         ]
         self.vd = VariableDeleter()
         self.country_wikifier = DatamartCountryWikifier()
@@ -53,9 +54,11 @@ class CanonicalData(object):
         # q_type can be 'Unit' or 'Source' for now
         # create qnodes for units with this scheme {dataset_id}Unit-{d}
         if q_type == 'Unit':
+            # noinspection SqlNoDataSourceInspection
             _query = "SELECT max(e.node1) as qnode_max FROM edges e WHERE e.label = 'P31' and e.node2 = 'Q47574' and" \
                      " e.node1 like '{}{}-%'".format(dataset_id, q_type)
         else:
+            # noinspection SqlNoDataSourceInspection
             _query = "SELECT max(e.node1) as qnode_max FROM edges e WHERE e.node1 like '{}{}-%'".format(dataset_id,
                                                                                                         q_type)
 
@@ -113,7 +116,8 @@ class CanonicalData(object):
                                                   self.tp.to_int(row['time_precision'].lower()))))
             for k in qualifier_dict:
                 if row[k].strip():
-                    kgtk_measurement_temp.append(self.create_triple(main_triple_id, qualifier_dict[k], json.dumps(row[k])))
+                    kgtk_measurement_temp.append(
+                        self.create_triple(main_triple_id, qualifier_dict[k], json.dumps(row[k])))
             if 'country_id' in row:
                 country_id = row['country_id'].strip()
                 if country_id:
@@ -253,33 +257,56 @@ class CanonicalData(object):
             'Description': description
         }
 
-    def get_qualifiers(self, variable_qnode, qualifier_labels):
-        formatted_qualifiers = self.format_sql_string(qualifier_labels)
+    def get_qualifiers(self, variable_qnode, qualifier_labels=None):
+        if qualifier_labels is not None:
+            formatted_qualifiers = self.format_sql_string(qualifier_labels)
 
-        # noinspection SqlNoDataSourceInspection
-        qualifier_query = f"""select e_qual.node1, e_qual.node2
-                                from edges e_var
-                                join edges e_qual ON e_var.node2 = e_qual.node1
-                                where e_var.label = 'P2006020002'
-                                and e_qual.label = 'label'
-                                and e_qual.node2 in ({formatted_qualifiers})
-                            and e_var.node1 = '{variable_qnode}'"""
+            # noinspection SqlNoDataSourceInspection
+            qualifier_query = f"""select e_qual.node1, e_qual.node2
+                                    from edges e_var
+                                    join edges e_qual ON e_var.node2 = e_qual.node1
+                                    where e_var.label = 'P2006020002'
+                                    and e_qual.label = 'label'
+                                    and e_qual.node2 in ({formatted_qualifiers})
+                                and e_var.node1 = '{variable_qnode}'"""
 
-        qualifier_results = query_to_dicts(qualifier_query)
+            qualifier_results = query_to_dicts(qualifier_query)
 
-        _ = {}
-        for r in qualifier_results:
-            _[r['node2']] = r['node1']
-        return _
+            _ = {}
+            for r in qualifier_results:
+                _[r['node2']] = r['node1']
+            return _
+        else:
+            # noinspection SqlNoDataSourceInspection
+            qualifier_query = f"""select e_qual.node1, e_qual.node2
+                                    from edges e_var
+                                    join edges e_qual ON e_var.node2 = e_qual.node1
+                                    where e_var.label = 'P2006020002'
+                                    and e_var.node1 = '{variable_qnode}'"""
+
+            qualifier_results = query_to_dicts(qualifier_query)
+
+            _ = {}
+            for r in qualifier_results:
+                _[r['node1']] = 1
+            return _
 
     def create_qualifier_edges(self, qualifiers_to_be_created, variable_qnode):
         edges = []
         q_dict = {}
         for qualifier in qualifiers_to_be_created:
-            _pnode = f"P{variable_qnode}-QUALIFIER-{qualifier.strip()}"
-            q_dict[qualifier] = _pnode
-            edges.append(self.create_triple(variable_qnode, 'P2006020002', _pnode))
-            edges.append(self.create_triple(_pnode, 'label', json.dumps(qualifier)))
+            if qualifier == 'P585':
+                edges.append(self.create_triple(variable_qnode, 'P2006020002', 'P585'))
+                edges.append(self.create_triple('P585', 'label', json.dumps('point in time')))
+            elif qualifier == 'P248':
+                edges.append(self.create_triple(variable_qnode, 'P2006020002', 'P248'))
+                edges.append(self.create_triple('P248', 'label', json.dumps('stated in')))
+            else:
+                _pnode = f"P{variable_qnode}-QUALIFIER-{qualifier.strip()}"
+                edges.append(self.create_triple(variable_qnode, 'P2006020002', _pnode))
+                edges.append(self.create_triple(_pnode, 'label', json.dumps(qualifier)))
+                q_dict[qualifier] = _pnode
+
         return edges, q_dict
 
     def canonical_data(self, dataset, variable, is_request_put=True):
@@ -336,11 +363,20 @@ class CanonicalData(object):
         if qualifier_columns:
             # extra columns in the file, qualifier time
             # first see if any qualifier already exist
-            qualifer_dict = self.get_qualifiers(variable_qnode, qualifier_columns)
+            qualifer_dict = self.get_qualifiers(variable_qnode, qualifier_labels=qualifier_columns)
             qualifier_to_be_created = [x for x in qualifier_columns if x not in qualifer_dict]
             qualifier_edges, new_q_dict = self.create_qualifier_edges(qualifier_to_be_created, variable_qnode)
             kgtk_format_list.extend(qualifier_edges)
             qualifer_dict.update(new_q_dict)
+
+        existing_qualifiers = self.get_qualifiers(variable_qnode)
+        extra_qualifiers = []
+        if 'P585' not in existing_qualifiers:
+            extra_qualifiers.append('P585')
+        if 'P248' not in existing_qualifiers:
+            extra_qualifiers.append('P248')
+        extra_qualifier_edges, _ = self.create_qualifier_edges(extra_qualifiers, variable_qnode)
+        kgtk_format_list.extend(extra_qualifier_edges)
 
         # validate file headers first
         validator_header_log, valid_file = self.validate_headers(df)
@@ -375,6 +411,7 @@ class CanonicalData(object):
         if 'value_unit' in d_columns and ('value_unit_id' not in d_columns or wikify):
             units = list(df['value_unit'].unique())
 
+            # noinspection SqlNoDataSourceInspection
             units_query = "SELECT e.node1, e.node2 FROM edges e WHERE e.node2 in ({}) and e.label = 'label'".format(
                 self.format_sql_string(units))
 
@@ -402,6 +439,7 @@ class CanonicalData(object):
         if 'source' in d_columns and ('source_id' not in d_columns or wikify):
             sources = list(df['source'].unique())
 
+            # noinspection SqlNoDataSourceInspection
             sources_query = "SELECT  e.node1, e.node2 FROM edges e WHERE e.label = 'label' and e.node2 in  ({})".format(
                 self.format_sql_string(sources))
 

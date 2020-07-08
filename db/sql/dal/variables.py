@@ -3,6 +3,7 @@ from db.sql.utils import postgres_connection, query_to_dicts
 from typing import Union, Dict, List, Tuple, Any, Set
 from abc import ABC, abstractmethod, abstractproperty
 
+
 class Qualifier:
     name: str
     label: str
@@ -12,7 +13,7 @@ class Qualifier:
     join_clause: str
     fields: Dict[str, str]  # Field name to select_clause_field
 
-    DATA_TYPES = ['date_and_time', 'string', 'symbol', 'quantity', 'coordinate', 'location' ]
+    DATA_TYPES = ['date_and_time', 'string', 'symbol', 'quantity', 'coordinate', 'location']
 
     def __init__(self, name, label, data_type=None):
         if name == 'point in time':  # Override hardly for now
@@ -31,24 +32,24 @@ class Qualifier:
 
         self._init_sql()
 
-    LOCATION_PROPS = {'P17': 'country', 'P2006190001': 'admin1', 'P2006190002': 'admin2', 'P2006190003': 'admin3', 'P131': 'location'}
+    LOCATION_PROPS = {'P17': 'country', 'P2006190001': 'admin1', 'P2006190002': 'admin2', 'P2006190003': 'admin3',
+                      'P131': 'location'}
+
     def _get_data_type(self):
         # The heuristic is simple - we know the types of a few well known qualifiers. All the others
         # are strings
-        if self.label == "P585": # point in time
+        if self.label == "P585":  # point in time
             return 'date_and_time'
         if self.label == 'P248':  # stated in
             return 'symbol'
-        if self.label in self.LOCATION_PROPS.keys(): # Various locations
+        if self.label in self.LOCATION_PROPS.keys():  # Various locations
             return 'location'
 
-        
         if self.name == 'holders' or self.name == 'weight':  # Hard coded to fit an example dataset
             return 'quantity'
 
         # Everything else is a string
         return 'string'
-
 
     @property
     def main_column(self):
@@ -123,11 +124,12 @@ class Qualifier:
         """
 
 
-def get_variable_id(dataset_id, variable) -> Union[str, None]:
+def get_variable_id(dataset_id, variable, debug=False) -> Union[str, None]:
     dataset_id = sanitize(dataset_id)
     variable = sanitize(variable)
 
-    print(f'variable_exists({dataset_id}, {variable})')
+    if debug:
+        print(f'variable_exists({dataset_id}, {variable})')
     variable_query = f'''
     select e_variable.node1 AS variable_id from edges e_variable
     where e_variable.node1 in
@@ -165,6 +167,7 @@ def query_variable(dataset, variable):
 
     return variable_dicts[0]
 
+
 def query_qualifiers(dataset_id, variable_qnode):
     dataset_id = sanitize(dataset_id)
     variable_qnode = sanitize(variable_qnode)
@@ -178,16 +181,15 @@ def query_qualifiers(dataset_id, variable_qnode):
         ON (e_qualifier.node2=e_qualifier_label.node1 AND e_qualifier_label.label='label')
     WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'  AND e_var.node1='{variable_qnode}'
     """
-
-    print(query)
     qualifiers = query_to_dicts(query)
     return [Qualifier(**q) for q in qualifiers]
+
 
 def preprocess_places(places: Dict[str, List[str]], region_field) -> Tuple[str, str]:
     joins: List[str] = []
     wheres: List[str] = []
 
-    admin_edges = { 
+    admin_edges = {
         'country': 'P17',
         'admin1': 'P2006190001',
         'admin2': 'P2006190002',
@@ -212,16 +214,17 @@ def preprocess_places(places: Dict[str, List[str]], region_field) -> Tuple[str, 
 
     return join, where
 
+
 def preprocess_qualifiers(qualifiers: List[Qualifier], cols: List[str]) -> Tuple[str, str]:
     col_set = set(cols)
     fields = []
     joins = []
     for qualifier in qualifiers:
         qualifier_field_set = set(qualifier.fields.keys())
-        used_fields = qualifier_field_set & col_set #  | qualifier.required_fields
+        used_fields = qualifier_field_set & col_set  # | qualifier.required_fields
         if not used_fields:
             continue
-        
+
         joins.append(qualifier.join_clause)
         for field in used_fields:
             fields.append(qualifier.fields[field] + " AS " + field)
@@ -229,7 +232,8 @@ def preprocess_qualifiers(qualifiers: List[Qualifier], cols: List[str]) -> Tuple
     return ',\n\t\t'.join(fields), '\n'.join(joins)
 
 
-def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], qualifiers, limit, cols) -> List[Dict[str, Any]]:
+def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], qualifiers, limit, cols, debug=False) -> \
+List[Dict[str, Any]]:
     dataset_id = sanitize(dataset_id)
     property_id = sanitize(property_id)
 
@@ -250,19 +254,19 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
             e_dataset.node2 AS dataset_id,
             q_main.number AS value,
             s_value_unit.text AS value_unit,
-            { qualifier_fields }
+            {qualifier_fields}
     FROM edges AS e_main
         JOIN quantities AS q_main ON (e_main.id=q_main.edge_id)
         JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
-        { qualifier_joins }
-        { places_join }
+        {qualifier_joins}
+        {places_join}
         LEFT JOIN edges AS e_value_unit
             LEFT JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
         ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
         LEFT JOIN edges AS e_main_label
             JOIN strings AS s_main_label ON (e_main_label.id=s_main_label.edge_id)
         ON (e_main.node1=e_main_label.node1 AND e_main_label.label='label')
-
+        
     WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}' AND ({places_where})
     ORDER BY main_subject_id, time
     """
@@ -279,11 +283,13 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
 
     if limit > 0:
         query += f"\nLIMIT {limit}\n"
-    print(query)
+    if debug:
+        print(query)
 
     return query_to_dicts(query)
 
-def delete_variable(dataset_id, variable_id, property_id):
+
+def delete_variable(dataset_id, variable_id, property_id, debug=False):
     with postgres_connection() as conn:
         with conn.cursor() as cursor:
             # Everything here is running under the same transaction
@@ -296,7 +302,8 @@ def delete_variable(dataset_id, variable_id, property_id):
                         JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
                     WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
             );"""
-            print(query)
+            if debug:
+                print(query)
             cursor.execute(query)
 
             # Now delete the main edges
@@ -308,5 +315,6 @@ def delete_variable(dataset_id, variable_id, property_id):
                     WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
             );
             """
-            print(query)
+            if debug:
+                print(query)
             cursor.execute(query)
