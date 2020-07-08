@@ -173,8 +173,7 @@ class VariableGetter:
         qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
         location_qualifier = 'location' in [q.name for q in qualifiers]
         # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
-        select_cols = self.get_columns(include_cols, exclude_cols, qualifiers) 
-        print(select_cols)
+        select_cols = self.get_columns(include_cols, exclude_cols, qualifiers)
 
         # Needed for place columns
         if 'main_subject_id' in select_cols:
@@ -185,7 +184,8 @@ class VariableGetter:
         if location_qualifier and 'location_id' not in temp_cols:
             temp_cols = ['location_id'] + temp_cols
 
-        results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit, temp_cols)
+        results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit,
+                                          temp_cols)
 
         result_df = pd.DataFrame(results, columns=temp_cols)
 
@@ -221,7 +221,7 @@ class VariableGetter:
             if status == ColumnStatus.DEFAULT:
                 result.append(col)
         # Ignore qualifier fields for now
-        #for pq_node, col in qualifiers.items():
+        # for pq_node, col in qualifiers.items():
         #    if col not in exclude_cols:
         #        result.append(col)
         #    col_id = f'{col}_id'
@@ -247,7 +247,7 @@ class VariableGetter:
 
         regions = self.get_result_regions(location_df)
 
-        #if not location_in_qualifier:
+        # if not location_in_qualifier:
         #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
