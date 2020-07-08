@@ -1,9 +1,7 @@
-
 from typing import Dict, List, Optional
-from typing_extensions import TypedDict
-
 from db.sql.dal.general import sanitize
 from db.sql.utils import query_to_dicts
+
 
 class Region:
     admin: str
@@ -43,10 +41,8 @@ class Region:
         if self.region_type == Region.ADMIN3:
             self.admin3_id, self.admin_3 = self.admin_id, self.admin
 
-    def __getitem__(self, key:str) -> str:
+    def __getitem__(self, key: str) -> str:
         return getattr(self, key)
-
-    
 
 
 def query_country_qnodes(countries: List[str]) -> Dict[str, Optional[str]]:
@@ -56,7 +52,7 @@ def query_country_qnodes(countries: List[str]) -> Dict[str, Optional[str]]:
         return {}
 
     regions = query_countries(countries)
-    result_dict: Dict[str, Optional[str]] = { region.country: region.country_id for region in regions }
+    result_dict: Dict[str, Optional[str]] = {region.country: region.country_id for region in regions}
 
     # The result dictionary contains all the countries we have found, we need to add those we did not find
     found_countries = set([country.lower() for country in result_dict.keys()])
@@ -65,6 +61,7 @@ def query_country_qnodes(countries: List[str]) -> Dict[str, Optional[str]]:
             result_dict[country] = None
 
     return result_dict
+
 
 def list_to_where(field: str, elements: List[str], lower=False) -> Optional[str]:
     if not elements:
@@ -79,7 +76,9 @@ def list_to_where(field: str, elements: List[str], lower=False) -> Optional[str]
 
     return f"{field} IN ({joined})"
 
-def region_where_clause(region_field: str, region_list: List[str], region_id_field: str, region_id_list: List[str]) -> str:
+
+def region_where_clause(region_field: str, region_list: List[str], region_id_field: str,
+                        region_id_list: List[str]) -> str:
     region_where = list_to_where(region_field, region_list, lower=True)
     region_id_where = list_to_where(region_id_field, region_id_list)
 
@@ -92,11 +91,13 @@ def region_where_clause(region_field: str, region_list: List[str], region_id_fie
     else:
         return "1=1"
 
+
 def _query_regions(query: str) -> List[Region]:
     dicts = query_to_dicts(query)
     return [Region(**d) for d in dicts]
 
-def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Region]:
+
+def query_countries(countries: List[str] = [], country_ids: List[str] = []) -> List[Region]:
     """ Returns a list of countries:
     If countries or country_ids are not empty, only those countries are returned (all of those in both lists)
     Otherwise, all countries are returned
@@ -123,7 +124,9 @@ def query_countries(countries:List[str]=[], country_ids:List[str]=[]) -> List[Re
 
     return _query_regions(query)
 
-def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, admin1s: List[str]=[], admin1_ids: List[str]=[]) -> List[Region]:
+
+def query_admin1s(country: Optional[str] = None, country_id: Optional[str] = None, admin1s: List[str] = [],
+                  admin1_ids: List[str] = []) -> List[Region]:
     """
     Returns a list of admin1s. If country or country_id is specified, return the admin1s only of that country.
     If admin1s or admin1_ids are provided, only those admins are returned.
@@ -164,7 +167,9 @@ def query_admin1s(country: Optional[str]=None, country_id: Optional[str]=None, a
 
     return _query_regions(query)
 
-def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, admin2s: List[str]=[], admin2_ids: List[str]=[]) -> List[Region]:
+
+def query_admin2s(admin1: Optional[str] = None, admin1_id: Optional[str] = None, admin2s: List[str] = [],
+                  admin2_ids: List[str] = []) -> List[Region]:
     """
     Returns a list of admin2s. If admin1 or admin1_id is specified, return the admin2s only of that admin1.
     If admin2s or admin2_ids are provided, only those admins are returned.
@@ -210,7 +215,8 @@ def query_admin2s(admin1: Optional[str]=None, admin1_id: Optional[str]=None, adm
     return _query_regions(query)
 
 
-def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admin3s: List[str]=[], admin3_ids: List[str]=[]) -> List[Region]:
+def query_admin3s(admin2: Optional[str] = None, admin2_id: Optional[str] = None, admin3s: List[str] = [],
+                  admin3_ids: List[str] = [], debug=False) -> List[Region]:
     """
     Returns a list of admin3s. If admin2 or admin2_id is specified, return the admin3s only of that admin2.
     If admin3s or admin3_ids are provided, only those admins are returned.
@@ -256,11 +262,13 @@ def query_admin3s(admin2: Optional[str]=None, admin2_id:Optional[str]=None, admi
     WHERE e_admin3.label='P31' AND e_admin3.node2='Q13221722' AND {admin2_where} AND {admin3_where}
     ORDER BY admin3
     '''
-    print(query)
+    if debug:
+        print(query)
 
     return _query_regions(query)
 
-def query_admins(admins: List[str]=[], admin_ids: List[str]=[]) -> List[Region]:
+
+def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False) -> List[Region]:
     where = region_where_clause('s_region_label.text', admins, 'e_region.node1', admin_ids)
 
     query = f'''
@@ -296,5 +304,6 @@ def query_admins(admins: List[str]=[], admin_ids: List[str]=[]) -> List[Region]:
         ON (e_region.node1=e_coordinate.node1 AND e_coordinate.label='P625')
     WHERE e_region.label='P31' AND e_region.node2 IN ('Q6256', 'Q10864048', 'Q13220204', 'Q13221722') AND {where}
     '''
-    # print(query)
+    if debug:
+        print(query)
     return _query_regions(query)
