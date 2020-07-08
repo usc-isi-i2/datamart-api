@@ -1,17 +1,10 @@
-import os
-from typing import List, Any, Dict, Set
-
-from enum import Enum
-
-from flask import request, make_response, current_app
-
 import pandas as pd
-from api.util import TimePrecision
-
-from db.sql.utils import query_to_dicts
-from flask.blueprints import Blueprint
+from enum import Enum
 from db.sql import dal
 from db.sql.dal import Region
+from typing import List, Dict, Set
+from api.util import TimePrecision
+from flask import request, make_response
 from api.region_cache import region_cache
 
 DROP_QUALIFIERS = [
@@ -90,7 +83,7 @@ class VariableGetter:
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 
-        print((dataset, variable, include_cols, exclude_cols, limit, regions))
+        # print((dataset, variable, include_cols, exclude_cols, limit, regions))
         return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, regions)
 
     def get_query_region_ids(self) -> Dict[str, List[str]]:
@@ -100,9 +93,6 @@ class VariableGetter:
         #   admin2_id: [all admin2s in the query],
         #   admin3_id: [all admin3s in the query] }
         # Raises an exception if non-existing regions are specified (by name or by ID)
-
-        unknown_names: List[str] = []
-        unknown_ids: List[str] = []
 
         # Consolidate all names and ids into two lists
         args = {
@@ -186,7 +176,6 @@ class VariableGetter:
         qualifiers = dal.query_qualifiers(result['variable_id'], result['property_id'])
         qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(admin_level, include_cols, exclude_cols, qualifiers)
-        print(select_cols)
 
         # Needed for place columns
         if 'main_subject_id' in select_cols:
