@@ -9,8 +9,8 @@ from api.util import TimePrecision
 from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
-from .country_wikifier import DatamartCountryWikifier
 from .ethiopia_wikifier import EthiopiaWikifier
+from .country_wikifier import DatamartCountryWikifier
 
 
 class CanonicalData(object):
