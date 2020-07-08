@@ -2,11 +2,13 @@ from db.sql.dal.general import sanitize
 from db.sql.utils import postgres_connection, query_to_dicts
 from typing import Union, Dict, List, Tuple, Any
 
-def get_variable_id(dataset_id, variable) -> Union[str, None]:
+
+def get_variable_id(dataset_id, variable, debug=False) -> Union[str, None]:
     dataset_id = sanitize(dataset_id)
     variable = sanitize(variable)
 
-    print(f'variable_exists({dataset_id}, {variable})')
+    if debug:
+        print(f'variable_exists({dataset_id}, {variable})')
     variable_query = f'''
     select e_variable.node1 AS variable_id from edges e_variable
     where e_variable.node1 in
@@ -50,15 +52,17 @@ def query_variable(dataset, variable):
         'variable_name': variable_dicts[0]['variable_name'],
     }
 
+
 def query_qualifiers(variable_id, property_id):
     # Qualifier querying is not implemented yet in SQL
     return {}
+
 
 def preprocess_places(places: Dict[str, List[str]]) -> Tuple[str, str]:
     joins: List[str] = []
     wheres: List[str] = []
 
-    admin_edges = { 
+    admin_edges = {
         'country': 'P17',
         'admin1': 'P2006190001',
         'admin2': 'P2006190002',
@@ -83,7 +87,9 @@ def preprocess_places(places: Dict[str, List[str]]) -> Tuple[str, str]:
 
     return join, where
 
-def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], qualifiers, limit, cols) -> List[Dict[str, Any]]:
+
+def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], qualifiers, limit, cols, debug=False) -> \
+        List[Dict[str, Any]]:
     dataset_id = sanitize(dataset_id)
     property_id = sanitize(property_id)
 
@@ -103,7 +109,7 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
         JOIN edges AS e_value_date ON (e_value_date.node1=e_main.id AND e_value_date.label='P585')
         JOIN dates AS d_value_date ON (e_value_date.id=d_value_date.edge_id)
         JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
-        { places_join }
+        {places_join}
         LEFT JOIN edges AS e_value_unit ON (e_value_unit.node1=q_main.unit AND e_value_unit.label='label')
         LEFT JOIN strings AS s_value_unit ON (e_value_unit.id=s_value_unit.edge_id)
         LEFT JOIN edges AS e_stated ON (e_stated.node1=e_main.id AND e_stated.label='P248')
@@ -126,11 +132,13 @@ def query_variable_data(dataset_id, property_id, places: Dict[str, List[str]], q
     # NULL in the result if there is no coordinate
     if limit > 0:
         query += f"\nLIMIT {limit}\n"
-    print(query)
+    if debug:
+        print(query)
 
     return query_to_dicts(query)
 
-def delete_variable(dataset_id, variable_id, property_id):
+
+def delete_variable(dataset_id, variable_id, property_id, debug=False):
     with postgres_connection() as conn:
         with conn.cursor() as cursor:
             # Everything here is running under the same transaction
@@ -143,7 +151,8 @@ def delete_variable(dataset_id, variable_id, property_id):
                         JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
                     WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
             );"""
-            print(query)
+            if debug:
+                print(query)
             cursor.execute(query)
 
             # Now delete the main edges
@@ -155,5 +164,6 @@ def delete_variable(dataset_id, variable_id, property_id):
                     WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
             );
             """
-            print(query)
+            if debug:
+                print(query)
             cursor.execute(query)
