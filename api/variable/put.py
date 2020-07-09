@@ -297,10 +297,8 @@ class CanonicalData(object):
         for qualifier in qualifiers_to_be_created:
             if qualifier == 'P585':
                 edges.append(self.create_triple(variable_qnode, 'P2006020002', 'P585'))
-                edges.append(self.create_triple('P585', 'label', json.dumps('point in time')))
             elif qualifier == 'P248':
                 edges.append(self.create_triple(variable_qnode, 'P2006020002', 'P248'))
-                edges.append(self.create_triple('P248', 'label', json.dumps('stated in')))
             else:
                 _pnode = f"P{variable_qnode}-QUALIFIER-{qualifier.strip()}"
                 edges.append(self.create_triple(variable_qnode, 'P2006020002', _pnode))
