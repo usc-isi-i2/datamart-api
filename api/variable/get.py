@@ -171,6 +171,13 @@ class VariableGetter:
             return content, 404
 
         qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
+        qualifier_names = set([q.name for q in qualifiers])
+        if 'time' not in qualifier_names:
+            content = {
+                'Error': f'Variable {variable} in dataset {dataset} does not have a time qualifier associated with it'
+            }
+            return content, 422
+            
         location_qualifier = 'location' in [q.name for q in qualifiers]
         # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(include_cols, exclude_cols, qualifiers)
