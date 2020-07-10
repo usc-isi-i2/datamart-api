@@ -33,8 +33,9 @@ class VariableGetterAll:
 
         df_list = []
         for variable in variables:
-            df_list.append(
-                self.vg.get_direct(dataset, variable, include_cols, exclude_cols, -1, regions, return_df=True))
+            _ = self.vg.get_direct(dataset, variable, include_cols, exclude_cols, -1, regions, return_df=True)
+            if _ is not None:
+                df_list.append(_)
         df = pd.concat(df_list)
 
         csv = df.to_csv(index=False)
