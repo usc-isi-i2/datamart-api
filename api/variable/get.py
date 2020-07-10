@@ -173,8 +173,10 @@ class VariableGetter:
         qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
         qualifier_names = set([q.name for q in qualifiers])
         if 'time' not in qualifier_names:
+            if return_df:
+                return None
             return '', 204
-            
+
         location_qualifier = 'location' in [q.name for q in qualifiers]
         # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(include_cols, exclude_cols, qualifiers)
