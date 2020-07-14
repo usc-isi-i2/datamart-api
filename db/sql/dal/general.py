@@ -4,16 +4,17 @@
 #
 # We need to reorganize this in the future, all queries shouldn't be in the same place
 
-from db.sql.utils import postgres_connection, query_to_dicts
-from api.util import TimePrecision, DataInterval
+from db.sql.utils import query_to_dicts
 import re
-from typing import Union
 
 _sanitation_pattern = re.compile(r'[^\w_\- ]')
+
+
 def sanitize(term):
     # Remove all non-alphanumeric or space characters from term
     sanitized = _sanitation_pattern.sub('', term)
     return sanitized
+
 
 def get_dataset_id(dataset):
     dataset = sanitize(dataset)
@@ -26,6 +27,7 @@ def get_dataset_id(dataset):
     if len(dataset_dicts) > 0:
         return dataset_dicts[0]['dataset_id']
     return None
+
 
 def get_label(qnode, default=None, lang='en'):
     qnode = sanitize(qnode)
@@ -41,6 +43,7 @@ def get_label(qnode, default=None, lang='en'):
     if len(label) > 0:
         return label[0]['label']
     return default
+
 
 def next_variable_value(dataset_id, prefix) -> int:
     dataset_id = sanitize(dataset_id)
@@ -62,6 +65,7 @@ and e_variable.label = 'P1813' and e_variable.node2 similar to '{prefix}[0-9]+';
         number = 0
     return number
 
+
 def node_exists(node1):
     node1 = sanitize(node1)
     query = f'''
@@ -72,17 +76,19 @@ def node_exists(node1):
     return len(result_dicts) > 0
 
 
-def fuzzy_query_variables(questions):
-
+def fuzzy_query_variables(questions, debug=False):
     if not questions:
         return []
 
-    print('questions:', questions)
+    if debug:
+        print('questions:', questions)
     sanitized = [sanitize(question) for question in questions]
     ts_queries = [f"plainto_tsquery('{question}')" for question in sanitized]
-    print('ts_queries', ts_queries)
+    if debug:
+        print('ts_queries', ts_queries)
     combined_ts_query = '(' + ' || '.join(ts_queries) + ')'
-    print('combined_ts_query:', combined_ts_query)
+    if debug:
+        print('combined_ts_query:', combined_ts_query)
     # Use Postgres's full text search capabilities
     sql = f"""
     SELECT fuzzy.variable_id, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, {combined_ts_query}) AS rank FROM
@@ -104,7 +110,8 @@ def fuzzy_query_variables(questions):
     ORDER BY rank DESC
     LIMIT 10
     """
-    print(sql)
+    if debug:
+        print(sql)
     results = query_to_dicts(sql)
 
     return results

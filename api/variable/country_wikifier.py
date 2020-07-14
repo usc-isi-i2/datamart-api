@@ -5,7 +5,7 @@ from functools import partial
 import rltk.similarity as sim
 from config import METADATA_DIR
 from abc import ABC, abstractmethod
-
+import os.path
 
 def word_tokenizer(s):
     return s.split(' ')
@@ -88,7 +88,7 @@ class DatamartCountryWikifier:
         self.similarity_unit = HybridJaccardSimilarity(tl_args={"ignore_case": True}, tokenizer="word")
         self._logger = logging.getLogger(__name__)
 
-        with open('{}/{}'.format(METADATA_DIR, cache_file), "r") as f:
+        with open(os.path.join(METADATA_DIR, cache_file), "r", encoding="utf-8") as f:
             self.memo = json.load(f)
 
     def save(self, loc: str = "country_wikifier_cache.json") -> None:
@@ -124,7 +124,7 @@ class DatamartCountryWikifier:
                         continue
 
                     self._logger.warning("`{}` not in record, will try to find the closest result".format(each))
-                    highest_score = 0
+                    highest_score = 0.0
                     best_res = ""
                     for each_candidate in self.memo.keys():
                         score = self.similarity_unit.similarity(input_str, each_candidate)

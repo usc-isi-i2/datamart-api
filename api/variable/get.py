@@ -1,30 +1,24 @@
-
-import os
-from typing import List, Any, Dict, Set
-
-from enum import Enum
-
-from flask import request, make_response, current_app
-
 import pandas as pd
-from api.util import TimePrecision
-
-from db.sql.utils import query_to_dicts
-from flask.blueprints import Blueprint
+from enum import Enum
 from db.sql import dal
 from db.sql.dal import Region
+from typing import List, Dict, Set
+from api.util import TimePrecision
+from flask import request, make_response
 from api.region_cache import region_cache
 
 DROP_QUALIFIERS = [
-    'pq:P585', 'P585' # time
-    'pq:P1640',  # curator
-    'pq:Pdataset', 'P2006020004' # dataset
+    'pq:P585', 'P585'  # time
+               'pq:P1640',  # curator
+    'pq:Pdataset', 'P2006020004'  # dataset
 ]
+
 
 class ColumnStatus(Enum):
     REQUIRED = 0
     DEFAULT = 1
     OPTIONAL = 2
+
 
 COMMON_COLUMN = {
     'dataset_id': ColumnStatus.DEFAULT,
@@ -53,6 +47,7 @@ COMMON_COLUMN = {
     'stated_in_id': ColumnStatus.DEFAULT
 }
 
+
 class GeographyLevel(Enum):
     COUNTRY = 0
     ADMIN1 = 1
@@ -60,13 +55,15 @@ class GeographyLevel(Enum):
     ADMIN3 = 3
     OTHER = 4
 
+
 class UnknownSubjectError(Exception):
     def __init__(self, *errors):
         super().__init__()
         self.errors = errors
 
     def get_error_dict(self):
-        return { 'Error': self.errors }
+        return {'Error': self.errors}
+
 
 class VariableGetter:
     def get(self, dataset, variable):
@@ -86,10 +83,10 @@ class VariableGetter:
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 
-        print((dataset, variable, include_cols, exclude_cols, limit, regions))
+        # print((dataset, variable, include_cols, exclude_cols, limit, regions))
         return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, regions)
 
-    def get_query_region_ids(self) -> Dict[str, List[str]]:  
+    def get_query_region_ids(self) -> Dict[str, List[str]]:
         # Returns all ids pf regions specifed in the URL in a dictionary based on region_type:
         # { country_id: [all countries in the query],
         #   admin1_id: [all admin1s in the query],
@@ -97,13 +94,10 @@ class VariableGetter:
         #   admin3_id: [all admin3s in the query] }
         # Raises an exception if non-existing regions are specified (by name or by ID)
 
-        unknown_names: List[str] = []
-        unknown_ids: List[str] = []
-
         # Consolidate all names and ids into two lists
-        args = { 
-            'country': Region.COUNTRY, 
-            'admin1': Region.ADMIN1, 
+        args = {
+            'country': Region.COUNTRY,
+            'admin1': Region.ADMIN1,
             'admin2': Region.ADMIN2,
             'admin3': Region.ADMIN3,
         }
@@ -116,11 +110,12 @@ class VariableGetter:
 
         # Query those regions
         found_regions_by_id = region_cache.get_regions(region_names=arg_names, region_ids=arg_ids)
-        found_regions_by_name: Dict[str, Set[Region]] = { }  # Organize by name for easy lookup, there can be numerous regions per name
+        found_regions_by_name: Dict[
+            str, Set[Region]] = {}  # Organize by name for easy lookup, there can be numerous regions per name
         for region in found_regions_by_id.values():
             name = region.admin.lower()
             if not name in found_regions_by_name:
-                found_regions_by_name[name] = { region }
+                found_regions_by_name[name] = {region}
             else:
                 found_regions_by_name[name].add(region)
 
@@ -154,10 +149,9 @@ class VariableGetter:
 
         return result_regions
 
-        
-    def get_result_regions(self, df) -> Dict[str, Region]:
+    def get_result_regions(self, df_location) -> Dict[str, Region]:
         # Get all the regions that have rows in the dataframe
-        region_ids = list(df['main_subject_id'].unique())
+        region_ids = [id for id in df_location.unique() if id is not None]
         regions = region_cache.get_regions(region_ids=region_ids)
         return regions
 
@@ -167,7 +161,8 @@ class VariableGetter:
         except ValueError:
             return 'N/A'
 
-    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, List[str]]={}):
+    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, List[str]] = {},
+                   return_df=False):
         result = dal.query_variable(dataset, variable)
         if not result:
             content = {
@@ -175,13 +170,16 @@ class VariableGetter:
             }
             return content, 404
 
-        # Output just the country column
-        admin_level = 0
+        qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
+        qualifier_names = set([q.name for q in qualifiers])
+        if 'time' not in qualifier_names:
+            if return_df:
+                return None
+            return '', 204
 
-        qualifiers = dal.query_qualifiers(result['variable_id'], result['property_id'])
-        qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
-        select_cols = self.get_columns(admin_level, include_cols, exclude_cols, qualifiers)
-        print(select_cols)
+        location_qualifier = 'location' in [q.name for q in qualifiers]
+        # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
+        select_cols = self.get_columns(include_cols, exclude_cols, qualifiers)
 
         # Needed for place columns
         if 'main_subject_id' in select_cols:
@@ -189,7 +187,11 @@ class VariableGetter:
         else:
             temp_cols = ['main_subject_id'] + select_cols
 
-        results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit, temp_cols)
+        if location_qualifier and 'location_id' not in temp_cols:
+            temp_cols = ['location_id'] + temp_cols
+
+        results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit,
+                                          temp_cols)
 
         result_df = pd.DataFrame(results, columns=temp_cols)
 
@@ -201,9 +203,12 @@ class VariableGetter:
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
 
         self.add_region_columns(result_df, select_cols)
-        print(result_df.head())
+
         if 'main_subject_id' not in select_cols:
             result_df = result_df.drop(columns=['main_subject_id'])
+
+        if return_df:
+            return result_df
 
         csv = result_df.to_csv(index=False)
         output = make_response(csv)
@@ -211,7 +216,7 @@ class VariableGetter:
         output.headers['Content-type'] = 'text/csv'
         return output
 
-    def get_columns(self, admin_level, include_cols, exclude_cols, qualifiers) -> List[str]:
+    def get_columns(self, include_cols, exclude_cols, qualifiers) -> List[str]:
         result = []
         for col, status in COMMON_COLUMN.items():
             if status == ColumnStatus.REQUIRED or col in include_cols:
@@ -220,29 +225,40 @@ class VariableGetter:
             if col in exclude_cols:
                 continue
             if status == ColumnStatus.DEFAULT:
-                if col.startswith('admin'):
-                    level = int(col[5])
-                    if level <= admin_level:
-                        result.append(col)
-                else:
-                    result.append(col)
-        for pq_node, col in qualifiers.items():
-            if col not in exclude_cols:
                 result.append(col)
-            col_id = f'{col}_id'
-            if col_id in include_cols:
-                result.append(col_id)
+        # Ignore qualifier fields for now
+        # for pq_node, col in qualifiers.items():
+        #    if col not in exclude_cols:
+        #        result.append(col)
+        #    col_id = f'{col}_id'
+        #    if col_id in include_cols:
+        #        result.append(col_id)
+
+        # Now go over the qualifiers, and add the main column of each qualifier by default
+        for qualifier in qualifiers:
+            for field in qualifier.fields.keys():
+                if (field == qualifier.main_column and field not in exclude_cols) or field in include_cols:
+                    if field not in result:
+                        result.append(field)
+
         return result
 
     def add_region_columns(self, df, select_cols: List[str]):
-        regions = self.get_result_regions(df)
+        if 'location_id' in df:
+            location_df = df['location_id']
+            location_in_qualifier = True
+        else:
+            location_df = df['main_subject_id']
+            location_in_qualifier = False
 
-        # Add main_subject, which is mandatory so we always set it
-        df['main_subject'] = df['main_subject_id'].map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
+        regions = self.get_result_regions(location_df)
+
+        # if not location_in_qualifier:
+        #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
-        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id', 'coordinate']
+        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id',
+                          'coordinate']
         for col in region_columns:
             if col in select_cols:
-                df[col] = df['main_subject_id'].map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
-
+                df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')

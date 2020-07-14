@@ -9,6 +9,7 @@ from api.util import TimePrecision
 from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
+from .ethiopia_wikifier import EthiopiaWikifier
 from .country_wikifier import DatamartCountryWikifier
 
 
@@ -24,7 +25,19 @@ class CanonicalData(object):
             'time_precision',
             'country'
         ]
+        self.non_qualifier_columns = [
+            'main_subject_id',
+            'country_id',
+            'source_id',
+            'value_unit_id',
+            'source',
+            'value_unit',
+            'dataset_id',
+            'variable_id'
+        ]
         self.vd = VariableDeleter()
+        self.country_wikifier = DatamartCountryWikifier()
+        self.ethiopia_wikifier = EthiopiaWikifier()
 
     @staticmethod
     def format_sql_string(values, value_type='str'):
@@ -41,9 +54,11 @@ class CanonicalData(object):
         # q_type can be 'Unit' or 'Source' for now
         # create qnodes for units with this scheme {dataset_id}Unit-{d}
         if q_type == 'Unit':
+            # noinspection SqlNoDataSourceInspection
             _query = "SELECT max(e.node1) as qnode_max FROM edges e WHERE e.label = 'P31' and e.node2 = 'Q47574' and" \
                      " e.node1 like '{}{}-%'".format(dataset_id, q_type)
         else:
+            # noinspection SqlNoDataSourceInspection
             _query = "SELECT max(e.node1) as qnode_max FROM edges e WHERE e.node1 like '{}{}-%'".format(dataset_id,
                                                                                                         q_type)
 
@@ -80,7 +95,7 @@ class CanonicalData(object):
                 hashlib.sha256(bytes('{}{}{}{}'.format(node1, label, node2, id_index), encoding='utf-8')).hexdigest())
         }
 
-    def create_kgtk_measurements(self, row, dataset_id, variable_id):
+    def create_kgtk_measurements(self, row, dataset_id, variable_id, qualifier_dict):
         kgtk_measurement_temp = list()
         main_subject = row['main_subject_id'].strip()
         if main_subject:
@@ -99,6 +114,10 @@ class CanonicalData(object):
                 self.create_triple(main_triple_id, 'P585',
                                    '{}/{}'.format('{}{}'.format('^', row['time']),
                                                   self.tp.to_int(row['time_precision'].lower()))))
+            for k in qualifier_dict:
+                if row[k].strip():
+                    kgtk_measurement_temp.append(
+                        self.create_triple(main_triple_id, qualifier_dict[k], json.dumps(row[k])))
             if 'country_id' in row:
                 country_id = row['country_id'].strip()
                 if country_id:
@@ -140,7 +159,15 @@ class CanonicalData(object):
                 valid_file = False
 
             try:
-                precision = self.tp.to_int(row['time_precision'])
+                if row['time_precision'].strip() != '':
+                    precision = self.tp.to_int(row['time_precision'])
+                else:
+                    validator_log.append(
+                        self.error_row(f"Time precision cannot be blank", i + 2, 'time_precision',
+                                       f"Legal precision values are: \'{','.join(list(self.tp.name_int_map))}\'"
+                                       ))
+                    valid_file = False
+
             except ValueError:
                 validator_log.append(
                     self.error_row(f"Illegal precision value: \'{row['time_precision']}\'", i + 2, 'time_precision',
@@ -230,9 +257,59 @@ class CanonicalData(object):
             'Description': description
         }
 
+    def get_qualifiers(self, variable_qnode, qualifier_labels=None):
+        if qualifier_labels is not None:
+            formatted_qualifiers = self.format_sql_string(qualifier_labels)
+
+            # noinspection SqlNoDataSourceInspection
+            qualifier_query = f"""select e_qual.node1, e_qual.node2
+                                    from edges e_var
+                                    join edges e_qual ON e_var.node2 = e_qual.node1
+                                    where e_var.label = 'P2006020002'
+                                    and e_qual.label = 'label'
+                                    and e_qual.node2 in ({formatted_qualifiers})
+                                and e_var.node1 = '{variable_qnode}'"""
+
+            qualifier_results = query_to_dicts(qualifier_query)
+
+            _ = {}
+            for r in qualifier_results:
+                _[r['node2']] = r['node1']
+            return _
+        else:
+            # noinspection SqlNoDataSourceInspection
+            qualifier_query = f"""select e_qual.node1, e_qual.node2
+                                    from edges e_var
+                                    join edges e_qual ON e_var.node2 = e_qual.node1
+                                    where e_var.label = 'P2006020002'
+                                    and e_var.node1 = '{variable_qnode}'"""
+
+            qualifier_results = query_to_dicts(qualifier_query)
+
+            _ = {}
+            for r in qualifier_results:
+                _[r['node1']] = 1
+            return _
+
+    def create_qualifier_edges(self, qualifiers_to_be_created, variable_qnode):
+        edges = []
+        q_dict = {}
+        for qualifier in qualifiers_to_be_created:
+            if qualifier == 'P585':
+                edges.append(self.create_triple(variable_qnode, 'P2006020002', 'P585'))
+            elif qualifier == 'P248':
+                edges.append(self.create_triple(variable_qnode, 'P2006020002', 'P248'))
+            else:
+                _pnode = f"P{variable_qnode}-QUALIFIER-{qualifier.strip()}"
+                edges.append(self.create_triple(variable_qnode, 'P2006020002', _pnode))
+                edges.append(self.create_triple(_pnode, 'label', json.dumps(qualifier)))
+                q_dict[qualifier] = _pnode
+
+        return edges, q_dict
+
     def canonical_data(self, dataset, variable, is_request_put=True):
         wikify = request.args.get('wikify', 'false').lower() == 'true'
-        print(wikify)
+
         # check if the dataset exists
         dataset_id = dal.get_dataset_id(dataset)
 
@@ -243,6 +320,7 @@ class CanonicalData(object):
         # P2006020003 - Variable Measured
         # P1687 - Corresponds to property
 
+        # noinspection SqlNoDataSourceInspection
         variable_query = f"""Select e.node1, e.node2 from edges e where e.node1 in (
                                 select e_variable.node1 from edges e_variable
                                         where e_variable.node1 in
@@ -255,17 +333,18 @@ class CanonicalData(object):
                                 )
                                 and e.label = 'P1687'
                                     """
-        print(variable_query)
+
         variable_result = query_to_dicts(variable_query)
         if len(variable_result) == 0:
             return {'error': 'Variable: {} not found for the dataset: {}'.format(variable, dataset)}, 404
 
         variable_pnode = variable_result[0]['node2']
+        variable_qnode = variable_result[0]['node1']
 
         kgtk_format_list = list()
 
         # dataset and variable has been found, wikify and upload the data
-        df = pd.read_csv(request.files['file'], dtype=object)
+        df = pd.read_csv(request.files['file'], dtype=object).fillna('')
         column_map = {}
         _d_columns = list(df.columns)
         for c in _d_columns:
@@ -275,21 +354,51 @@ class CanonicalData(object):
 
         d_columns = list(df.columns)
 
+        qualifier_columns = [x for x in d_columns if
+                             x not in self.non_qualifier_columns and x not in self.required_fields]
+
+        qualifer_dict = {}
+        if qualifier_columns:
+            # extra columns in the file, qualifier time
+            # first see if any qualifier already exist
+            qualifer_dict = self.get_qualifiers(variable_qnode, qualifier_labels=qualifier_columns)
+            qualifier_to_be_created = [x for x in qualifier_columns if x not in qualifer_dict]
+            qualifier_edges, new_q_dict = self.create_qualifier_edges(qualifier_to_be_created, variable_qnode)
+            kgtk_format_list.extend(qualifier_edges)
+            qualifer_dict.update(new_q_dict)
+
+        existing_qualifiers = self.get_qualifiers(variable_qnode)
+        extra_qualifiers = []
+        if 'P585' not in existing_qualifiers:
+            extra_qualifiers.append('P585')
+        if 'P248' not in existing_qualifiers:
+            extra_qualifiers.append('P248')
+        extra_qualifier_edges, _ = self.create_qualifier_edges(extra_qualifiers, variable_qnode)
+        kgtk_format_list.extend(extra_qualifier_edges)
+
         # validate file headers first
         validator_header_log, valid_file = self.validate_headers(df)
         if not valid_file:
             return validator_header_log, 400
 
-        country_wikifier = DatamartCountryWikifier()
+        countries = list(df['country'].unique())
 
         if 'main_subject_id' not in d_columns or wikify:
             main_subjects = list(df['main_subject'].unique())
-            main_subjects_wikified = country_wikifier.wikify(main_subjects)
-            df['main_subject_id'] = df['main_subject'].map(lambda x: main_subjects_wikified[x])
+            main_subjects_wikified = self.country_wikifier.wikify(main_subjects)
+            all_invalid = all([main_subjects_wikified[k] is None for k in main_subjects_wikified])
+            _country = df['country']
+            if all_invalid and countries[0].strip().lower() == 'ethiopia':
+                # must be Ethiopia regions
+                df = self.ethiopia_wikifier.produce(input_df=df, target_column='main_subject',
+                                                    output_column_name='main_subject_id')
+
+
+            else:
+                df['main_subject_id'] = df['main_subject'].map(lambda x: main_subjects_wikified[x])
 
         if 'country_id' not in d_columns or wikify:
-            countries = list(df['country'].unique())
-            countries_wikified = country_wikifier.wikify(countries)
+            countries_wikified = self.country_wikifier.wikify(countries)
             df['country_id'] = df['country'].map(lambda x: countries_wikified[x])
 
         # validate file contents
@@ -300,6 +409,7 @@ class CanonicalData(object):
         if 'value_unit' in d_columns and ('value_unit_id' not in d_columns or wikify):
             units = list(df['value_unit'].unique())
 
+            # noinspection SqlNoDataSourceInspection
             units_query = "SELECT e.node1, e.node2 FROM edges e WHERE e.node2 in ({}) and e.label = 'label'".format(
                 self.format_sql_string(units))
 
@@ -327,6 +437,7 @@ class CanonicalData(object):
         if 'source' in d_columns and ('source_id' not in d_columns or wikify):
             sources = list(df['source'].unique())
 
+            # noinspection SqlNoDataSourceInspection
             sources_query = "SELECT  e.node1, e.node2 FROM edges e WHERE e.label = 'label' and e.node2 in  ({})".format(
                 self.format_sql_string(sources))
 
@@ -347,7 +458,7 @@ class CanonicalData(object):
                 kgtk_format_list.append(self.create_triple(no_source_qnode_dict[k], 'label', json.dumps(k)))
 
         for i, row in df.iterrows():
-            kgtk_format_list.extend(self.create_kgtk_measurements(row, dataset_id, variable_pnode))
+            kgtk_format_list.extend(self.create_kgtk_measurements(row, dataset_id, variable_pnode, qualifer_dict))
 
         if is_request_put:
             # this is a PUT request, delete all data for this variable and upload the current data

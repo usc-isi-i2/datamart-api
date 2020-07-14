@@ -2,6 +2,7 @@ from flask_restful import Resource
 from .get import VariableGetter
 from .put import CanonicalData
 from .delete import VariableDeleter
+from .get_all import VariableGetterAll
 
 
 class VariableResource(Resource):
@@ -20,3 +21,9 @@ class VariableResource(Resource):
     def delete(self, dataset, variable):
         imp = VariableDeleter()
         return imp.delete(dataset, variable)
+
+
+class VariableResourceAll(Resource):
+    def get(self, dataset=None):
+        g = VariableGetterAll()
+        return g.get(dataset)
