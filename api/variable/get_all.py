@@ -34,9 +34,12 @@ class VariableGetterAll:
         df_list = []
         for variable in variables:
             _ = self.vg.get_direct(dataset, variable, include_cols, exclude_cols, -1, regions, return_df=True)
-
+            metadata = self.vmr.get(dataset, variable)[0]
+            qualifiers = metadata['qualifier']
+            generic_qualifiers = [x['name'] for x in qualifiers if x['identifier'] not in ('P585', 'P248')]
+            
             if _ is not None:
-                _ = self.reshape_canonical_data(_)
+                _ = self.reshape_canonical_data(_, generic_qualifiers)
                 df_list.append(_)
         df = pd.concat(df_list)
         df.drop(columns=['value', 'value_unit', 'variable_id', 'variable'], inplace=True)
@@ -46,12 +49,15 @@ class VariableGetterAll:
         output.headers['Content-type'] = 'text/csv'
         return output
 
-    def reshape_canonical_data(self, df):
+    def reshape_canonical_data(self, df, qualifier_columns_to_reshape):
         new_df = pd.DataFrame(columns=df.columns)
         for i, row in df.iterrows():
             row[f"{row['variable_id']}"] = row['value']
-            row['{}_unit'.format(row['variable_id'])] = row['value_unit']
-            row['{}_name'.format(row['variable_id'])] = row['variable']
+            row['{}_UNIT'.format(row['variable_id'])] = row['value_unit']
+            row['{}_NAME'.format(row['variable_id'])] = row['variable']
+            for q in qualifier_columns_to_reshape:
+                row['{}_QUALIFIER_{}'.format(row['variable_id'], q)] = row[q]
 
             new_df = new_df.append(row)
+        new_df.drop(columns=qualifier_columns_to_reshape, inplace=True)
         return new_df
