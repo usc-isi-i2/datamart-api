@@ -138,7 +138,7 @@ class VariableMetadataResource(Resource):
 
     def get(self, dataset, variable=None):
         if variable is None:
-            results = dal.query_dataset_variables(dataset)
+            results = dal.query_dataset_variables(dataset, True)
             if results is None:
                 return {'Error': f"No dataset {dataset}"}, 404
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
@@ -159,7 +159,7 @@ class FuzzySearchResource(Resource):
             return {'Error': 'A variable query must be provided: keyword'}, 400
 
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries)
+        results = dal.fuzzy_query_variables(queries, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
