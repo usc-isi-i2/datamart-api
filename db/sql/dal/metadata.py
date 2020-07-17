@@ -74,7 +74,7 @@ def query_dataset_variables(dataset, debug=False):
 
     return query_variables_metadata(inner_query, debug)
 
-def query_variable_metadata(dataset, variable, debug=True):
+def query_variable_metadata(dataset, variable, debug=False):
     dataset_id = get_dataset_id(dataset)  # Already sanitizes
     if not dataset_id:
         return None

@@ -26,23 +26,27 @@ class VariableGetterAll:
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 
+        variables_metadata = []
         if len(request_variables) > 0:
             variables = request_variables
+            for v in variables:
+                variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
         else:
-            variables = [x['variable_id'] for x in self.vmr.get(dataset)[0]][:limit]
+            variables_metadata = self.vmr.get(dataset)[0]
 
+        variables_metadata = variables_metadata[:limit]
         df_list = []
-        for variable in variables:
-            _ = self.vg.get_direct(dataset, variable, include_cols, exclude_cols, -1, regions, return_df=True)
-            metadata = self.vmr.get(dataset, variable)[0]
-            qualifiers = metadata['qualifier']
-            generic_qualifiers = [x['name'] for x in qualifiers if x['identifier'] not in ('P585', 'P248')]
-            
+        for variable in variables_metadata:
+            _ = self.vg.get_direct(dataset, variable['variable_id'], include_cols, exclude_cols, -1, regions,
+                                   return_df=True)
+            qualifiers = variable['qualifier']
+            generic_qualifiers = [x['name'] for x in qualifiers if x['identify'] not in ('P585', 'P248')]
+
             if _ is not None:
                 _ = self.reshape_canonical_data(_, generic_qualifiers)
                 df_list.append(_)
         df = pd.concat(df_list)
-        df.drop(columns=['value', 'value_unit', 'variable_id', 'variable'], inplace=True)
+        # df.drop(columns=['value', 'value_unit', 'variable_id', 'variable'], inplace=True)
         csv = df.to_csv(index=False)
         output = make_response(csv)
         output.headers['Content-Disposition'] = f'attachment; filename={dataset}_variables_all.csv'
@@ -59,5 +63,7 @@ class VariableGetterAll:
                 row['{}_QUALIFIER_{}'.format(row['variable_id'], q)] = row[q]
 
             new_df = new_df.append(row)
-        new_df.drop(columns=qualifier_columns_to_reshape, inplace=True)
+        c_to_d = qualifier_columns_to_reshape
+        c_to_d.extend(['value', 'value_unit', 'variable_id', 'variable'])
+        new_df.drop(columns=c_to_d, inplace=True)
         return new_df
