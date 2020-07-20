@@ -193,7 +193,7 @@ class VariableGetter:
         results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit,
                                           temp_cols)
 
-        result_df = pd.DataFrame(results, columns=temp_cols)
+        result_df = pd.DataFrame(results, columns=temp_cols).fillna('')
 
         if 'dataset_id' in result_df.columns:
             result_df['dataset_id'] = dataset
