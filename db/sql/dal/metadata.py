@@ -177,7 +177,7 @@ def query_variables_metadata(variable_select: str, debug=False):
                 current_list = current_result[entity] = []
 
             if add_ids:
-                element = {'name': row['name'], 'identify': row['identifier']}
+                element = {'name': row['name'], 'identifier': row['identifier']}
             else:
                 element = row['name']
             current_list.append(element)
