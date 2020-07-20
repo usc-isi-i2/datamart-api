@@ -11,6 +11,7 @@ from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from .ethiopia_wikifier import EthiopiaWikifier
 from .country_wikifier import DatamartCountryWikifier
+from db.sql.dal.general import sanitize
 
 
 class CanonicalData(object):
@@ -354,13 +355,20 @@ class CanonicalData(object):
 
         d_columns = list(df.columns)
 
-        qualifier_columns = [x for x in d_columns if
-                             x not in self.non_qualifier_columns and x not in self.required_fields]
+        unsanitized_qualifier_columns = [x for x in d_columns if
+                                         x not in self.non_qualifier_columns and x not in self.required_fields]
+        s_qualifier_columns = {}
+        for qc in unsanitized_qualifier_columns:
+            s_qualifier_columns[qc] = sanitize(qc)
 
+        df = df.rename(columns=s_qualifier_columns)
+        d_columns = list(df.columns)
+
+        qualifier_columns = [s_qualifier_columns[k] for k in s_qualifier_columns]
         qualifer_dict = {}
         if qualifier_columns:
             # extra columns in the file, qualifier time
-            # first see if any qualifier already exist
+            # first see if any qualifiers already exist
             qualifer_dict = self.get_qualifiers(variable_qnode, qualifier_labels=qualifier_columns)
             qualifier_to_be_created = [x for x in qualifier_columns if x not in qualifer_dict]
             qualifier_edges, new_q_dict = self.create_qualifier_edges(qualifier_to_be_created, variable_qnode)
