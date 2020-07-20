@@ -36,17 +36,19 @@ class VariableGetterAll:
 
         variables_metadata = variables_metadata[:limit]
         df_list = []
+
         for variable in variables_metadata:
             _ = self.vg.get_direct(dataset, variable['variable_id'], include_cols, exclude_cols, -1, regions,
                                    return_df=True)
+
             qualifiers = variable['qualifier']
             generic_qualifiers = [x['name'] for x in qualifiers if x['identify'] not in ('P585', 'P248')]
 
             if _ is not None:
                 _ = self.reshape_canonical_data(_, generic_qualifiers)
                 df_list.append(_)
+
         df = pd.concat(df_list)
-        # df.drop(columns=['value', 'value_unit', 'variable_id', 'variable'], inplace=True)
         csv = df.to_csv(index=False)
         output = make_response(csv)
         output.headers['Content-Disposition'] = f'attachment; filename={dataset}_variables_all.csv'
