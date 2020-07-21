@@ -12,6 +12,9 @@ RUN pip install -r src/requirements.txt
 RUN git clone https://github.com/usc-isi-i2/table-linker && cd table-linker && git checkout jun_devel
 RUN pip install -e table-linker
 
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cs t2wml-annotation
+RUN pip install -e t2wml-annotation
+
 COPY . /src
 RUN mkdir -p /src/instance
 COPY docker/docker_config.py /src/instance/config.py
