@@ -6,12 +6,13 @@ import pandas as pd
 from db.sql import dal
 from flask import request
 from api.util import TimePrecision
+from db.sql.dal.general import sanitize
 from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from .ethiopia_wikifier import EthiopiaWikifier
 from .country_wikifier import DatamartCountryWikifier
-from db.sql.dal.general import sanitize
+
 
 
 class CanonicalData(object):
