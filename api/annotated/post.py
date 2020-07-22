@@ -5,12 +5,14 @@ from flask import request
 from annotation.validation.validate_annotation import VaidateAnnotation
 from annotation.generation.generate_t2wml import ToT2WML
 from annotation.generation.generate_kgtk import GenerateKgtk
+from api.metadata.main import VariableMetadataResource
 from db.sql.kgtk import import_kgtk_dataframe
 
 
 class AnnotatedData(object):
     def __init__(self):
         self.va = VaidateAnnotation()
+        self.vmr = VariableMetadataResource()
 
     def process(self, dataset):
         # check if the dataset exists
@@ -27,14 +29,19 @@ class AnnotatedData(object):
         # get the t2wml yaml file
         # TODO finish this section
         to_t2wml = ToT2WML(df)
-        t2wml_yaml = to_t2wml.get_yaml()
+        t2wml_yaml_dict = to_t2wml.get_dict()
 
         # generate kgtk exploded file
         # TODO finish this section
-        gk = GenerateKgtk(df)
-        kgtk_exploded_df = gk.generate_edges("somepath")
+        gk = GenerateKgtk(df, t2wml_yaml_dict)
+        kgtk_exploded_df = gk.generate_edges_df()
 
         # import to database
         import_kgtk_dataframe(kgtk_exploded_df)
 
-        return "File imported successfully!", 201
+        variables_metadata = []
+        variable_ids = gk.get_variables()
+        for v in variable_ids:
+            variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
+
+        return variables_metadata, 201
