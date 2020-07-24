@@ -227,7 +227,7 @@ def preprocess_qualifiers(qualifiers: List[Qualifier], cols: List[str]) -> Tuple
 
         joins.append(qualifier.join_clause)
         for field in used_fields:
-            fields.append(qualifier.fields[field] + " AS " + field)
+            fields.append(qualifier.fields[field] + " AS \"" + field + "\"")
 
     return ',\n\t\t'.join(fields), '\n'.join(joins)
 
