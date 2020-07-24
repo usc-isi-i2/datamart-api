@@ -26,7 +26,7 @@ api.add_resource(VariableMetadataResource, '/metadata/datasets/<string:dataset>/
                  '/metadata/datasets/<string:dataset>/variables/<string:variable>')
 api.add_resource(FuzzySearchResource, '/metadata/variables')
 api.add_resource(RegionSearchResource, '/metadata/regions')
-api.add_resource(AnnotatedResource, 'datasets/<string:dataset>/annotated')
+api.add_resource(AnnotatedResource, '/datasets/<string:dataset>/annotated')
 
 if __name__ == '__main__':
     app.run()
