@@ -146,20 +146,21 @@ def import_kgtk_tsv(filename: str, config=None):
     session.commit()
 
 
-def import_kgtk_dataframe(df, config=None):
+def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
     temp_dir = tempfile.mkdtemp()
     try:
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
         exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
 
         df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
+        if not is_file_exploded:
+            subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
 
-        # TODO: Are we sure kgtk is on the path
-        subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
+            if not os.path.isfile(exploded_tsv_path):
+                raise ValueError("Couldn't create exploded TSV file")
 
-        if not os.path.isfile(exploded_tsv_path):
-            raise ValueError("Couldn't create exploded TSV file")
-
-        import_kgtk_tsv(exploded_tsv_path, config)
+            import_kgtk_tsv(exploded_tsv_path, config)
+        else:
+            import_kgtk_tsv(tsv_path, config=config)
     finally:
         shutil.rmtree(temp_dir)
