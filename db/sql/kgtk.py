@@ -96,7 +96,7 @@ def create_edge_objects(row):
 
     def get_symbol_object(row):
         symbol = row['node2;kgtk:symbol']
-        if symbol == '':
+        if symbol == '' or symbol is None:
             return None
         return SymbolValue(edge_id=row['id'], symbol=symbol)
 
