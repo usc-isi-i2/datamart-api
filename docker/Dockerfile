@@ -12,7 +12,7 @@ RUN pip install -r src/requirements.txt
 RUN git clone https://github.com/usc-isi-i2/table-linker && cd table-linker && git checkout jun_devel
 RUN pip install -e table-linker
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cs t2wml-annotation
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation
 RUN pip install -e t2wml-annotation
 
 RUN pip install --extra-index-url https://pypi.fury.io/theresearchsoftwarecompany/ t2wml-standalone==2.0a19
