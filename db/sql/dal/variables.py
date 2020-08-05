@@ -53,11 +53,12 @@ class Qualifier:
 
     @property
     def main_column(self):
-        return self.name.replace(' ', '_')
+        return self.name
 
     def _init_sql(self):
         main_name = self.main_column
-        main_table = 'e_' + main_name
+        underscored_main_name = main_name.replace(' ', '_')
+        main_table = 'e_' + underscored_main_name
         if self.is_optional:
             join_clause = 'LEFT '
         else:
@@ -72,8 +73,8 @@ class Qualifier:
                 main_name + "_precision": f"{satellite_table}.precision",
             }
         elif self.data_type == 'quantity':
-            satellite_table = 'q_' + main_name
-            unit_table = 'e_' + main_name + '_unit_label'
+            satellite_table = 'q_' + underscored_main_name
+            unit_table = 'e_' + underscored_main_name + '_unit_label'
             unit_string_table = 's' + unit_table[1:]
             satellite_join = f"""
                 JOIN quantities {satellite_table}
@@ -88,7 +89,7 @@ class Qualifier:
                 main_name + "_unit": f"{unit_string_table}.text"
             }
         elif self.data_type == 'symbol' or self.data_type == 'location':  # Locations are just symbols at this point
-            label_table = 'e_' + main_name + '_label'
+            label_table = 'e_' + underscored_main_name + '_label'
             label_string_table = 's' + label_table[1:]
             satellite_join = f"""
                 JOIN edges {label_table}
@@ -99,7 +100,7 @@ class Qualifier:
                 main_name + "_id": f"{main_table}.node2"
             }
         elif self.data_type == 'string':
-            satellite_table = 's_' + main_name
+            satellite_table = 's_' + underscored_main_name
             satellite_join = f"""
                 JOIN strings {satellite_table} ON ({main_table}.id={satellite_table}.edge_id)
             """
@@ -107,7 +108,7 @@ class Qualifier:
                 main_name: f"{satellite_table}.text",
             }
         elif self.data_type == 'coordinate':
-            satellite_table = 'c_' + main_name
+            satellite_table = 'c_' + underscored_main_name
             satellite_join = f"""
                 JOIN coordinates {satellite_table} ON ({main_table}.id={satellite_table}.edge_id)
             """
