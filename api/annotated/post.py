@@ -22,10 +22,14 @@ class AnnotatedData(object):
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
         file_name = request.files['file'].filename
-        if not file_name.endswith('.xlsx'):
-            return {"error": "Please upload an annotated excel file (xlsx)"}, 400
+        if not (file_name.endswith('.xlsx') or file_name.endswith('.csv')):
+            return {"error": "Please upload an annotated excel file or a csv file "
+                             "(file name ending with .xlsx or .csv)"}, 400
 
-        df = pd.read_excel(request.files['file'], dtype=object, header=None).fillna('')
+        if file_name.endswith('.xlsx'):
+            df = pd.read_excel(request.files['file'], dtype=object, header=None).fillna('')
+        elif file_name.endswith('.csv'):
+            df = pd.read_csv(request.files['file'], dtype=object, header=None).fillna('')
 
         validation_report, valid_annotated_file = self.va.validate(dataset, df=df)
         if not valid_annotated_file:
