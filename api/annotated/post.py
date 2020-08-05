@@ -21,6 +21,10 @@ class AnnotatedData(object):
         if not dataset_qnode:
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
+        file_name = request.files['file'].filename
+        if not file_name.endswith('.xlsx'):
+            return {"error": "Please upload an annotated excel file (xlsx)"}, 400
+
         df = pd.read_excel(request.files['file'], dtype=object, header=None).fillna('')
 
         validation_report, valid_annotated_file = self.va.validate(dataset, df=df)
@@ -40,7 +44,6 @@ class AnnotatedData(object):
         gk = GenerateKgtk(df, t2wml_yaml_dict, dataset_qnode=dataset_qnode, debug=True, debug_dir='/tmp')
         gk.output_df_dict['wikifier.csv'].to_csv('/tmp/wikifier.csv', index=False)
         kgtk_exploded_df = gk.generate_edges_df()
-
 
         kgtk_exploded_df.to_csv('/tmp/t2wml-ann.csv', index=False)
 
