@@ -143,7 +143,7 @@ class VariableMetadataResource(Resource):
                 return {'Error': f"No dataset {dataset}"}, 404
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
         else:
-            results = dal.query_variable_metadata(dataset, variable)
+            results = dal.query_variable_metadata(dataset, variable, debug=True)
             if results is None:
                 return {'Error': f"No variable {variable} in dataset {dataset}"}, 404
             results['dataset_id'] = dataset
@@ -151,6 +151,21 @@ class VariableMetadataResource(Resource):
 
         return results, 200
 
+    def delete(self, dataset, variable=None):
+        if variable is None:
+            return {'Error': f"Variable must be specified for deleting metadata"}, 400
+        
+        result = dal.query_variable(dataset, variable)
+        if not result:
+            content = {
+                'Error': f'Could not find dataset {dataset} variable {variable}'
+            }
+            return content, 404
+
+        if dal.variable_data_exists(result['dataset_id'], result['variable_id'], result['property_id']):
+            return {'Error':  f"Please delete variable data before deleting metadata"}, 409
+
+        return {'Error': f"Not implemented yet"}, 500
 
 class FuzzySearchResource(Resource):
     def get(self):

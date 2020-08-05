@@ -319,3 +319,21 @@ def delete_variable(dataset_id, variable_id, property_id, debug=False):
             if debug:
                 print(query)
             cursor.execute(query)
+
+def variable_data_exists(dataset_id, variable_id, property_id, debug=False):
+    # Everything here is running under the same transaction
+
+    # 
+    query = f"""
+            SELECT e_main.id
+                FROM edges AS e_main
+                JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
+            WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
+            LIMIT 1
+    """
+    if debug:
+        print(query)
+
+    result = query_to_dicts(query)
+    return len(result) > 0
+
