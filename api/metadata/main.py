@@ -165,7 +165,8 @@ class VariableMetadataResource(Resource):
         if dal.variable_data_exists(result['dataset_id'], result['variable_id'], result['property_id']):
             return {'Error':  f"Please delete variable data before deleting metadata"}, 409
 
-        return {'Error': f"Not implemented yet"}, 500
+        dal.delete_variable_metadata(result['dataset_id'], result['variable_qnode'])
+        return {}, 204
 
 class FuzzySearchResource(Resource):
     def get(self):
