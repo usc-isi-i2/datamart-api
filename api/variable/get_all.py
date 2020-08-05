@@ -1,4 +1,5 @@
 import pandas as pd
+from db.sql import dal
 from flask import request, make_response
 from api.variable.get import VariableGetter
 from api.variable.get import UnknownSubjectError
@@ -10,6 +11,12 @@ class VariableGetterAll:
     vmr = VariableMetadataResource()
 
     def get(self, dataset):
+        # check if the dataset exists
+        dataset_id = dal.get_dataset_id(dataset)
+
+        if not dataset_id:
+            return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
+
         request_variables = request.args.getlist('variable') or []
         include_cols = request.args.getlist('include') or []
         exclude_cols = request.args.getlist('exclude') or []
@@ -37,17 +44,20 @@ class VariableGetterAll:
         variables_metadata = variables_metadata[:limit]
         df_list = []
 
+        # for variable in variables_metadata:
+        #
+        #     _ = self.vg.get_direct(dataset, variable['variable_id'], include_cols, exclude_cols, -1, regions,
+        #                            return_df=True)
+        #
+        #     qualifiers = variable['qualifier']
+        #     generic_qualifiers = [x['name'] for x in qualifiers if x['identifier'] not in ('P585', 'P248')]
+        #
+        #     if _ is not None:
+        #         _ = self.reshape_canonical_data(_, generic_qualifiers)
+        #         df_list.append(_)
         for variable in variables_metadata:
-
-            _ = self.vg.get_direct(dataset, variable['variable_id'], include_cols, exclude_cols, -1, regions,
-                                   return_df=True)
-
-            qualifiers = variable['qualifier']
-            generic_qualifiers = [x['name'] for x in qualifiers if x['identifier'] not in ('P585', 'P248')]
-
-            if _ is not None:
-                _ = self.reshape_canonical_data(_, generic_qualifiers)
-                df_list.append(_)
+            df_list.append(self.vg.get_direct(dataset, variable['variable_id'], include_cols, exclude_cols, -1, regions,
+                                              return_df=True))
 
         df = pd.concat(df_list)
         csv = df.to_csv(index=False)
