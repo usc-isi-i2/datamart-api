@@ -60,8 +60,8 @@ class AnnotatedData(object):
 
         # delete the variable canonical data and metadata before inserting into databse again!!
         for v in variable_ids:
-            self.vd.delete(dataset, v)
-            self.vmr.delete(dataset, v)
+            print(self.vd.delete(dataset, v))
+            print(self.vmr.delete(dataset, v))
 
         # import to database
         import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
