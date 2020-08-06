@@ -2,17 +2,19 @@ import json
 import pandas as pd
 from db.sql import dal
 from flask import request
-from annotation.validation.validate_annotation import VaidateAnnotation
+from db.sql.kgtk import import_kgtk_dataframe
+from api.variable.delete import VariableDeleter
+from api.metadata.main import VariableMetadataResource
 from annotation.generation.generate_t2wml import ToT2WML
 from annotation.generation.generate_kgtk import GenerateKgtk
-from api.metadata.main import VariableMetadataResource
-from db.sql.kgtk import import_kgtk_dataframe
+from annotation.validation.validate_annotation import VaidateAnnotation
 
 
 class AnnotatedData(object):
     def __init__(self):
         self.va = VaidateAnnotation()
         self.vmr = VariableMetadataResource()
+        self.vd = VariableDeleter()
 
     def process(self, dataset):
         # check if the dataset exists
@@ -51,12 +53,17 @@ class AnnotatedData(object):
 
         kgtk_exploded_df.to_csv('/tmp/t2wml-ann.csv', index=False)
 
-        # import to database
-        import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
-
         variables_metadata = []
         variable_ids = gk.get_variable_ids()
         for v in variable_ids:
             variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
+
+        # delete the variable canonical data and metadata before inserting into databse again!!
+        for v in variable_ids:
+            self.vd.delete(dataset, v)
+            self.vmr.delete(dataset, v)
+
+        # import to database
+        import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
 
         return variables_metadata, 201

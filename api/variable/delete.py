@@ -1,5 +1,6 @@
 from db.sql import dal
 
+
 class VariableDeleter():
     def delete(self, dataset, variable):
         result = dal.query_variable(dataset, variable)
@@ -10,5 +11,4 @@ class VariableDeleter():
             return content, 404
 
         dal.delete_variable(result['dataset_id'], result['variable_id'], result['property_id'])
-        return {}, 204
-
+        return {"Message": f'Canonical data for Variable: {variable} in Dataset: {dataset} is deleted.'}, 200
