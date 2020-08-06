@@ -41,7 +41,7 @@ COMMON_COLUMN = {
     'admin3_id': ColumnStatus.OPTIONAL,
     'place': ColumnStatus.OPTIONAL,
     'place_id': ColumnStatus.OPTIONAL,
-    'coordinate': ColumnStatus.DEFAULT,
+    'region_coordinate': ColumnStatus.DEFAULT,
     'shape': ColumnStatus.OPTIONAL,
     'stated_in': ColumnStatus.DEFAULT,
     'stated_in_id': ColumnStatus.DEFAULT
@@ -258,7 +258,7 @@ class VariableGetter:
 
         # Add the other columns
         region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id',
-                          'coordinate']
+                          'region_coordinate']
         for col in region_columns:
             if col in select_cols:
                 df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
