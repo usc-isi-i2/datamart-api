@@ -166,7 +166,7 @@ class VariableMetadataResource(Resource):
             return {'Error':  f"Please delete variable data before deleting metadata"}, 409
 
         dal.delete_variable_metadata(result['dataset_id'], result['variable_qnode'])
-        return {}, 204
+        return {'Message': f'Variable: {variable} in the dataset: {dataset} has been deleted.'}, 200
 
 class FuzzySearchResource(Resource):
     def get(self):
