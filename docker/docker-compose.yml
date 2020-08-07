@@ -28,6 +28,32 @@ services:
         - "80"
     ports:
         - "14080:80"
+    network_mode: "host"
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.0
+    container_name: datamart-es
+    environment:
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ../dev-env/data/es:/usr/share/elasticsearch/data
+    network_mode: "host"
+
+  # the initializer docker, will exit after initialization finished
+  initializer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - es01
+    command: sh /src/docker/es-init.sh
+    network_mode: "host"
 
 # Use internal Docker presistent volumes for Postgres storage, as Windows is having issues with mounting
 # local folders as Postgres data folders
