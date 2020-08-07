@@ -16,7 +16,7 @@ class AnnotatedData(object):
         self.vmr = VariableMetadataResource()
         self.vd = VariableDeleter()
 
-    def process(self, dataset):
+    def process(self, dataset, is_request_put=False):
         # check if the dataset exists
         dataset_qnode = dal.get_dataset_id(dataset)
 
@@ -53,17 +53,19 @@ class AnnotatedData(object):
 
         kgtk_exploded_df.to_csv('/tmp/t2wml-ann.csv', index=False)
 
-        variables_metadata = []
         variable_ids = gk.get_variable_ids()
-        for v in variable_ids:
-            variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
 
-        # delete the variable canonical data and metadata before inserting into databse again!!
-        for v in variable_ids:
-            print(self.vd.delete(dataset, v))
-            print(self.vmr.delete(dataset, v))
+        if is_request_put:
+            # delete the variable canonical data and metadata before inserting into databse again!!
+            for v in variable_ids:
+                print(self.vd.delete(dataset, v))
+                print(self.vmr.delete(dataset, v))
 
         # import to database
         import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
+
+        variables_metadata = []
+        for v in variable_ids:
+            variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
 
         return variables_metadata, 201

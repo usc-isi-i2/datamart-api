@@ -143,7 +143,7 @@ class VariableMetadataResource(Resource):
                 return {'Error': f"No dataset {dataset}"}, 404
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
         else:
-            results = dal.query_variable_metadata(dataset, variable, debug=True)
+            results = dal.query_variable_metadata(dataset, variable)
             if results is None:
                 return {'Error': f"No variable {variable} in dataset {dataset}"}, 404
             results['dataset_id'] = dataset
