@@ -33,9 +33,12 @@ class AnnotatedData(object):
         elif file_name.endswith('.csv'):
             df = pd.read_csv(request.files['file'], dtype=object, header=None).fillna('')
 
-        validation_report, valid_annotated_file = self.va.validate(dataset, df=df)
+        validation_report, valid_annotated_file, rename_columns = self.va.validate(dataset, df=df)
         if not valid_annotated_file:
             return json.loads(validation_report), 400
+
+        for rn in rename_columns:
+            df.iloc[rn[0], rn[1]] = rn[2]
 
         # get the t2wml yaml file
         # TODO finish this section
@@ -47,6 +50,7 @@ class AnnotatedData(object):
         # generate kgtk exploded file
         # TODO finish this section
         df = df.set_index(0)
+
         gk = GenerateKgtk(df, t2wml_yaml_dict, dataset_qnode=dataset_qnode, debug=True, debug_dir='/tmp')
         gk.output_df_dict['wikifier.csv'].to_csv('/tmp/wikifier.csv', index=False)
         kgtk_exploded_df = gk.generate_edges_df()
