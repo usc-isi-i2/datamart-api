@@ -70,7 +70,7 @@ class AnnotatedData(object):
                 print(self.vmr.delete(dataset, v))
 
         # import to database
-        # import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
+        import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
 
         variables_metadata = []
         for v in variable_ids:
