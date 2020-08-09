@@ -320,15 +320,14 @@ def delete_variable(dataset_id, variable_id, property_id, debug=False):
                 print(query)
             cursor.execute(query)
 
-def variable_data_exists(dataset_id, variable_id, property_id, debug=False):
-    # Everything here is running under the same transaction
-
-    # 
+def variable_data_exists(dataset_id, property_ids, debug=False):
+    # Check whether there is some data for any of the property_ids
+    property_ids_str = ', '.join([f"'{property_id}'" for property_id in property_ids])
     query = f"""
             SELECT e_main.id
                 FROM edges AS e_main
                 JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
-            WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
+            WHERE e_main.label IN ({property_ids_str}) AND e_dataset.node2='{dataset_id}'
             LIMIT 1
     """
     if debug:

@@ -235,10 +235,11 @@ def _join_edge_helper( main_table, alias, label, satellite_type=None, qualifier=
         sql = "LEFT " + sql;
     return '\t' + sql  + '\n';
 
-def delete_variable_metadata(dataset_id, variable_qnode, debug=False):
+def delete_variable_metadata(dataset_id, variable_qnodes, debug=False):
+    variable_qnodes_str = ', '.join([f"'{qnode}'" for qnode in variable_qnodes])
     with postgres_connection() as conn:
         with conn.cursor() as cursor:
-            query = f"""DELETE FROM edges WHERE node1='{variable_qnode}'"""
+            query = f"""DELETE FROM edges WHERE node1 IN ({variable_qnodes_str})"""
             if debug:
                 print(query)
             cursor.execute(query)

@@ -152,21 +152,39 @@ class VariableMetadataResource(Resource):
         return results, 200
 
     def delete(self, dataset, variable=None):
+        try:
+            limit = int(request.args.get('limit', '20'))
+        except ValueError:
+            return { 'Error': 'Invalid limit' }, 400
+
         if variable is None:
-            return {'Error': f"Variable must be specified for deleting metadata"}, 400
+            variables = request.args.getlist('variable')
+            if not variables:
+                results = dal.query_dataset_variables(dataset, False)
+                variables = [result['variable_id'] for result in results]
+        else:
+            variables = [variable]
         
-        result = dal.query_variable(dataset, variable)
-        if not result:
-            content = {
-                'Error': f'Could not find dataset {dataset} variable {variable}'
-            }
-            return content, 404
+        variables = variables[:limit]
+        dataset_id = None
+        property_ids = []
+        qnodes = []
+        for variable in variables:
+            result = dal.query_variable(dataset, variable)
+            if not result:
+                content = {
+                    'Error': f'Could not find dataset {dataset} variable {variable}'
+                }
+                return content, 404
+            dataset_id = result['dataset_id']
+            property_ids.append(result['property_id'])
+            qnodes.append(result['variable_qnode'])
 
-        if dal.variable_data_exists(result['dataset_id'], result['variable_id'], result['property_id']):
-            return {'Error':  f"Please delete variable data before deleting metadata"}, 409
+        if dal.variable_data_exists(dataset_id, property_ids):
+            return {'Error':  f"Please delete all variable data before deleting metadata"}, 409
 
-        dal.delete_variable_metadata(result['dataset_id'], result['variable_qnode'])
-        return {'Message': f'Variable: {variable} in the dataset: {dataset} has been deleted.'}, 200
+        dal.delete_variable_metadata(dataset_id, qnodes)
+        return {'Message': f'Successfully deleted {str(variables)} in the dataset: {dataset}.'}, 200
 
 class FuzzySearchResource(Resource):
     def get(self):
