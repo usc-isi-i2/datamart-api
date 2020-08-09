@@ -15,7 +15,8 @@ RUN pip install -r src/requirements.txt
 RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation
 RUN pip install -e t2wml-annotation
 
-RUN pip install --extra-index-url https://pypi.fury.io/theresearchsoftwarecompany/ t2wml-standalone==2.0a19
+RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout development
+RUN pip install -e t2wml-api
 
 COPY . /src
 RUN mkdir -p /src/instance

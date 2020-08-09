@@ -1,6 +1,6 @@
 from db.sql.dal.general import get_dataset_id
 from db.sql.dal.variables import get_variable_id
-from db.sql.utils import query_to_dicts
+from db.sql.utils import query_to_dicts, postgres_connection
 from api.util import DataInterval, TimePrecision
 
 def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug=False):
@@ -234,3 +234,12 @@ def _join_edge_helper( main_table, alias, label, satellite_type=None, qualifier=
     if left:
         sql = "LEFT " + sql;
     return '\t' + sql  + '\n';
+
+def delete_variable_metadata(dataset_id, variable_qnode, debug=False):
+    with postgres_connection() as conn:
+        with conn.cursor() as cursor:
+            query = f"""DELETE FROM edges WHERE node1='{variable_qnode}'"""
+            if debug:
+                print(query)
+            cursor.execute(query)
+

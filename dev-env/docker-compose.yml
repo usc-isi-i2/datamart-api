@@ -7,17 +7,48 @@ services:
     container_name: datamart-postgres
     shm_size: 2gb
     environment:
-        - POSTGRES_PASSWORD=postgres
-        - POSTGRES_USER=postgres
-        - POSTGRES_DB=wikidata
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=wikidata
     volumes:
-        - postgres:/var/lib/postgresql/data
-        - ./data/postgres/datamart.sql.gz:/docker-entrypoint-initdb.d/01-datamart.sql.gz
-        - ./data/postgres/patches.sql:/docker-entrypoint-initdb.d/02-patches.sql
-        - ./data/postgres:/backup
+      - postgres:/var/lib/postgresql/data
+      - ./data/postgres/datamart.sql.gz:/docker-entrypoint-initdb.d/01-datamart.sql.gz
+      - ./data/postgres/patches.sql:/docker-entrypoint-initdb.d/02-patches.sql
+      - ./data/postgres:/backup
     ports:
-        - "5433:5432"
+      - "5433:5432"
 
+#  es01:
+#    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.0
+#    container_name: datamart-es
+#    environment:
+#      - bootstrap.memory_lock=true
+#      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#      - xpack.security.enabled=false
+#      - http.host=0.0.0.0
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+#    volumes:
+#      - ../dev-env/data/es:/usr/share/elasticsearch/data
+#    ports:
+#      - "9292:9200"
+#    expose:
+#      - "9292"
+#    network_mode: "host"
+#
+#  # the initializer docker, will exit after initialization finished
+#  initializer:
+##    build:
+##      context: ..
+##      dockerfile: docker/Dockerfile
+##    depends_on:
+##      - es01
+#    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.0
+#    command: sh /src/docker/es-init.sh
+#    network_mode: "host"
+    
 # Use internal Docker presistent volumes for Postgres storage, as Windows is having issues with mounting
 # local folders as Postgres data folders
 
