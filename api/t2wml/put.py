@@ -25,9 +25,8 @@ class IngestT2WMLOutput(object):
 
         df = pd.read_csv(request.files['file'], dtype=object, sep='\t').fillna('')
 
-        # TODO delete variable metadata and data here, first need to identify variables though
-        # CODE GOES Here
         variable_ids = self.identify_variables(df)
+
         if is_request_put:
             # delete the variable canonical data and metadata before inserting into databse again!!
             for v in variable_ids:
@@ -44,4 +43,17 @@ class IngestT2WMLOutput(object):
         return variables_metadata, 201
 
     def identify_variables(self, df):
-        return []
+        variables = {}
+        for i, row in df.iterrows():
+            if row['label'].strip() == 'P1813':
+                if row['node1'] not in variables:
+                    variables[row['node1']] = {}
+                variables[row['node1']]['id'] = row['node2']
+
+            if row['label'] == 'P31' and row['node2'] == 'Q50701':
+                if row['node1'] not in variables:
+                    variables[row['node1']] = {}
+                variables[row['node1']]['is_variable'] = True
+        variable_ids = [variables[x]['id'] for x in variables if
+                        variables[x].get('is_variable', False) and 'id' in variables[x]]
+        return variable_ids
