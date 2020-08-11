@@ -244,3 +244,11 @@ def delete_variable_metadata(dataset_id, variable_qnodes, debug=False):
                 print(query)
             cursor.execute(query)
 
+def delete_dataset_metadata(dataset_qnode, debug=False):
+    with postgres_connection() as conn:
+        with conn.cursor() as cursor:
+            query = f"DELETE FROM edges WHERE node1='{dataset_qnode}'"
+            if debug:
+                print(query)
+            cursor.execute(query)
+

@@ -72,6 +72,22 @@ class DatasetMetadataResource(Resource):
 
         return results, 200
 
+    def delete(self, dataset=None):
+        if dataset is None:
+            return {'Error': 'Please provide a dataset'}, 400
+
+        dataset_metadata = dal.query_dataset_metadata(dataset, include_dataset_qnode=True)
+        if not dataset_metadata:
+            return {'Error': f'No such dataset {dataset}'}, 404
+
+        variables = dal.query_dataset_variables(dataset)
+        if variables:
+            return {'Error': f'Dataset {dataset} is not empty'}, 409
+
+        dal.delete_dataset_metadata(dataset_metadata[0]['dataset_qnode'])
+        return {'Message': f'Dataset {dataset} deleted'}, 200
+
+
 
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
