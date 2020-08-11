@@ -27,7 +27,7 @@ class AnnotatedData(object):
 
         file_name = request.files['file'].filename
         if not (file_name.endswith('.xlsx') or file_name.endswith('.csv')):
-            return {"error": "Please upload an annotated excel file or a csv file "
+            return {"Error": "Please upload an annotated excel file or a csv file "
                              "(file name ending with .xlsx or .csv)"}, 400
 
         if file_name.endswith('.xlsx'):
