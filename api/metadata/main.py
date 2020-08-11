@@ -1,92 +1,11 @@
 import csv
-
 import pandas as pd
-
-from flask import request, make_response
-from flask_restful import Resource
-
-from api.metadata.metadata import DatasetMetadata, VariableMetadata
-from db.sql.kgtk import import_kgtk_dataframe
 from db.sql import dal
-
-
-class DatasetMetadataResource(Resource):
-    def post(self, dataset=None):
-        if not request.json:
-            content = {
-                'Error': 'JSON content body is empty'
-            }
-            return content, 400
-
-        if dataset:
-            content = {
-                'Error': 'Please do not supply a dataset-id when POSTing'
-            }
-            return content, 400
-
-        # print('Post dataset: ', request.json)
-        metadata = DatasetMetadata()
-        status, code = metadata.from_request(request.json)
-        if not code == 200:
-            return status, code
-
-        if dal.get_dataset_id(metadata.dataset_id):
-            content = {
-                'Error': f'Dataset identifier {metadata.dataset_id} has already been used'
-            }
-            return content, 409
-
-        # Create qnode
-        dataset_id = f'Q{metadata.dataset_id}'
-        count = 0
-        while dal.node_exists(dataset_id):
-            count += 1
-            dataset_id = f'Q{metadata.dataset_id}{count}'
-        metadata._dataset_id = dataset_id
-
-        # pprint(metadata.to_dict())
-        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
-        # pprint(edges)
-
-        if 'test' not in request.args:
-            import_kgtk_dataframe(edges)
-
-        content = metadata.to_dict()
-
-        if 'tsv' in request.args:
-            tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
-            output = make_response(tsv)
-            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_id}.tsv'
-            output.headers['Content-type'] = 'text/tsv'
-            return output
-
-        return content, 201
-
-    def get(self, dataset=None):
-        results = dal.query_dataset_metadata(dataset)
-        if results is None:
-            return {'Error': f"No such dataset {dataset}"}, 404
-
-        # validate
-        results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
-
-        return results, 200
-
-    def delete(self, dataset=None):
-        if dataset is None:
-            return {'Error': 'Please provide a dataset'}, 400
-
-        dataset_metadata = dal.query_dataset_metadata(dataset, include_dataset_qnode=True)
-        if not dataset_metadata:
-            return {'Error': f'No such dataset {dataset}'}, 404
-
-        variables = dal.query_dataset_variables(dataset)
-        if variables:
-            return {'Error': f'Dataset {dataset} is not empty'}, 409
-
-        dal.delete_dataset_metadata(dataset_metadata[0]['dataset_qnode'])
-        return {'Message': f'Dataset {dataset} deleted'}, 200
-
+from flask_restful import Resource
+from flask import request, make_response
+from db.sql.kgtk import import_kgtk_dataframe
+from api.variable.delete import VariableDeleter
+from api.metadata.metadata import DatasetMetadata, VariableMetadata
 
 
 class VariableMetadataResource(Resource):
@@ -171,7 +90,7 @@ class VariableMetadataResource(Resource):
         try:
             limit = int(request.args.get('limit', '20'))
         except ValueError:
-            return { 'Error': 'Invalid limit' }, 400
+            return {'Error': 'Invalid limit'}, 400
 
         if variable is None:
             variables = request.args.getlist('variable')
@@ -180,7 +99,7 @@ class VariableMetadataResource(Resource):
                 variables = [result['variable_id'] for result in results]
         else:
             variables = [variable]
-        
+
         variables = variables[:limit]
         dataset_id = None
         property_ids = []
@@ -197,10 +116,100 @@ class VariableMetadataResource(Resource):
             qnodes.append(result['variable_qnode'])
 
         if dal.variable_data_exists(dataset_id, property_ids):
-            return {'Error':  f"Please delete all variable data before deleting metadata"}, 409
+            return {'Error': f"Please delete all variable data before deleting metadata"}, 409
 
         dal.delete_variable_metadata(dataset_id, qnodes)
         return {'Message': f'Successfully deleted {str(variables)} in the dataset: {dataset}.'}, 200
+
+
+class DatasetMetadataResource(Resource):
+    vd = VariableDeleter()
+    vmr = VariableMetadataResource()
+
+    def post(self, dataset=None):
+        if not request.json:
+            content = {
+                'Error': 'JSON content body is empty'
+            }
+            return content, 400
+
+        if dataset:
+            content = {
+                'Error': 'Please do not supply a dataset-id when POSTing'
+            }
+            return content, 400
+
+        # print('Post dataset: ', request.json)
+        metadata = DatasetMetadata()
+        status, code = metadata.from_request(request.json)
+        if not code == 200:
+            return status, code
+
+        if dal.get_dataset_id(metadata.dataset_id):
+            content = {
+                'Error': f'Dataset identifier {metadata.dataset_id} has already been used'
+            }
+            return content, 409
+
+        # Create qnode
+        dataset_id = f'Q{metadata.dataset_id}'
+        count = 0
+        while dal.node_exists(dataset_id):
+            count += 1
+            dataset_id = f'Q{metadata.dataset_id}{count}'
+        metadata._dataset_id = dataset_id
+
+        # pprint(metadata.to_dict())
+        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
+        # pprint(edges)
+
+        if 'test' not in request.args:
+            import_kgtk_dataframe(edges)
+
+        content = metadata.to_dict()
+
+        if 'tsv' in request.args:
+            tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
+            output = make_response(tsv)
+            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_id}.tsv'
+            output.headers['Content-type'] = 'text/tsv'
+            return output
+
+        return content, 201
+
+    def get(self, dataset=None):
+        results = dal.query_dataset_metadata(dataset)
+        if results is None:
+            return {'Error': f"No such dataset {dataset}"}, 404
+
+        # validate
+        results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
+
+        return results, 200
+
+    def delete(self, dataset=None):
+        if dataset is None:
+            return {'Error': 'Please provide a dataset'}, 400
+
+        dataset_metadata = dal.query_dataset_metadata(dataset, include_dataset_qnode=True)
+        if not dataset_metadata:
+            return {'Error': f'No such dataset {dataset}'}, 404
+
+        forced = request.args.get('force', 'false').lower() == 'true'
+
+        variables = dal.query_dataset_variables(dataset)
+        if variables:
+            if forced:
+                variable_ids = [x['variable_id'] for x in variables]
+                for v in variable_ids:
+                    print(self.vd.delete(dataset, v))
+                    print(self.vmr.delete(dataset, v))
+            else:
+                return {'Error': f'Dataset {dataset} is not empty'}, 409
+
+        dal.delete_dataset_metadata(dataset_metadata[0]['dataset_qnode'])
+        return {'Message': f'Dataset {dataset} deleted'}, 200
+
 
 class FuzzySearchResource(Resource):
     def get(self):
