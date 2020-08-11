@@ -87,11 +87,6 @@ class VariableMetadataResource(Resource):
         return results, 200
 
     def delete(self, dataset, variable=None):
-        try:
-            limit = int(request.args.get('limit', '20'))
-        except ValueError:
-            return {'Error': 'Invalid limit'}, 400
-
         if variable is None:
             variables = request.args.getlist('variable')
             if not variables:
@@ -100,7 +95,6 @@ class VariableMetadataResource(Resource):
         else:
             variables = [variable]
 
-        variables = variables[:limit]
         dataset_id = None
         property_ids = []
         qnodes = []
@@ -108,7 +102,7 @@ class VariableMetadataResource(Resource):
             result = dal.query_variable(dataset, variable)
             if not result:
                 content = {
-                    'Error': f'Could not find dataset {dataset} variable {variable}'
+                    'Error': f'Could not find dataset: {dataset} variable: {variable}'
                 }
                 return content, 404
             dataset_id = result['dataset_id']
