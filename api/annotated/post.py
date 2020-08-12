@@ -35,7 +35,6 @@ class AnnotatedData(object):
         elif file_name.endswith('.csv'):
             df = pd.read_csv(request.files['file'], dtype=object, header=None).fillna('')
 
-
         validation_report, valid_annotated_file, rename_columns = self.va.validate(dataset, df=df)
         if validate:
             if not valid_annotated_file:
