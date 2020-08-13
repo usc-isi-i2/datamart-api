@@ -133,9 +133,22 @@ class DatasetMetadataResource(Resource):
             }
             return content, 400
 
-        # print('Post dataset: ', request.json)
+        request_metadata = request.json
+
+        invalid_metadata = False
+        error_report = []
+        for key in request_metadata:
+            if request_metadata[key].strip() == "":
+                error_report.append(
+                    {'error': f'Metadata field: {key}, cannot be blank'}
+                )
+                invalid_metadata = True
+
+        if invalid_metadata:
+            return error_report, 400
+
         metadata = DatasetMetadata()
-        status, code = metadata.from_request(request.json)
+        status, code = metadata.from_request(request_metadata)
         if not code == 200:
             return status, code
 
