@@ -157,7 +157,8 @@ class VariableGetter:
 
     def fix_time_precision(self, precision):
         try:
-            return TimePrecision.to_name(int(precision))
+            precision_number = int(float(precision)) # precision is a string that can be '11.0'
+            return TimePrecision.to_name(precision_number)
         except ValueError:
             return 'N/A'
 
