@@ -13,6 +13,9 @@ ADMIN_TYPES = {
 }
 
 # A short script to create a view for one admin type - for variables whose main subject is the location
+# We create a unique index on all three fields - otherwise we can't update the view concurrently
+#
+# We basically need an index on the first two fields, but the full index can be used for that.
 _VIEW_TEMPLATE = """
 CREATE MATERIALIZED VIEW {view_name} AS
 	SELECT
@@ -40,7 +43,7 @@ CREATE MATERIALIZED VIEW {view_name} AS
 			JOIN edges e_{admin} ON (e_{admin}.node1=e_location.node2 AND e_{admin}.label='{admin_pnode}')
 	WHERE e_var.label='P31' AND e_var.node2='Q50701';
 	
-CREATE INDEX ix_{view_name} ON {view_name} (variable_id, dataset_qnode);
+CREATE UNIQUE INDEX ix_{view_name} ON {view_name} (variable_id, dataset_qnode, {admin}_qnode);
 """
 
 def get_view_name(admin: str):
@@ -81,15 +84,15 @@ def drop_view(conn, admin, debug=False):
             print(query)
         cursor.execute(query)
 
-def refresh_view(conn, admin):
+def refresh_view(conn, admin, debug=False):
     view_name = get_view_name(admin)
     query = f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name};"
     with conn.cursor() as cursor:
         if debug:
             print(query)
-        conn.execute(query)
+        cursor.execute(query)
 
 def refresh_all_views(config=None, debug=False):
     with postgres_connection(config) as conn:
         for admin in ADMIN_TYPES.keys():
-            refresh_view(conn, location, admin, debug=debug)
+            refresh_view(conn, admin, debug=debug)

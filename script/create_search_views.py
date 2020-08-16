@@ -1,6 +1,12 @@
 # This script creates the views required by the datamart-api.
 # The may be moved into the postgres-wikidata project if they prove to be useful enough.
 import argparse
+import os
+import sys
+
+# Allow running from the command line - python script/import... doesn't add the root project directory
+# to the PYTHONPATH
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from config import POSTGRES
 from db.sql.search_views import (create_view, does_view_exists, drop_view,
