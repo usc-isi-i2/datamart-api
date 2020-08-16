@@ -29,4 +29,4 @@ api.add_resource(AnnotatedResource, '/datasets/<string:dataset>/annotated')
 api.add_resource(T2WMLResource, '/datasets/<string:dataset>/t2wml')
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=12543)
