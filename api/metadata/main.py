@@ -229,10 +229,13 @@ class FuzzySearchResource(Resource):
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 
+        if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
+            return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
+
         print('Regions asked for in query: ', regions)
 
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries, True)
+        results = dal.fuzzy_query_variables(queries, regions, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
@@ -245,11 +248,7 @@ class FuzzySearchResource(Resource):
         return results
 
 """
-Fuzzy search query with filtering by country
-inefficient but works. Variables with location qualifiers are not supported here yet
-
-Inner fuzzy search query with filtering by country, including location qualifiers (using the hard-coded P276 edge).
-Postgres creates a bad execution plan with Q115 (Ethiopia), but works well with all other countries.
+Query based on materialized views:
 
 SELECT fuzzy.variable_id, fuzzy.variable_qnode, fuzzy.variable_property, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, (plainto_tsquery('worker'))) AS rank FROM
         (
@@ -268,22 +267,13 @@ SELECT e_var_name.node1 AS variable_qnode,
             LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
             LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
             LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
-	WHERE e_var.label='P31' AND e_var.node2='Q50701' AND (
-		EXISTS	(SELECT 1
-				FROM edges AS e2_main
-				JOIN edges AS e2_dataset ON (e2_dataset.node1=e2_main.id AND e2_dataset.label='P2006020004')
-				JOIN edges e2_country ON (e2_main.node1=e2_country.node1 AND e2_country.label='P17')
-			WHERE e2_country.node1 = 'Q30' AND e2_main.label=e_var_property.node2) -- AND e2_dataset.node2=e_dataset.node1)
-	    OR EXISTS (SELECT 1
-				FROM edges AS e2_main
-				JOIN edges e2_location ON (e2_main.node1=e2_location.node1 AND e2_location.label='P276')
-				JOIN edges AS e2_dataset ON (e2_dataset.node1=e2_main.id AND e2_dataset.label='P2006020004')
-				JOIN edges e2_country ON (e2_main.node1=e2_country.node1 AND e2_country.label='P17')
-			WHERE e2_country.node1 = 'Q30' AND e2_main.label=e_var_property.node2)
-	)
+	WHERE e_var.label='P31' AND e_var.node2='Q50701'  AND (
+	EXISTS (SELECT 1 FROM fuzzy_country_main fcm WHERE fcm.variable_property=e_var_property.node2 AND fcm.dataset_qnode=e_dataset.node1 AND fcm.country_qnode='Q115')
+	OR 	EXISTS (SELECT 1 FROM fuzzy_country_qualifier fcq WHERE fcq.variable_property=e_var_property.node2 AND fcq.dataset_qnode=e_dataset.node1 AND fcq.country_qnode='Q115')
+)
 ) AS fuzzy
-    WHERE variable_text @@ (plainto_tsquery('tax')) 
+    WHERE variable_text @@ (plainto_tsquery('worker')) 
     ORDER BY rank DESC
 	LIMIT 10
-	
+
 """

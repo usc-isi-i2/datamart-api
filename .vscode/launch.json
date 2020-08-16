@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Flask",
+            "name": "API Backend",
             "type": "python",
             "request": "launch",
             "module": "flask",
@@ -22,6 +22,16 @@
                 "14000"
             ],
             "jinja": true
-        }
+        },
+        {
+            "name": "Create Fuzzy-search Views",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/create_search_views.py",
+            "args": ["--recreate"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+
     ]
 }

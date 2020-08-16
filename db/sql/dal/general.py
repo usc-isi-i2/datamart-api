@@ -4,13 +4,15 @@
 #
 # We need to reorganize this in the future, all queries shouldn't be in the same place
 
+from typing import List, Dict
 from db.sql.utils import query_to_dicts
+from db.sql import search_views
 import re
 
 _sanitation_pattern = re.compile(r'[^\w_\- ]')
 
 
-def sanitize(term):
+def sanitize(term: str) -> str:
     # Remove all non-alphanumeric or space characters from term
     sanitized = _sanitation_pattern.sub('', term)
     return sanitized
@@ -76,7 +78,24 @@ def node_exists(node1):
     return len(result_dicts) > 0
 
 
-def fuzzy_query_variables(questions, debug=False):
+def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], debug=False):
+    def get_region_where():
+        # Adds the where clause for regions specified in the regions dict
+        # We have two EXIST clauses per admin type - one for variables whose main_subject is the location,
+        # and one for variables whose location is a qualifier.
+        admin_wheres = []
+        for admin, qnodes in regions.items():
+            if not qnodes:
+                continue
+            qnode_list = ', '.join([f"'{qnode}'" for qnode in qnodes])
+            view_name = search_views.get_view_name(admin)
+            one_where = f"EXISTS (SELECT 1 FROM {view_name} WHERE {view_name}.variable_id=e_var_name.node2 AND {view_name}.dataset_qnode=e_dataset.node1 AND {view_name}.{admin}_qnode IN ({qnode_list}))"
+            admin_wheres.append(one_where)
+        
+        if not admin_wheres:
+            return "1=1"
+        return '\nOR '.join(admin_wheres)
+
     if not questions:
         return []
 
@@ -89,6 +108,9 @@ def fuzzy_query_variables(questions, debug=False):
     combined_ts_query = '(' + ' || '.join(ts_queries) + ')'
     if debug:
         print('combined_ts_query:', combined_ts_query)
+
+    region_where = get_region_where()
+
     # Use Postgres's full text search capabilities
     sql = f"""
     SELECT fuzzy.variable_id, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, {combined_ts_query}) AS rank FROM
@@ -105,7 +127,7 @@ def fuzzy_query_variables(questions, debug=False):
             LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
             LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
 
-        WHERE e_var.label='P31' AND e_var.node2='Q50701') AS fuzzy
+        WHERE e_var.label='P31' AND e_var.node2='Q50701' AND ({region_where})) AS fuzzy
     WHERE variable_text @@ {combined_ts_query}
     ORDER BY rank DESC
     LIMIT 10
