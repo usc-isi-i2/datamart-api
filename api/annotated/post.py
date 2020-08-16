@@ -2,17 +2,17 @@ import json
 import pandas as pd
 from db.sql import dal
 from flask import request
+from annotation.main import T2WMLAnnotation
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.main import VariableMetadataResource
-from annotation.generation.generate_t2wml import ToT2WML
-from annotation.generation.generate_kgtk import GenerateKgtk
-from annotation.validation.validate_annotation import VaidateAnnotation
+from annotation.validation.validate_annotation import ValidateAnnotation
 
 
 class AnnotatedData(object):
     def __init__(self):
-        self.va = VaidateAnnotation()
+        self.ta = T2WMLAnnotation()
+        self.va = ValidateAnnotation()
         self.vmr = VariableMetadataResource()
         self.vd = VariableDeleter()
 
@@ -26,6 +26,7 @@ class AnnotatedData(object):
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
         file_name = request.files['file'].filename
+
         if not (file_name.endswith('.xlsx') or file_name.endswith('.csv')):
             return {"Error": "Please upload an annotated excel file or a csv file "
                              "(file name ending with .xlsx or .csv)"}, 400
@@ -40,27 +41,7 @@ class AnnotatedData(object):
             if not valid_annotated_file:
                 return json.loads(validation_report), 400
 
-        for rn in rename_columns:
-            df.iloc[rn[0], rn[1]] = rn[2]
-
-        # get the t2wml yaml file
-        # TODO finish this section
-        to_t2wml = ToT2WML(df, dataset_qnode=dataset_qnode)
-        t2wml_yaml_dict = to_t2wml.get_dict()
-        t2wml_yaml = to_t2wml.get_yaml()
-        open('/tmp/t2.yaml', 'w').write(t2wml_yaml)
-
-        # generate kgtk exploded file
-        # TODO finish this section
-        df = df.set_index(0)
-
-        gk = GenerateKgtk(df, t2wml_yaml_dict, dataset_qnode=dataset_qnode, debug=True, debug_dir='/tmp')
-        gk.output_df_dict['wikifier.csv'].to_csv('/tmp/wikifier.csv', index=False)
-        kgtk_exploded_df = gk.generate_edges_df()
-
-        kgtk_exploded_df.to_csv('/tmp/t2wml-ann.csv', index=False)
-
-        variable_ids = gk.get_variable_ids()
+        variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns)
 
         if is_request_put:
             # delete the variable canonical data and metadata before inserting into databse again!!
