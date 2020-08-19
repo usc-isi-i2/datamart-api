@@ -4,6 +4,7 @@ from flask import request
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.main import VariableMetadataResource
+import csv
 
 
 class IngestT2WMLOutput(object):
@@ -23,7 +24,7 @@ class IngestT2WMLOutput(object):
         if not file_name.endswith('.tsv'):
             return {"error": "Please upload a TSV file (T2WML output)"}, 400
 
-        df = pd.read_csv(request.files['file'], dtype=object, sep='\t').fillna('')
+        df = pd.read_csv(request.files['file'], dtype=object, sep='\t', quoting=csv.QUOTE_NONE).fillna('')
 
         variable_ids = self.identify_variables(df)
 
@@ -34,7 +35,7 @@ class IngestT2WMLOutput(object):
                 print(self.vmr.delete(dataset, v))
 
         # All good ingest the tsv file into database.
-        import_kgtk_dataframe(df, is_file_exploded=True)
+        import_kgtk_dataframe(df, implode_file_first=True)
 
         variables_metadata = []
         for v in variable_ids:
