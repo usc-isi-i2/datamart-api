@@ -146,21 +146,46 @@ def import_kgtk_tsv(filename: str, config=None):
     session.commit()
 
 
-def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
+def import_kgtk_dataframe(df, config=None, is_file_exploded=False, implode_file_first=False):
     temp_dir = tempfile.mkdtemp()
     try:
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
         exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
+        imploded_tsv_path = os.path.join(temp_dir, f'kgtk-imploded.tsv')
+        exploded_tsv_path_with_ids = os.path.join(temp_dir, f'kgtk-exploded-ids.tsv')
 
         df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
-        if not is_file_exploded:
-            subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
 
+        if implode_file_first:
+            subprocess.run(
+                ['kgtk', 'implode', tsv_path, '-o', imploded_tsv_path, '--allow-lax-qnodes', 'true', '--without',
+                 'si_units', 'language_suffix'])
+            if not os.path.isfile(imploded_tsv_path):
+                raise ValueError("Couldn't create imploded TSV file")
+
+            subprocess.run(['kgtk', 'explode', imploded_tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes', 'true',
+                            '--overwrite', 'true'])
             if not os.path.isfile(exploded_tsv_path):
                 raise ValueError("Couldn't create exploded TSV file")
 
-            import_kgtk_tsv(exploded_tsv_path, config)
+            subprocess.run(['kgtk', 'add-id', '-i', exploded_tsv_path, '-o', exploded_tsv_path_with_ids,
+                            '--overwrite-id', 'true', '--id-style', 'node1-label-node2-num'])
+            print(tsv_path)
+            print(imploded_tsv_path)
+            print(exploded_tsv_path)
+            print(exploded_tsv_path_with_ids)
+
+            import_kgtk_tsv(exploded_tsv_path_with_ids, config)
+
         else:
-            import_kgtk_tsv(tsv_path, config=config)
+            if not is_file_exploded:
+                subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
+                if not os.path.isfile(exploded_tsv_path):
+                    raise ValueError("Couldn't create exploded TSV file")
+
+                import_kgtk_tsv(exploded_tsv_path, config)
+            else:
+                import_kgtk_tsv(tsv_path, config=config)
     finally:
-        shutil.rmtree(temp_dir)
+        pass
+        # shutil.rmtree(temp_dir)
