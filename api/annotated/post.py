@@ -7,12 +7,12 @@ from api.variable.delete import VariableDeleter
 from api.metadata.main import VariableMetadataResource
 from annotation.generation.generate_t2wml import ToT2WML
 from annotation.generation.generate_kgtk import GenerateKgtk
-from annotation.validation.validate_annotation import VaidateAnnotation
+from annotation.validation.validate_annotation import ValidateAnnotation
 
 
 class AnnotatedData(object):
     def __init__(self):
-        self.va = VaidateAnnotation()
+        self.va = ValidateAnnotation()
         self.vmr = VariableMetadataResource()
         self.vd = VariableDeleter()
 
