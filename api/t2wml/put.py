@@ -8,6 +8,7 @@ import csv
 import tempfile
 import subprocess
 import os
+import shutil
 
 
 class IngestT2WMLOutput(object):
@@ -72,42 +73,47 @@ class IngestT2WMLOutput(object):
 
     def convert_t2wml_files(self, t2wml_output_df, item_defs_df):
         temp_dir = tempfile.mkdtemp()
+        try:
 
-        t2wml_output_path = os.path.join(temp_dir, f't2wml_output.tsv')
-        t2wml_exploded_tsv_path = os.path.join(temp_dir, f't2wml-kgtk-exploded.tsv')
-        t2wml_imploded_tsv_path = os.path.join(temp_dir, f't2wml-kgtk-imploded.tsv')
-        t2wml_exploded_tsv_path_with_ids = os.path.join(temp_dir, f't2wml-kgtk-exploded-ids.tsv')
+            t2wml_output_path = os.path.join(temp_dir, f't2wml_output.tsv')
+            t2wml_exploded_tsv_path = os.path.join(temp_dir, f't2wml-kgtk-exploded.tsv')
+            t2wml_imploded_tsv_path = os.path.join(temp_dir, f't2wml-kgtk-imploded.tsv')
+            t2wml_exploded_tsv_path_with_ids = os.path.join(temp_dir, f't2wml-kgtk-exploded-ids.tsv')
 
-        t2wml_output_df.to_csv(t2wml_output_path, sep='\t', quoting=csv.QUOTE_NONE, index=False)
-        subprocess.run(
-            ['kgtk', 'implode', t2wml_output_path, '-o', t2wml_imploded_tsv_path, '--allow-lax-qnodes', 'true',
-             '--without',
-             'si_units', 'language_suffix'])
-        if not os.path.isfile(t2wml_imploded_tsv_path):
-            raise ValueError("Couldn't create imploded TSV file")
+            t2wml_output_df.to_csv(t2wml_output_path, sep='\t', quoting=csv.QUOTE_NONE, index=False)
+            subprocess.run(
+                ['kgtk', 'implode', t2wml_output_path, '-o', t2wml_imploded_tsv_path, '--allow-lax-qnodes', 'true',
+                 '--without',
+                 'si_units', 'language_suffix'])
+            if not os.path.isfile(t2wml_imploded_tsv_path):
+                raise ValueError("Couldn't create imploded TSV file")
 
-        subprocess.run(
-            ['kgtk', 'explode', t2wml_imploded_tsv_path, '-o', t2wml_exploded_tsv_path, '--allow-lax-qnodes', 'true',
-             '--overwrite', 'true'])
-        if not os.path.isfile(t2wml_exploded_tsv_path):
-            raise ValueError("Couldn't create exploded TSV file")
+            subprocess.run(
+                ['kgtk', 'explode', t2wml_imploded_tsv_path, '-o', t2wml_exploded_tsv_path, '--allow-lax-qnodes',
+                 'true',
+                 '--overwrite', 'true'])
+            if not os.path.isfile(t2wml_exploded_tsv_path):
+                raise ValueError("Couldn't create exploded TSV file")
 
-        subprocess.run(['kgtk', 'add-id', '-i', t2wml_exploded_tsv_path, '-o', t2wml_exploded_tsv_path_with_ids,
-                        '--overwrite-id', 'true', '--id-style', 'node1-label-node2-num'])
+            subprocess.run(
+                ['kgtk', 'add-id', '-i', t2wml_exploded_tsv_path, '-o', t2wml_exploded_tsv_path_with_ids, '--id-style',
+                 'node1-label-node2-num'])
 
-        item_output_path = os.path.join(temp_dir, f'item_def_output.tsv')
-        item_exploded_path = os.path.join(temp_dir, f'item_def_exploded.tsv')
-        item_defs_df.to_csv(item_output_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
+            item_output_path = os.path.join(temp_dir, f'item_def_output.tsv')
+            item_exploded_path = os.path.join(temp_dir, f'item_def_exploded.tsv')
+            item_defs_df.to_csv(item_output_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
 
-        subprocess.run(
-            ['kgtk', 'explode', item_output_path, '-o', item_exploded_path, '--allow-lax-qnodes', 'true'])
-        if not os.path.isfile(item_exploded_path):
-            raise ValueError("Couldn't create exploded TSV file")
+            subprocess.run(
+                ['kgtk', 'explode', item_output_path, '-o', item_exploded_path, '--allow-lax-qnodes', 'true'])
+            if not os.path.isfile(item_exploded_path):
+                raise ValueError("Couldn't create exploded TSV file")
 
-        kgtk_exploded_path = os.path.join(temp_dir, f'kgtk_exploded.tsv')
-        subprocess.run(
-            ['kgtk', 'cat', item_exploded_path, t2wml_exploded_tsv_path_with_ids, '-o', kgtk_exploded_path])
-        if not os.path.isfile(kgtk_exploded_path):
-            raise ValueError("Couldn't create exploded TSV file")
+            kgtk_exploded_path = os.path.join(temp_dir, f'kgtk_exploded.tsv')
+            subprocess.run(
+                ['kgtk', 'cat', item_exploded_path, t2wml_exploded_tsv_path_with_ids, '-o', kgtk_exploded_path])
+            if not os.path.isfile(kgtk_exploded_path):
+                raise ValueError("Couldn't create exploded TSV file")
 
-        return pd.read_csv(kgtk_exploded_path, dtype=object, quoting=csv.QUOTE_NONE, sep='\t')
+            return pd.read_csv(kgtk_exploded_path, dtype=object, quoting=csv.QUOTE_NONE, sep='\t')
+        finally:
+            shutil.rmtree(temp_dir)
