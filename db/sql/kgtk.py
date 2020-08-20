@@ -146,7 +146,7 @@ def import_kgtk_tsv(filename: str, config=None):
     session.commit()
 
 
-def import_kgtk_dataframe(df, config=None, is_file_exploded=False, implode_file_first=False):
+def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
     temp_dir = tempfile.mkdtemp()
     try:
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
