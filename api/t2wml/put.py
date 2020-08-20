@@ -33,7 +33,8 @@ class IngestT2WMLOutput(object):
 
         t2wml_output_df = pd.read_csv(request.files['kgtk_output'], dtype=object, sep='\t',
                                       quoting=csv.QUOTE_NONE).fillna('')
-        item_defs_df = pd.read_csv(request.files['item_definitions'], dtype=object, sep='\t', quoting=csv.QUOTE_NONE).fillna('')
+        item_defs_df = pd.read_csv(request.files['item_definitions'], dtype=object, sep='\t',
+                                   quoting=csv.QUOTE_NONE).fillna('')
 
         df = self.convert_t2wml_files(t2wml_output_df, item_defs_df)
         variable_ids = self.identify_variables(df)
@@ -45,7 +46,7 @@ class IngestT2WMLOutput(object):
                 print(self.vmr.delete(dataset, v))
 
         # All good ingest the tsv file into database.
-        import_kgtk_dataframe(df, implode_file_first=True)
+        import_kgtk_dataframe(df, is_file_exploded=True)
 
         variables_metadata = []
         for v in variable_ids:
@@ -94,7 +95,6 @@ class IngestT2WMLOutput(object):
         subprocess.run(['kgtk', 'add-id', '-i', t2wml_exploded_tsv_path, '-o', t2wml_exploded_tsv_path_with_ids,
                         '--overwrite-id', 'true', '--id-style', 'node1-label-node2-num'])
 
-
         item_output_path = os.path.join(temp_dir, f'item_def_output.tsv')
         item_exploded_path = os.path.join(temp_dir, f'item_def_exploded.tsv')
         item_defs_df.to_csv(item_output_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
@@ -104,20 +104,9 @@ class IngestT2WMLOutput(object):
         if not os.path.isfile(item_exploded_path):
             raise ValueError("Couldn't create exploded TSV file")
 
-        print(t2wml_output_path)
-        print(t2wml_imploded_tsv_path)
-        print(t2wml_exploded_tsv_path)
-        print(t2wml_exploded_tsv_path_with_ids)
-
-        print('break')
-        print(item_output_path)
-        print(item_exploded_path)
-
-        print(temp_dir)
-
         kgtk_exploded_path = os.path.join(temp_dir, f'kgtk_exploded.tsv')
         subprocess.run(
-            ['kgtk', 'cat', item_exploded_path, t2wml_exploded_tsv_path_with_ids,   '-o', kgtk_exploded_path])
+            ['kgtk', 'cat', item_exploded_path, t2wml_exploded_tsv_path_with_ids, '-o', kgtk_exploded_path])
         if not os.path.isfile(kgtk_exploded_path):
             raise ValueError("Couldn't create exploded TSV file")
 
