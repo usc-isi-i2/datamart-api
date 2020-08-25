@@ -2,22 +2,26 @@ import json
 import pandas as pd
 from db.sql import dal
 from flask import request
+import tempfile
+import tarfile
+from flask import send_from_directory
+from annotation.main import T2WMLAnnotation
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.main import VariableMetadataResource
-from annotation.generation.generate_t2wml import ToT2WML
-from annotation.generation.generate_kgtk import GenerateKgtk
 from annotation.validation.validate_annotation import ValidateAnnotation
 
 
 class AnnotatedData(object):
     def __init__(self):
+        self.ta = T2WMLAnnotation()
         self.va = ValidateAnnotation()
         self.vmr = VariableMetadataResource()
         self.vd = VariableDeleter()
 
     def process(self, dataset, is_request_put=False):
         validate = request.args.get('validate', 'true').lower() == 'true'
+        files_only = request.args.get('files_only', 'false').lower() == 'true'
 
         # check if the dataset exists
         dataset_qnode = dal.get_dataset_id(dataset)
@@ -26,6 +30,7 @@ class AnnotatedData(object):
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
         file_name = request.files['file'].filename
+
         if not (file_name.endswith('.xlsx') or file_name.endswith('.csv')):
             return {"Error": "Please upload an annotated excel file or a csv file "
                              "(file name ending with .xlsx or .csv)"}, 400
@@ -40,39 +45,34 @@ class AnnotatedData(object):
             if not valid_annotated_file:
                 return json.loads(validation_report), 400
 
-        for rn in rename_columns:
-            df.iloc[rn[0], rn[1]] = rn[2]
+        if files_only:
+            t2wml_yaml, combined_item_def_df, consolidated_wikifier_df = self.ta.process(dataset_qnode, df,
+                                                                                         rename_columns,
+                                                                                         extra_files=True)
 
-        # get the t2wml yaml file
-        # TODO finish this section
-        to_t2wml = ToT2WML(df, dataset_qnode=dataset_qnode)
-        t2wml_yaml_dict = to_t2wml.get_dict()
-        t2wml_yaml = to_t2wml.get_yaml()
-        open('/tmp/t2.yaml', 'w').write(t2wml_yaml)
+            temp_tar_dir = tempfile.mkdtemp()
+            open(f'{temp_tar_dir}/t2wml.yaml', 'w').write(t2wml_yaml)
+            combined_item_def_df.to_csv(f'{temp_tar_dir}/item_definitions_all.tsv', sep='\t', index=False)
+            consolidated_wikifier_df.to_csv(f'{temp_tar_dir}/consolidated_wikifier.csv', index=False)
 
-        # generate kgtk exploded file
-        # TODO finish this section
-        df = df.set_index(0)
+            with tarfile.open(f'{temp_tar_dir}/t2wml_annotation_files.tar.gz', "w:gz") as tar:
+                tar.add(temp_tar_dir, arcname='.')
+            return send_from_directory(temp_tar_dir, 't2wml_annotation_files.tar.gz')
 
-        gk = GenerateKgtk(df, t2wml_yaml_dict, dataset_qnode=dataset_qnode, debug=True, debug_dir='/tmp')
-        gk.output_df_dict['wikifier.csv'].to_csv('/tmp/wikifier.csv', index=False)
-        kgtk_exploded_df = gk.generate_edges_df()
+        else:
+            variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns)
 
-        kgtk_exploded_df.to_csv('/tmp/t2wml-ann.csv', index=False)
+            if is_request_put:
+                # delete the variable canonical data and metadata before inserting into databse again!!
+                for v in variable_ids:
+                    print(self.vd.delete(dataset, v))
+                    print(self.vmr.delete(dataset, v))
 
-        variable_ids = gk.get_variable_ids()
+            # import to database
+            import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
 
-        if is_request_put:
-            # delete the variable canonical data and metadata before inserting into databse again!!
+            variables_metadata = []
             for v in variable_ids:
-                print(self.vd.delete(dataset, v))
-                print(self.vmr.delete(dataset, v))
+                variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
 
-        # import to database
-        import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
-
-        variables_metadata = []
-        for v in variable_ids:
-            variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
-
-        return variables_metadata, 201
+            return variables_metadata, 201
