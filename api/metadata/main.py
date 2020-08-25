@@ -221,8 +221,6 @@ class DatasetMetadataResource(Resource):
 class FuzzySearchResource(Resource):
     def get(self):
         queries = request.args.getlist('keyword')
-        if not queries:
-            return {'Error': 'A variable query must be provided: keyword'}, 400
 
         try:
             regions = get_query_region_ids(request.args)
@@ -234,8 +232,16 @@ class FuzzySearchResource(Resource):
 
         print('Regions asked for in query: ', regions)
 
+        try:
+            limit = int(request.args.get('limit', 100))
+            if limit < 1:
+                limit = 100
+        except:
+            limit = 100
+
+
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries, regions, True)
+        results = dal.fuzzy_query_variables(queries, regions, limit, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
@@ -272,7 +278,7 @@ SELECT e_var_name.node1 AS variable_qnode,
 	OR 	EXISTS (SELECT 1 FROM fuzzy_country_qualifier fcq WHERE fcq.variable_property=e_var_property.node2 AND fcq.dataset_qnode=e_dataset.node1 AND fcq.country_qnode='Q115')
 )
 ) AS fuzzy
-    WHERE variable_text @@ (plainto_tsquery('worker')) 
+    WHERE variable_text @@ (plainto_tsquery('worker'))
     ORDER BY rank DESC
 	LIMIT 10
 
