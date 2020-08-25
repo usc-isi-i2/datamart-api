@@ -2,9 +2,8 @@ import pandas as pd
 from db.sql import dal
 from flask import request, make_response
 from api.variable.get import VariableGetter
-from api.variable.get import UnknownSubjectError
 from api.metadata.main import VariableMetadataResource
-
+from api.region_utils import get_query_region_ids, UnknownSubjectError
 
 class VariableGetterAll:
     vg = VariableGetter()
@@ -29,7 +28,7 @@ class VariableGetterAll:
                 pass
 
         try:
-            regions = self.vg.get_query_region_ids()
+            regions = get_query_region_ids(request.args)
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 

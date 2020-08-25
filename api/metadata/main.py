@@ -6,7 +6,7 @@ from flask import request, make_response
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
-
+from api.region_utils import get_query_region_ids, UnknownSubjectError
 
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
@@ -224,8 +224,18 @@ class FuzzySearchResource(Resource):
         if not queries:
             return {'Error': 'A variable query must be provided: keyword'}, 400
 
+        try:
+            regions = get_query_region_ids(request.args)
+        except UnknownSubjectError as ex:
+            return ex.get_error_dict(), 404
+
+        if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
+            return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
+
+        print('Regions asked for in query: ', regions)
+
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries, False)
+        results = dal.fuzzy_query_variables(queries, regions, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
@@ -236,3 +246,34 @@ class FuzzySearchResource(Resource):
             del row['dataset_qnode']
 
         return results
+
+"""
+Query based on materialized views:
+
+SELECT fuzzy.variable_id, fuzzy.variable_qnode, fuzzy.variable_property, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, (plainto_tsquery('worker'))) AS rank FROM
+        (
+SELECT e_var_name.node1 AS variable_qnode,
+		        e_var_name.node2 AS variable_id,
+		 		e_var_property.node2 AS variable_property,
+                -- e_dataset_name.node2 AS dataset_id,
+                e_dataset.node1 AS dataset_qnode,
+                to_tsvector(CONCAT(s_description.text, ' ', s_name.text, ' ', s_label.text)) AS variable_text,
+                CONCAT(s_name.text, ' ', s_label.text) as name
+            FROM edges e_var
+            JOIN edges e_var_name ON (e_var_name.node1=e_var.node1 AND e_var_name.label='P1813')
+		    JOIN edges e_var_property ON (e_var_property.node1=e_var.node1 AND e_var_property.label='P1687')
+            JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+                    -- JOIN edges e_dataset_name ON (e_dataset_name.node1=e_dataset.node1 AND e_dataset_name.label='P1813')
+            LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
+            LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
+            LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
+	WHERE e_var.label='P31' AND e_var.node2='Q50701'  AND (
+	EXISTS (SELECT 1 FROM fuzzy_country_main fcm WHERE fcm.variable_property=e_var_property.node2 AND fcm.dataset_qnode=e_dataset.node1 AND fcm.country_qnode='Q115')
+	OR 	EXISTS (SELECT 1 FROM fuzzy_country_qualifier fcq WHERE fcq.variable_property=e_var_property.node2 AND fcq.dataset_qnode=e_dataset.node1 AND fcq.country_qnode='Q115')
+)
+) AS fuzzy
+    WHERE variable_text @@ (plainto_tsquery('worker')) 
+    ORDER BY rank DESC
+	LIMIT 10
+
+"""
