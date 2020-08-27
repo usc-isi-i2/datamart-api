@@ -26,6 +26,10 @@ def create_edge_objects(row):
                     data_type=row['node2;kgtk:data_type'])  # rank is optional
         return edge
 
+    def unquote(string):
+        if len(string)>1 and string[0] == '"' and string[-1] == '"':
+            return string[1:-1]
+
     def get_value_object(row):
         # Try the value types one by one, until return the correct one (if any)
         type_funcs = [get_date_object, get_coordinate_object,
@@ -39,7 +43,9 @@ def create_edge_objects(row):
 
     def get_date_object(row):
         # node2;magnitude should be of a caret followed by an ISO date. node2;calendar and node2;precision are optional
-        date = row.get('node2;kgtk:date_and_time')
+
+        # dates should not be quote, but they are
+        date = unquote(row.get('node2;kgtk:date_and_time'))
         if not date:
             return None
         try:
@@ -102,7 +108,7 @@ def create_edge_objects(row):
 
     def get_string_object(row):
         data_type = row.get('node2;kgtk:data_type')
-        text = row.get('node2;kgtk:text')
+        text = unquote(row.get('node2;kgtk:text'))
         language = row.get('node2;kgtk:language')
 
         if data_type != 'string' and not text:  # do not rely on data_type, but if it says string, accept empty strings as well
@@ -122,7 +128,7 @@ def import_kgtk_tsv(filename: str, config=None):
     session = create_sqlalchemy_session(config)
 
     with open(filename, "r", encoding="utf-8") as f:
-        reader = DictReader(f, delimiter='\t')
+        reader = DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 
         values = []
         edges = []
@@ -130,7 +136,6 @@ def import_kgtk_tsv(filename: str, config=None):
             edge, value = create_edge_objects(row)
             edges.append(edge)
             values.append(value)
-
     # Working in chunks is a lot faster than feeding everything to the database at once.
     CHUNK_SIZE = 50000
     for start in range(0, len(edges), CHUNK_SIZE):
