@@ -152,7 +152,7 @@ def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
         exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
 
-        df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
+        df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
 
         if not is_file_exploded:
             subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])

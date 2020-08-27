@@ -27,6 +27,7 @@ class AnnotatedData(object):
         dataset_qnode = dal.get_dataset_id(dataset)
 
         if not dataset_qnode:
+            print(f'Dataset not defined: {dataset}')
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
         file_name = request.files['file'].filename
