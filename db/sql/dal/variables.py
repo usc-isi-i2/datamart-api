@@ -57,7 +57,7 @@ class Qualifier:
 
     def _init_sql(self):
         main_name = self.main_column
-        underscored_main_name = main_name.replace(' ', '_')
+        underscored_main_name = sanitize(main_name.replace(' ', '_'))
         main_table = 'e_' + underscored_main_name
         if self.is_optional:
             join_clause = 'LEFT '
