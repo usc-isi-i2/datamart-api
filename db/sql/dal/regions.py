@@ -146,7 +146,7 @@ def query_admin1s(country: Optional[str] = None, country_id: Optional[str] = Non
     query = f'''
     SELECT  e_admin1.node1 AS admin_id,
             s_admin1_label.text AS admin,
-            'Q10864048' AS region_type, 
+            'Q10864048' AS region_type,
             e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node1 as admin1_id,
@@ -276,13 +276,13 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
         e_country.node2 AS country_id, s_country_label.text AS country,
         e_admin1.node2 AS admin1_id, s_admin1_label.text AS admin1,
         e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2,
-        'POINT(' || c_coordinate.longitude || ', ' || c_coordinate.latitude || ')' as region_coordinate
+        'POINT(' || c_coordinate.longitude || ' ' || c_coordinate.latitude || ')' as region_coordinate
         FROM edges e_region
         JOIN edges e_region_label ON (e_region_label.node1=e_region.node1 AND e_region_label.label='label')
         JOIN strings s_region_label ON (e_region_label.id=s_region_label.edge_id)
-        JOIN edges e_country 
+        JOIN edges e_country
             JOIN edges e_country_label
-                JOIN strings s_country_label 
+                JOIN strings s_country_label
                 ON (s_country_label.edge_id=e_country_label.id)
             ON (e_country.node2=e_country_label.node1 AND e_country_label.label='label')
         ON (e_region.node1=e_country.node1 AND e_country.label='P17')

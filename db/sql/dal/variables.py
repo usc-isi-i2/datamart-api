@@ -78,7 +78,7 @@ class Qualifier:
             unit_string_table = 's' + unit_table[1:]
             satellite_join = f"""
                 JOIN quantities {satellite_table}
-                    LEFT JOIN edges {unit_table} 
+                    LEFT JOIN edges {unit_table}
                         LEFT JOIN strings {unit_string_table} ON ({unit_table}.id={unit_string_table}.edge_id)
                     ON ({satellite_table}.unit={unit_table}.node1 AND {unit_table}.label='label')
                 ON ({main_table}.id={satellite_table}.edge_id)
@@ -113,7 +113,7 @@ class Qualifier:
                 JOIN coordinates {satellite_table} ON ({main_table}.id={satellite_table}.edge_id)
             """
             self.fields = {
-                main_name: f"""'POINT(' || {satellite_table}.longitude || ', ' || {satellite_table}.latitude || ')'"""
+                main_name: f"""'POINT(' || {satellite_table}.longitude || ' ' || {satellite_table}.latitude || ')'"""
             }
         else:
             raise ValueError('Qualifiers of type ' + self.data_type + ' are not supported yet')
@@ -267,7 +267,7 @@ List[Dict[str, Any]]:
         LEFT JOIN edges AS e_main_label
             JOIN strings AS s_main_label ON (e_main_label.id=s_main_label.edge_id)
         ON (e_main.node1=e_main_label.node1 AND e_main_label.label='label')
-        
+
     WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}' AND ({places_where})
     ORDER BY main_subject_id, time
     """
@@ -335,4 +335,3 @@ def variable_data_exists(dataset_id, property_ids, debug=False):
 
     result = query_to_dicts(query)
     return len(result) > 0
-
