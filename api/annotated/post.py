@@ -8,7 +8,8 @@ from flask import send_from_directory
 from annotation.main import T2WMLAnnotation
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
-from api.metadata.main import VariableMetadataResource
+from api.metadata.main import DatasetMetadataResource, VariableMetadataResource
+from api.metadata.metadata import DatasetMetadata
 from annotation.validation.validate_annotation import ValidateAnnotation
 
 
@@ -22,11 +23,12 @@ class AnnotatedData(object):
     def process(self, dataset, is_request_put=False):
         validate = request.args.get('validate', 'true').lower() == 'true'
         files_only = request.args.get('files_only', 'false').lower() == 'true'
+        create_if_not_exist = request.args.get('create_if_not_exist', 'false').lower() == 'true'
 
         # check if the dataset exists
         dataset_qnode = dal.get_dataset_id(dataset)
 
-        if not dataset_qnode:
+        if not create_if_not_exist and not dataset_qnode:
             print(f'Dataset not defined: {dataset}')
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
@@ -40,6 +42,34 @@ class AnnotatedData(object):
             df = pd.read_excel(request.files['file'], dtype=object, header=None).fillna('')
         elif file_name.endswith('.csv'):
             df = pd.read_csv(request.files['file'], dtype=object, header=None).fillna('')
+
+        if create_if_not_exist and not dataset_qnode:
+            try:
+                dataset_dict = {
+                    'dataset_id': df.iloc[0,1],
+                    'name': df.iloc[0,2],
+                    'description': df.iloc[0,3],
+                    'url': df.iloc[0,4]
+                }
+            except Exception as e:
+                return {'Error': 'Failed to create dataset: ' + str(e)}, 400
+
+            missing = []
+            for key, value in dataset_dict.items():
+                if not value:
+                    missing.append(key)
+
+            if len(missing) < 4:
+                if missing == ['dataset_id']:
+                    print(f'Dataset not defined: {dataset}')
+                    return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
+                else:
+                    print(f'Dataset metadata missing fields: {missing}')
+                    return {'Error': f'Dataset metadata missing fields: {missing}'}, 404
+
+            metadata = DatasetMetadata()
+            metadata.from_dict(dataset_dict)
+            dataset_qnode, _ = DatasetMetadataResource.create_dataset(metadata)
 
         validation_report, valid_annotated_file, rename_columns = self.va.validate(dataset, df=df)
         if validate:

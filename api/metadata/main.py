@@ -120,6 +120,23 @@ class DatasetMetadataResource(Resource):
     vd = VariableDeleter()
     vmr = VariableMetadataResource()
 
+    @staticmethod
+    def create_dataset(metadata: DatasetMetadata, *, create: bool = True):
+        # Create qnode
+        dataset_id = f'Q{metadata.dataset_id}'
+        count = 0
+        while dal.node_exists(dataset_id):
+            count += 1
+            dataset_id = f'Q{metadata.dataset_id}{count}'
+        metadata._dataset_id = dataset_id
+
+        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
+
+        if create:
+            import_kgtk_dataframe(edges)
+
+        return dataset_id, edges
+
     def post(self, dataset=None):
         if not request.json:
             content = {
@@ -158,20 +175,7 @@ class DatasetMetadataResource(Resource):
             }
             return content, 409
 
-        # Create qnode
-        dataset_id = f'Q{metadata.dataset_id}'
-        count = 0
-        while dal.node_exists(dataset_id):
-            count += 1
-            dataset_id = f'Q{metadata.dataset_id}{count}'
-        metadata._dataset_id = dataset_id
-
-        # pprint(metadata.to_dict())
-        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
-        # pprint(edges)
-
-        if 'test' not in request.args:
-            import_kgtk_dataframe(edges)
+        _, edges = DatasetMetadataResource.create_dataset(metadata, create='test' not in request.args)
 
         content = metadata.to_dict()
 
