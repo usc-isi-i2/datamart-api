@@ -26,10 +26,6 @@ def create_edge_objects(row):
                     data_type=row['node2;kgtk:data_type'])  # rank is optional
         return edge
 
-    def unquote(string):
-        if len(string)>1 and string[0] == '"' and string[-1] == '"':
-            return string[1:-1]
-
     def get_value_object(row):
         # Try the value types one by one, until return the correct one (if any)
         type_funcs = [get_date_object, get_coordinate_object,
@@ -44,8 +40,7 @@ def create_edge_objects(row):
     def get_date_object(row):
         # node2;magnitude should be of a caret followed by an ISO date. node2;calendar and node2;precision are optional
 
-        # dates should not be quote, but they are
-        date = unquote(row.get('node2;kgtk:date_and_time'))
+        date = row.get('node2;kgtk:date_and_time')
         if not date:
             return None
         try:
@@ -108,7 +103,7 @@ def create_edge_objects(row):
 
     def get_string_object(row):
         data_type = row.get('node2;kgtk:data_type')
-        text = unquote(row.get('node2;kgtk:text'))
+        text = row.get('node2;kgtk:text')
         language = row.get('node2;kgtk:language')
 
         if data_type != 'string' and not text:  # do not rely on data_type, but if it says string, accept empty strings as well
@@ -124,6 +119,16 @@ def create_edge_objects(row):
     return edge, value
 
 
+def unquote(string):
+    if len(string)>1 and string[0] == '"' and string[-1] == '"':
+        return string[1:-1]
+    else:
+        return string
+
+def unquote_dict(row: dict):
+    for key, value in row.items():
+        row[key] = unquote(value)
+
 def import_kgtk_tsv(filename: str, config=None):
     session = create_sqlalchemy_session(config)
 
@@ -133,6 +138,7 @@ def import_kgtk_tsv(filename: str, config=None):
         values = []
         edges = []
         for row in reader:
+            unquote_dict(row)
             edge, value = create_edge_objects(row)
             edges.append(edge)
             values.append(value)
