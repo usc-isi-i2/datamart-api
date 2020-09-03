@@ -152,10 +152,13 @@ def query_variables_metadata(variable_select: str, debug=False):
 
         return run_query(select, join)
 
-    def fetch_list(entity, edge_label, results, add_ids=False):
+    def fetch_list(entity, edge_label, results, qualifier=False):
         select = f"""
         SELECT e_dataset.node1 AS internal_dataset_id, e_var.node1 AS internal_variable_id, e_{entity}.node2 AS identifier, s_{entity}_label.text AS name
         """
+
+        if qualifier:
+            select += f", e_{entity}_data_type.node2 AS wikidata_data_type"
 
         join = f"""
         JOIN edges e_{entity} ON (e_var.node1=e_{entity}.node1 AND e_{entity}.label='{edge_label}')
@@ -164,6 +167,11 @@ def query_variables_metadata(variable_select: str, debug=False):
         ON (e_{entity}.node2=e_{entity}_label.node1 AND e_{entity}_label.label='label')
         """
 
+        if qualifier:
+            join += f"""
+                LEFT JOIN edges e_{entity}_data_type
+                ON (e_{entity}.node2= e_{entity}_data_type.node1 AND e_{entity}_data_type.label='wikidata_data_type')
+            """
         order_by = "ORDER BY internal_dataset_id, internal_variable_id"
 
         list_rows = list(run_query(select, join, order_by))
@@ -176,10 +184,13 @@ def query_variables_metadata(variable_select: str, debug=False):
                 current_result = results[(internal_dataset_id, internal_variable_id)]
                 current_list = current_result[entity] = []
 
-            if add_ids:
-                element = {'name': row['name'], 'identifier': row['identifier']}
-            else:
+            if not qualifier:
                 element = row['name']
+            else:
+                element = { 'name': row['name'], 'identifier': row['identifier'] }
+                if row['wikidata_data_type']:  # Don't add anything if it's not stored explicitly in the database
+                    element['data_type'] = row['wikidata_data_type']
+
             current_list.append(element)
 
     # We perform several similar queries - one to get all the scalar fields of a dataset, and

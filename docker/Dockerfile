@@ -4,7 +4,7 @@
 # or a local, very transient sqlite instance is going to be used.
 
 FROM python:3.7
-RUN pip install --upgrade pip==20.0.2
+RUN pip install --upgrade pip
 RUN pip install gunicorn
 
 COPY requirements.txt /src/requirements.txt

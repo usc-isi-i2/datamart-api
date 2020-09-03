@@ -15,19 +15,16 @@ class Qualifier:
 
     DATA_TYPES = ['date_and_time', 'string', 'symbol', 'quantity', 'coordinate', 'location']
 
-    def __init__(self, name, label, data_type=None):
+    def __init__(self, name, label, wikidata_data_type=None):
         if name == 'point in time':  # Override hardly for now
             name = 'time'
         self.name = name
         self.label = label
         self.is_region = False  # For now qualifiers are not regions
         self.is_optional = name != 'time'
-        if data_type:
-            self.data_type = data_type
-        else:
-            self.data_type = self._get_data_type()
+        self.data_type = self._get_data_type(wikidata_data_type)
 
-        if self.data_type == 'location':
+        if self.data_type == 'location' and not self.name:
             self.name = 'location'
 
         self._init_sql()
@@ -35,7 +32,24 @@ class Qualifier:
     LOCATION_PROPS = {'P17': 'country', 'P2006190001': 'admin1', 'P2006190002': 'admin2', 'P2006190003': 'admin3',
                       'P131': 'location'}
 
-    def _get_data_type(self):
+    WIKIDATA_TYPE_MAP = {
+        'GlobeCoordinate': 'location',
+        'Quantity': 'quantity',
+        'Time': 'date_and_time',
+        'String': 'string',
+        'MonolingualText': 'string',
+        'ExternalIdentifier': 'symbol',
+        'WikibaseItem': 'symbol',
+        'WikibaseProperty': 'symbol',
+        'Url': 'symbol',
+    }
+    def _get_data_type(self, wikidata_data_type):
+        # First, if the wikidata data type is specified, use it
+        if wikidata_data_type:
+            if wikidata_data_type not in self.WIKIDATA_TYPE_MAP:
+                raise ValueError(f"Unexpected Wikidata Datatype {wikidata_data_type}")
+            return self.WIKIDATA_TYPE_MAP[wikidata_data_type]
+            
         # The heuristic is simple - we know the types of a few well known qualifiers. All the others
         # are strings
         if self.label == "P585":  # point in time
@@ -44,9 +58,6 @@ class Qualifier:
             return 'symbol'
         if self.label in self.LOCATION_PROPS.keys():  # Various locations
             return 'location'
-
-        if self.name == 'holders' or self.name == 'weight':  # Hard coded to fit an example dataset
-            return 'quantity'
 
         # Everything else is a string
         return 'string'
@@ -173,13 +184,16 @@ def query_qualifiers(dataset_id, variable_qnode):
     dataset_id = sanitize(dataset_id)
     variable_qnode = sanitize(variable_qnode)
     query = f"""
-    SELECT e_qualifier.node2 AS label, s_qualifier_label.text AS name
+    SELECT e_qualifier.node2 AS label, s_qualifier_label.text AS name, e_data_type.node2 AS wikidata_data_type
         FROM edges e_var
         JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
         JOIN edges e_qualifier ON (e_var.node1=e_qualifier.node1 AND e_qualifier.label='P2006020002')
         LEFT JOIN edges e_qualifier_label  -- Location qualifiers have no name
             JOIN strings s_qualifier_label ON (e_qualifier_label.id=s_qualifier_label.edge_id)
         ON (e_qualifier.node2=e_qualifier_label.node1 AND e_qualifier_label.label='label')
+        LEFT JOIN edges e_data_type
+            ON (e_qualifier.node2=e_data_type.node1 AND e_data_type.label='wikidata_data_type')
+
     WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'  AND e_var.node1='{variable_qnode}'
     """
     qualifiers = query_to_dicts(query)
