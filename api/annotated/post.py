@@ -59,7 +59,7 @@ class AnnotatedData(object):
                 if not value:
                     missing.append(key)
 
-            if len(missing) < 4:
+            if len(missing) > 0:
                 if missing == ['dataset_id']:
                     print(f'Dataset not defined: {dataset}')
                     return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
