@@ -60,12 +60,8 @@ class AnnotatedData(object):
                     missing.append(key)
 
             if len(missing) > 0:
-                if missing == ['dataset_id']:
-                    print(f'Dataset not defined: {dataset}')
-                    return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
-                else:
-                    print(f'Dataset metadata missing fields: {missing}')
-                    return {'Error': f'Dataset metadata missing fields: {missing}'}, 404
+                print(f'Dataset metadata missing fields: {missing}')
+                return {'Error': f'Dataset metadata missing fields: {missing}'}, 404
 
             metadata = DatasetMetadata()
             metadata.from_dict(dataset_dict)
