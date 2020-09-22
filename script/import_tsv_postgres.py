@@ -1,4 +1,10 @@
 from argparse import ArgumentParser
+import sys
+import os
+
+# Allow running from the command line - python script/import... doesn't add the root project directory
+# to the PYTHONPATH
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from db.sql.kgtk import import_kgtk_tsv
 
 config = dict(

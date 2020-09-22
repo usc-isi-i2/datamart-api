@@ -1,6 +1,6 @@
 from db.sql.dal.general import get_dataset_id
 from db.sql.dal.variables import get_variable_id
-from db.sql.utils import query_to_dicts
+from db.sql.utils import query_to_dicts, postgres_connection
 from api.util import DataInterval, TimePrecision
 
 def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug=False):
@@ -65,57 +65,54 @@ def query_dataset_variables(dataset, debug=False):
     if not dataset_id:
         return None
 
-    # query = f"""
-    # SELECT '{dataset}' AS dataset_short_name,
-    #        s_name.text AS name,
-    #        e_short_name.node2 AS short_name
-
-    # FROM edges e_var
-    # JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
-    # """
-    query = f"""
-    SELECT '{dataset}' AS dataset_id,
-            s_name.text AS name,
-            e_short_name.node2 AS variable_id
-
-    FROM edges e_var
-    JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
-    """
-
-    # Mandatory fields first
-    query += join_edge('short_name', 'P1813')
-    # Now optional fields that are supposed to be required
-    query += join_edge('name', 'P1476', 's', left=True)
-
-    query += f"""
+    inner_query = f"""
+    SELECT e_dataset.node1 AS internal_dataset_id, e_var.node1 AS internal_variable_id
+        FROM edges e_var
+        JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
     WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'
     """
 
-    if debug:
-        print(query)
-    return query_to_dicts(query)
+    return query_variables_metadata(inner_query, debug)
 
-def query_variable_metadata(dataset, variable):
+def query_variable_metadata(dataset, variable, debug=False):
+    dataset_id = get_dataset_id(dataset)  # Already sanitizes
+    if not dataset_id:
+        return None
+
+    variable_id = get_variable_id(dataset_id, variable) # Already sanitizes
+    if not variable_id:
+        return None
+
+    inner_query = f"SELECT '{dataset_id}' AS internal_dataset_id, '{variable_id}' AS internal_variable_id"
+
+    variables = query_variables_metadata(inner_query, debug)
+    return variables[0]
+
+
+def query_variables_metadata(variable_select: str, debug=False):
     def join_edge(alias, label, satellite_type=None, qualifier=False, left=False):
         return _join_edge_helper('e_var', alias, label, satellite_type=satellite_type, qualifier=qualifier, left=left)
 
-    def fix_time_precisions(row):
-        if row['start_time_precision'] is not None:
-            row['start_time_precision'] = TimePrecision.to_name(row['start_time_precision'])
-        if row['end_time_precision'] is not None:
-            row['end_time_precision'] = TimePrecision.to_name(row['end_time_precision'])
+    def fix_time_precisions(results):
+        for row in results.values():
+            if row['start_time_precision'] is not None:
+                row['start_time_precision'] = TimePrecision.to_name(row['start_time_precision'])
+            if row['end_time_precision'] is not None:
+                row['end_time_precision'] = TimePrecision.to_name(row['end_time_precision'])
 
-    def fix_interval(row):
-        if row['data_interval'] is not None:
-            row['data_interval'] = DataInterval.qnode_to_name(row['data_interval'])
+    def fix_intervals(results):
+        for row in results.values():
+            if row['data_interval'] is not None:
+                row['data_interval'] = DataInterval.qnode_to_name(row['data_interval'])
 
-    def run_query(select_clause, join_clause, debug=False):
+    def run_query(select_clause, join_clause, order_by_clause=""):
         nonlocal from_clause, where_clause
         query = f"""
         {select_clause}
         {from_clause}
         {join_clause}
         {where_clause}
+        {order_by_clause}
         """
         if debug:
             print(query)
@@ -124,7 +121,8 @@ def query_variable_metadata(dataset, variable):
     def fetch_scalars():
 #                e_short_name.node2 AS short_name,
         select = f"""
-        SELECT s_name.text AS name,
+        SELECT  e_dataset.node1 AS internal_dataset_id, e_var.node1 AS internal_variable_id,
+            s_name.text AS name,
             e_short_name.node2 AS variable_id,
             COALESCE(s_description.text, s_label.text) AS description,
             e_corresponds_to_property.node2 AS corresponds_to_property,
@@ -154,10 +152,13 @@ def query_variable_metadata(dataset, variable):
 
         return run_query(select, join)
 
-    def fetch_list(entity, edge_label, return_ids=False):
+    def fetch_list(entity, edge_label, results, qualifier=False):
         select = f"""
-        SELECT e_{entity}.node2 AS identifier, s_{entity}_label.text AS name
+        SELECT e_dataset.node1 AS internal_dataset_id, e_var.node1 AS internal_variable_id, e_{entity}.node2 AS identifier, s_{entity}_label.text AS name
         """
+
+        if qualifier:
+            select += f", e_{entity}_data_type.node2 AS wikidata_data_type"
 
         join = f"""
         JOIN edges e_{entity} ON (e_var.node1=e_{entity}.node1 AND e_{entity}.label='{edge_label}')
@@ -166,42 +167,59 @@ def query_variable_metadata(dataset, variable):
         ON (e_{entity}.node2=e_{entity}_label.node1 AND e_{entity}_label.label='label')
         """
 
-        rows = run_query(select, join)
+        if qualifier:
+            join += f"""
+                LEFT JOIN edges e_{entity}_data_type
+                ON (e_{entity}.node2= e_{entity}_data_type.node1 AND e_{entity}_data_type.label='wikidata_data_type')
+            """
+        order_by = "ORDER BY internal_dataset_id, internal_variable_id"
 
-        if return_ids:
-            return rows
+        list_rows = list(run_query(select, join, order_by))
 
-        # We need to return just the entities, in a simple list
-        entity_list = [row['name'] for row in rows]
-        return entity_list
+        internal_variable_id = internal_dataset_id = current_result = current_list = None
+        for row in list_rows:
+            if row['internal_variable_id'] != internal_variable_id or row['internal_dataset_id'] != internal_dataset_id:
+                internal_variable_id = row['internal_variable_id']
+                internal_dataset_id = row['internal_dataset_id']
+                current_result = results[(internal_dataset_id, internal_variable_id)]
+                current_list = current_result[entity] = []
 
-    dataset_id = get_dataset_id(dataset)  # Already sanitizes
-    if not dataset_id:
-        return None
+            if not qualifier:
+                element = row['name']
+            else:
+                element = { 'name': row['name'], 'identifier': row['identifier'] }
+                if row['wikidata_data_type']:  # Don't add anything if it's not stored explicitly in the database
+                    element['data_type'] = row['wikidata_data_type']
 
-    variable_id = get_variable_id(dataset_id, variable) # Already sanitizes
-    if not variable_id:
-        return None
+            current_list.append(element)
 
     # We perform several similar queries - one to get all the scalar fields of a dataset, and
     # then one for each list field. Some parts of these queries are identical:
     from_clause = f"""
     FROM edges e_var
     JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+    JOIN ({variable_select}) e_inner_variable ON (e_dataset.node1=e_inner_variable.internal_dataset_id AND e_var.node1=e_inner_variable.internal_variable_id)
     """
     where_clause = f"""
-    WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'  AND e_var.node1='{variable_id}'
+    WHERE e_var.label='P31' AND e_var.node2='Q50701'
     """
 
-    result = fetch_scalars()[0]
-    fix_time_precisions(result)
-    result['main_subject'] = fetch_list('main_subject', 'P921')
-    result['unit_of_measure'] = fetch_list('unit_of_measure', 'P1880')
-    result['country'] = fetch_list('country', 'P17')
-    result['location'] = fetch_list('location', 'P276')
-    # result['qualifier'] = fetch_stated_as_list('qualifier', 'P2006020002', True)
-    result['qualifier'] = fetch_list('qualifier', 'P2006020002', True)
-    return result
+    rows = fetch_scalars()
+    results = {(row['internal_dataset_id'], row['internal_variable_id']): row for row in rows}
+    fix_time_precisions(results)
+    fetch_list('main_subject', 'P921', results)
+    fetch_list('unit_of_measure', 'P1880', results)
+    fetch_list('country', 'P17', results)
+    fetch_list('location', 'P276', results)
+    fetch_list('qualifier', 'P2006020002', results, True)
+
+    # Now clean the results - drop the internal fields
+    variables = list(results.values())
+    for variable in variables:
+        del variable['internal_dataset_id']
+        del variable['internal_variable_id']
+
+    return variables
 
 def _join_edge_helper( main_table, alias, label, satellite_type=None, qualifier=False, left=False):
     edge_table_alias = f'e_{alias}'
@@ -227,3 +245,21 @@ def _join_edge_helper( main_table, alias, label, satellite_type=None, qualifier=
     if left:
         sql = "LEFT " + sql;
     return '\t' + sql  + '\n';
+
+def delete_variable_metadata(dataset_id, variable_qnodes, debug=False):
+    variable_qnodes_str = ', '.join([f"'{qnode}'" for qnode in variable_qnodes])
+    with postgres_connection() as conn:
+        with conn.cursor() as cursor:
+            query = f"""DELETE FROM edges WHERE node1 IN ({variable_qnodes_str})"""
+            if debug:
+                print(query)
+            cursor.execute(query)
+
+def delete_dataset_metadata(dataset_qnode, debug=False):
+    with postgres_connection() as conn:
+        with conn.cursor() as cursor:
+            query = f"DELETE FROM edges WHERE node1='{dataset_qnode}'"
+            if debug:
+                print(query)
+            cursor.execute(query)
+

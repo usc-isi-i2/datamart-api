@@ -4,13 +4,19 @@
 # or a local, very transient sqlite instance is going to be used.
 
 FROM python:3.7
-
+RUN pip install --upgrade pip
 RUN pip install gunicorn
 
 COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt
-RUN git clone https://github.com/usc-isi-i2/table-linker && cd table-linker && git checkout jun_devel
-RUN pip install -e table-linker
+#RUN git clone https://github.com/usc-isi-i2/table-linker && cd table-linker && git checkout jun_devel
+#RUN pip install -e table-linker
+
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation
+RUN pip install -e t2wml-annotation
+
+RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout development
+RUN pip install -e t2wml-api
 
 COPY . /src
 RUN mkdir -p /src/instance

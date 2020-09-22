@@ -39,6 +39,7 @@ def create_edge_objects(row):
 
     def get_date_object(row):
         # node2;magnitude should be of a caret followed by an ISO date. node2;calendar and node2;precision are optional
+
         date = row.get('node2;kgtk:date_and_time')
         if not date:
             return None
@@ -96,7 +97,7 @@ def create_edge_objects(row):
 
     def get_symbol_object(row):
         symbol = row['node2;kgtk:symbol']
-        if symbol == '':
+        if symbol == '' or symbol is None:
             return None
         return SymbolValue(edge_id=row['id'], symbol=symbol)
 
@@ -118,19 +119,29 @@ def create_edge_objects(row):
     return edge, value
 
 
+def unquote(string):
+    if len(string)>1 and string[0] == '"' and string[-1] == '"':
+        return string[1:-1]
+    else:
+        return string
+
+def unquote_dict(row: dict):
+    for key, value in row.items():
+        row[key] = unquote(value)
+
 def import_kgtk_tsv(filename: str, config=None):
     session = create_sqlalchemy_session(config)
 
     with open(filename, "r", encoding="utf-8") as f:
-        reader = DictReader(f, delimiter='\t')
+        reader = DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 
         values = []
         edges = []
         for row in reader:
+            unquote_dict(row)
             edge, value = create_edge_objects(row)
             edges.append(edge)
             values.append(value)
-
     # Working in chunks is a lot faster than feeding everything to the database at once.
     CHUNK_SIZE = 50000
     for start in range(0, len(edges), CHUNK_SIZE):
@@ -146,20 +157,21 @@ def import_kgtk_tsv(filename: str, config=None):
     session.commit()
 
 
-def import_kgtk_dataframe(df, config=None):
+def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
     temp_dir = tempfile.mkdtemp()
     try:
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
         exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
 
-        df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE)
+        df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
 
-        # TODO: Are we sure kgtk is on the path
-        subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
+        if not is_file_exploded:
+            subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
+            if not os.path.isfile(exploded_tsv_path):
+                raise ValueError("Couldn't create exploded TSV file")
 
-        if not os.path.isfile(exploded_tsv_path):
-            raise ValueError("Couldn't create exploded TSV file")
-
-        import_kgtk_tsv(exploded_tsv_path, config)
+            import_kgtk_tsv(exploded_tsv_path, config)
+        else:
+            import_kgtk_tsv(tsv_path, config=config)
     finally:
         shutil.rmtree(temp_dir)

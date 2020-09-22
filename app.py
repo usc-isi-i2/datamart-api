@@ -1,10 +1,10 @@
 import os.path
-
-from flask import Flask
-from flask_restful import Api
-from flask_cors import CORS
-
 import api.hello
+from flask import Flask
+from flask_cors import CORS
+from flask_restful import Api
+from api.t2wml import T2WMLResource
+from api.annotated import AnnotatedResource
 from api.variable import VariableResource, VariableResourceAll
 from api.metadata import DatasetMetadataResource, VariableMetadataResource, FuzzySearchResource, RegionSearchResource
 
@@ -25,6 +25,8 @@ api.add_resource(VariableMetadataResource, '/metadata/datasets/<string:dataset>/
                  '/metadata/datasets/<string:dataset>/variables/<string:variable>')
 api.add_resource(FuzzySearchResource, '/metadata/variables')
 api.add_resource(RegionSearchResource, '/metadata/regions')
+api.add_resource(AnnotatedResource, '/datasets/<string:dataset>/annotated')
+api.add_resource(T2WMLResource, '/datasets/<string:dataset>/t2wml')
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=12543)

@@ -15,7 +15,7 @@ class Region:
     admin2_id: Optional[str]
     admin3: Optional[str]
     admin3_id: Optional[str]
-    coordinate: Optional[str]
+    region_coordinate: Optional[str]
 
     COUNTRY = 'Q6256'
     ADMIN1 = 'Q10864048'
@@ -34,7 +34,7 @@ class Region:
         self.admin2_id = kwargs.get('admin2_id')
         self.admin3 = kwargs.get('admin3')
         self.admin3_id = kwargs.get('admin3_id')
-        self.coordinate = kwargs.get('coordinate')
+        self.region_coordinate = kwargs.get('region_coordinate')
 
         # country, admin1 and admin2 queries return both admin and country,admin1,admin2 fields.
         # admin3 queries do not, so we need to feel these fields ourselves
@@ -146,7 +146,7 @@ def query_admin1s(country: Optional[str] = None, country_id: Optional[str] = Non
     query = f'''
     SELECT  e_admin1.node1 AS admin_id,
             s_admin1_label.text AS admin,
-            'Q10864048' AS region_type, 
+            'Q10864048' AS region_type,
             e_country.node2 AS country_id,
             s_country_label.text AS country,
             e_admin1.node1 as admin1_id,
@@ -276,13 +276,13 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
         e_country.node2 AS country_id, s_country_label.text AS country,
         e_admin1.node2 AS admin1_id, s_admin1_label.text AS admin1,
         e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2,
-        'POINT(' || c_coordinate.longitude || ', ' || c_coordinate.latitude || ')' as coordinate
+        'POINT(' || c_coordinate.longitude || ' ' || c_coordinate.latitude || ')' as region_coordinate
         FROM edges e_region
         JOIN edges e_region_label ON (e_region_label.node1=e_region.node1 AND e_region_label.label='label')
         JOIN strings s_region_label ON (e_region_label.id=s_region_label.edge_id)
-        JOIN edges e_country 
+        JOIN edges e_country
             JOIN edges e_country_label
-                JOIN strings s_country_label 
+                JOIN strings s_country_label
                 ON (s_country_label.edge_id=e_country_label.id)
             ON (e_country.node2=e_country_label.node1 AND e_country_label.label='label')
         ON (e_region.node1=e_country.node1 AND e_country.label='P17')

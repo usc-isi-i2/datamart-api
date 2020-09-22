@@ -1,77 +1,12 @@
 import csv
-
 import pandas as pd
-
-from flask import request, make_response
-from flask_restful import Resource
-
-from api.metadata.metadata import DatasetMetadata, VariableMetadata
-from db.sql.kgtk import import_kgtk_dataframe
 from db.sql import dal
-
-
-class DatasetMetadataResource(Resource):
-    def post(self, dataset=None):
-        if not request.json:
-            content = {
-                'Error': 'JSON content body is empty'
-            }
-            return content, 400
-
-        if dataset:
-            content = {
-                'Error': 'Please do not supply a dataset-id when POSTing'
-            }
-            return content, 400
-
-        # print('Post dataset: ', request.json)
-        metadata = DatasetMetadata()
-        status, code = metadata.from_request(request.json)
-        if not code == 200:
-            return status, code
-
-        if dal.get_dataset_id(metadata.dataset_id):
-            content = {
-                'Error': f'Dataset identifier {metadata.dataset_id} has already been used'
-            }
-            return content, 409
-
-        # Create qnode
-        dataset_id = f'Q{metadata.dataset_id}'
-        count = 0
-        while dal.node_exists(dataset_id):
-            count += 1
-            dataset_id = f'Q{metadata.dataset_id}{count}'
-        metadata._dataset_id = dataset_id
-
-        # pprint(metadata.to_dict())
-        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
-        # pprint(edges)
-
-        if 'test' not in request.args:
-            import_kgtk_dataframe(edges)
-
-        content = metadata.to_dict()
-
-        if 'tsv' in request.args:
-            tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
-            output = make_response(tsv)
-            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_id}.tsv'
-            output.headers['Content-type'] = 'text/tsv'
-            return output
-
-        return content, 201
-
-    def get(self, dataset=None):
-        results = dal.query_dataset_metadata(dataset)
-        if results is None:
-            return {'Error': f"No such dataset {dataset}"}, 404
-
-        # validate
-        results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
-
-        return results, 200
-
+from flask_restful import Resource
+from flask import request, make_response
+from db.sql.kgtk import import_kgtk_dataframe
+from api.variable.delete import VariableDeleter
+from api.metadata.metadata import DatasetMetadata, VariableMetadata
+from api.region_utils import get_query_region_ids, UnknownSubjectError
 
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
@@ -138,7 +73,7 @@ class VariableMetadataResource(Resource):
 
     def get(self, dataset, variable=None):
         if variable is None:
-            results = dal.query_dataset_variables(dataset)
+            results = dal.query_dataset_variables(dataset, False)
             if results is None:
                 return {'Error': f"No dataset {dataset}"}, 404
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
@@ -151,15 +86,166 @@ class VariableMetadataResource(Resource):
 
         return results, 200
 
+    def delete(self, dataset, variable=None):
+        if variable is None:
+            variables = request.args.getlist('variable')
+            if not variables:
+                results = dal.query_dataset_variables(dataset, False)
+                variables = [result['variable_id'] for result in results]
+        else:
+            variables = [variable]
+
+        dataset_id = None
+        property_ids = []
+        qnodes = []
+        for variable in variables:
+            result = dal.query_variable(dataset, variable)
+            if not result:
+                content = {
+                    'Error': f'Could not find dataset: {dataset} variable: {variable}'
+                }
+                return content, 404
+            dataset_id = result['dataset_id']
+            property_ids.append(result['property_id'])
+            qnodes.append(result['variable_qnode'])
+
+        if dal.variable_data_exists(dataset_id, property_ids):
+            return {'Error': f"Please delete all variable data before deleting metadata"}, 409
+
+        dal.delete_variable_metadata(dataset_id, qnodes)
+        return {'Message': f'Successfully deleted {str(variables)} in the dataset: {dataset}.'}, 200
+
+
+class DatasetMetadataResource(Resource):
+    vd = VariableDeleter()
+    vmr = VariableMetadataResource()
+
+    @staticmethod
+    def create_dataset(metadata: DatasetMetadata, *, create: bool = True):
+        # Create qnode
+        dataset_id = f'Q{metadata.dataset_id}'
+        count = 0
+        while dal.node_exists(dataset_id):
+            count += 1
+            dataset_id = f'Q{metadata.dataset_id}{count}'
+        metadata._dataset_id = dataset_id
+
+        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
+
+        if create:
+            import_kgtk_dataframe(edges)
+
+        return dataset_id, edges
+
+    def post(self, dataset=None):
+        if not request.json:
+            content = {
+                'Error': 'JSON content body is empty'
+            }
+            return content, 400
+
+        if dataset:
+            content = {
+                'Error': 'Please do not supply a dataset-id when POSTing'
+            }
+            return content, 400
+
+        request_metadata = request.json
+
+        invalid_metadata = False
+        error_report = []
+        for key in request_metadata:
+            if request_metadata[key].strip() == "":
+                error_report.append(
+                    {'error': f'Metadata field: {key}, cannot be blank'}
+                )
+                invalid_metadata = True
+
+        if invalid_metadata:
+            return error_report, 400
+
+        metadata = DatasetMetadata()
+        status, code = metadata.from_request(request_metadata)
+        if not code == 200:
+            return status, code
+
+        if dal.get_dataset_id(metadata.dataset_id):
+            content = {
+                'Error': f'Dataset identifier {metadata.dataset_id} has already been used'
+            }
+            return content, 409
+
+        _, edges = DatasetMetadataResource.create_dataset(metadata, create='test' not in request.args)
+
+        content = metadata.to_dict()
+
+        if 'tsv' in request.args:
+            tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
+            output = make_response(tsv)
+            output.headers['Content-Disposition'] = f'attachment; filename={metadata.dataset_id}.tsv'
+            output.headers['Content-type'] = 'text/tsv'
+            return output
+
+        return content, 201
+
+    def get(self, dataset=None):
+        results = dal.query_dataset_metadata(dataset)
+        if results is None:
+            return {'Error': f"No such dataset {dataset}"}, 404
+
+        # validate
+        results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
+
+        return results, 200
+
+    def delete(self, dataset=None):
+        if dataset is None:
+            return {'Error': 'Please provide a dataset'}, 400
+
+        dataset_metadata = dal.query_dataset_metadata(dataset, include_dataset_qnode=True)
+        if not dataset_metadata:
+            return {'Error': f'No such dataset {dataset}'}, 404
+
+        forced = request.args.get('force', 'false').lower() == 'true'
+
+        variables = dal.query_dataset_variables(dataset)
+        if variables:
+            if forced:
+                variable_ids = [x['variable_id'] for x in variables]
+                for v in variable_ids:
+                    print(self.vd.delete(dataset, v))
+                    print(self.vmr.delete(dataset, v))
+            else:
+                return {'Error': f'Dataset {dataset} is not empty'}, 409
+
+        dal.delete_dataset_metadata(dataset_metadata[0]['dataset_qnode'])
+        return {'Message': f'Dataset {dataset} deleted'}, 200
+
 
 class FuzzySearchResource(Resource):
     def get(self):
         queries = request.args.getlist('keyword')
-        if not queries:
-            return {'Error': 'A variable query must be provided: keyword'}, 400
+
+        try:
+            regions = get_query_region_ids(request.args)
+        except UnknownSubjectError as ex:
+            return ex.get_error_dict(), 404
+
+        # if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
+        #    return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
+
+        print('Regions asked for in query: ', regions)
+
+        try:
+            limit = int(request.args.get('limit', 100))
+            if limit < 1:
+                limit = 100
+        except:
+            limit = 100
+
 
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries)
+        results = dal.fuzzy_query_variables(queries, regions, limit, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
@@ -170,3 +256,34 @@ class FuzzySearchResource(Resource):
             del row['dataset_qnode']
 
         return results
+
+"""
+Query based on materialized views:
+
+SELECT fuzzy.variable_id, fuzzy.variable_qnode, fuzzy.variable_property, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, (plainto_tsquery('worker'))) AS rank FROM
+        (
+SELECT e_var_name.node1 AS variable_qnode,
+		        e_var_name.node2 AS variable_id,
+		 		e_var_property.node2 AS variable_property,
+                -- e_dataset_name.node2 AS dataset_id,
+                e_dataset.node1 AS dataset_qnode,
+                to_tsvector(CONCAT(s_description.text, ' ', s_name.text, ' ', s_label.text)) AS variable_text,
+                CONCAT(s_name.text, ' ', s_label.text) as name
+            FROM edges e_var
+            JOIN edges e_var_name ON (e_var_name.node1=e_var.node1 AND e_var_name.label='P1813')
+		    JOIN edges e_var_property ON (e_var_property.node1=e_var.node1 AND e_var_property.label='P1687')
+            JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+                    -- JOIN edges e_dataset_name ON (e_dataset_name.node1=e_dataset.node1 AND e_dataset_name.label='P1813')
+            LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
+            LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
+            LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
+	WHERE e_var.label='P31' AND e_var.node2='Q50701'  AND (
+	EXISTS (SELECT 1 FROM fuzzy_country_main fcm WHERE fcm.variable_property=e_var_property.node2 AND fcm.dataset_qnode=e_dataset.node1 AND fcm.country_qnode='Q115')
+	OR 	EXISTS (SELECT 1 FROM fuzzy_country_qualifier fcq WHERE fcq.variable_property=e_var_property.node2 AND fcq.dataset_qnode=e_dataset.node1 AND fcq.country_qnode='Q115')
+)
+) AS fuzzy
+    WHERE variable_text @@ (plainto_tsquery('worker'))
+    ORDER BY rank DESC
+	LIMIT 10
+
+"""

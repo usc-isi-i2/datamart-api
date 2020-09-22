@@ -1,5 +1,6 @@
 {
     "python.linting.enabled": true,
     "python.linting.mypyEnabled": true,
-    "python.pythonPath": "${workspaceFolder}\\env\\scripts\\python.exe"
+    "python.pythonPath": "${workspaceFolder}\\env\\scripts\\python.exe",
+    "python.envFile": "${workspaceFolder}/.python.env"
 }
