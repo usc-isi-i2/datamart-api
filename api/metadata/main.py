@@ -231,8 +231,8 @@ class FuzzySearchResource(Resource):
         except UnknownSubjectError as ex:
             return ex.get_error_dict(), 404
 
-        if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
-            return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
+        # if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
+        #    return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
 
         print('Regions asked for in query: ', regions)
 

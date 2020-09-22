@@ -7,9 +7,9 @@ from db.sql.utils import postgres_connection, query_to_dicts
 # admin types supported by views, and their property type
 ADMIN_TYPES = {
     'country': 'P17',
-    #'admin1': 'P2006190001',
-    #'admin2': 'P2006190002',
-    #'admin3': 'P2006190003',
+    'admin1': 'P2006190001',
+    'admin2': 'P2006190002',
+    'admin3': 'P2006190003',
 }
 
 # A short script to create a view for one admin type - for variables whose main subject is the location
