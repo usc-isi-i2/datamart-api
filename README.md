@@ -35,6 +35,21 @@ On start up Postgres checks if the `postgres` volume exists. If it does not exis
 
 The ISI Datamart REST endpoints is `http://localhost:14080/`.
 
+Once database is up and running, run this script (first time only) to create SQL views for variable search
+
+```
+python script/create_search_views.py
+```
+
+After adding more data to the database, please run,
+
+```
+    python script/refresh_search_views.py 
+```
+
+**IMPORTANT: refreshing SQL views is vital to ensure country and admin level search working**
+
+
 ## Datasets
 
 The Datamart comes with a few datasets pre-loaded. They include data from OECD, FSI, UAZ and WGI.
