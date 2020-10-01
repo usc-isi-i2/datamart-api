@@ -25,11 +25,27 @@ This will set up the database and make it available on port 5433. You can see th
 
 *IMPORTANT* do not use the default configuration in production - choose different login credentials
 
+Once database is up and running, run this script (first time only) to create SQL views for variable search
+
+```
+python script/create_search_views.py
+```
+
+After adding more data to the database, please run,
+
+```
+    python script/refresh_search_views.py 
+```
+
+**IMPORTANT: refreshing SQL views is vital to ensure country and admin level search working**
+
 ### Updating the database content
 This repo contains a backup of the UAZ data, to ease development. If the data has been changed and you want to load the new data, you need to delete the Postgres volume and restart it:
 
     docker-compose down --volumes
     docker-compose up
+
+**IMPORTANT: `docker-compose down --volumes` will wipe out the data in the database. To only shut down the docker, keeping the data safe, run `docker-compose down` instead**
 
 ## Configuration
 Most of the configuration is in `config.py`. You can override the configuration by adding the file `instance/config.py`. This file overrides the configuration properties in `config.py`.
