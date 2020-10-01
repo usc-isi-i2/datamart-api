@@ -18,15 +18,16 @@ Edit the `docker/docker_config.py` file to change the Postgres user password.
 
 Change to the `docker` directory and build the docker container.
 
+    cd docker
     docker-compose build
 
 This will build the backend container. It may take a while the first time you do it, as there are *a lot* of Python packages that need to be installed. Every time you change the source you should build the container again. Subsequent building runs will be faster.
 
 ## Running the System
 
-Change to the `docker` directory and run
+From the `docker` directory and run
 
-    docker-compose up
+    docker-compose up -d
 
 The docker compose yaml file, `docker-compose.yml`, uses docker compose version 3.7.
 
@@ -58,11 +59,22 @@ To add additional datasets in the form of a TSV file, switch to the scripts dire
 
 The script assumes the default Postgres username and password in `config.py`.
 
+### Shutting down the dockers
+
+To bring the docker down, from the `docker` folder, run
+```
+    docker-compose down
+```
+This command safely shut downs the dockers, saving the database. Next time dockers are brought up, the data will still be there and the load time is considerably
+faster than the first time.
+
 ### Wiping existing database and updating with new content
 
-To delete the existing database use the `--volumes` option to bring down docker compose. This command destroy the `postgres` volume.
+To delete the existing database use the `--volumes` option to bring down docker compose. This command destroys the `postgres` volume.
 
     docker-compose down --volumes
+    
+**IMPORTANT: this command will wipe out the database. To simply shutdown the docker, run `docker-compose down` instead**
 
 Replace the `dev-env/data/postgres/datamart.sql.gz` file with the new `.sql.gz` file.
 
