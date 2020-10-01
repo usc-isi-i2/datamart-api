@@ -31,6 +31,8 @@ This repo contains a backup of the UAZ data, to ease development. If the data ha
     docker-compose down --volumes
     docker-compose up
 
+**IMPORTANT: `docker-compose down --volumes` will wipe out the data in the database. To only shut down the docker, keeping the data safe, run `docker-compose down` instead**
+
 ## Configuration
 Most of the configuration is in `config.py`. You can override the configuration by adding the file `instance/config.py`. This file overrides the configuration properties in `config.py`.
 
