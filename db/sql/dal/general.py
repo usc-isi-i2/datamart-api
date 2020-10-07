@@ -68,16 +68,6 @@ and e_variable.label = 'P1813' and e_variable.node2 similar to '{prefix}[0-9]+';
     return number
 
 
-def node_exists(node1):
-    node1 = sanitize(node1)
-    query = f'''
-    select e.node1 as node1 from edges e
-    where e.node1 = '{node1}'
-    '''
-    result_dicts = query_to_dicts(query)
-    return len(result_dicts) > 0
-
-
 def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], limit: int, debug=False):
     def get_region_where():
         # Adds the where clause for regions specified in the regions dict
@@ -137,6 +127,7 @@ def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], l
     results = query_to_dicts(sql)
 
     return results
+
 
 def region_only_query_variables(region_where: str, limit: int, debug=False):
     sql = f"""

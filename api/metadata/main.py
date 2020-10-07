@@ -8,6 +8,7 @@ from api.variable.delete import VariableDeleter
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
 from api.region_utils import get_query_region_ids, UnknownSubjectError
 
+
 class VariableMetadataResource(Resource):
     def post(self, dataset, variable=None):
         if not request.json:
@@ -124,16 +125,14 @@ class DatasetMetadataResource(Resource):
     def create_dataset(metadata: DatasetMetadata, *, create: bool = True):
         # Create qnode
         dataset_id = f'Q{metadata.dataset_id}'
-        count = 0
-        while dal.node_exists(dataset_id):
-            count += 1
-            dataset_id = f'Q{metadata.dataset_id}{count}'
-        metadata._dataset_id = dataset_id
+        edges = None
+        if dal.get_dataset_id(metadata.dataset_id) is None:
+            metadata._dataset_id = dataset_id
 
-        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
+            edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
 
-        if create:
-            import_kgtk_dataframe(edges)
+            if create:
+                import_kgtk_dataframe(edges)
 
         return dataset_id, edges
 
@@ -243,7 +242,6 @@ class FuzzySearchResource(Resource):
         except:
             limit = 100
 
-
         # We're using Postgres's full text search capabilities for now
         results = dal.fuzzy_query_variables(queries, regions, limit, True)
 
@@ -256,6 +254,7 @@ class FuzzySearchResource(Resource):
             del row['dataset_qnode']
 
         return results
+
 
 """
 Query based on materialized views:
