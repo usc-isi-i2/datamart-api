@@ -85,7 +85,7 @@ class VariableGetter:
 
     def fix_time_precision(self, precision):
         try:
-            precision_number = int(float(precision)) # precision is a string that can be '11.0'
+            precision_number = int(float(precision))  # precision is a string that can be '11.0'
             return TimePrecision.to_name(precision_number)
         except ValueError:
             return 'N/A'
@@ -139,6 +139,7 @@ class VariableGetter:
         if return_df:
             return result_df
 
+        result_df.replace('N/A', '', inplace=True)
         csv = result_df.to_csv(index=False)
         output = make_response(csv)
         output.headers['Content-Disposition'] = f'attachment; filename={variable}.csv'

@@ -5,6 +5,7 @@ from api.variable.get import VariableGetter
 from api.metadata.main import VariableMetadataResource
 from api.region_utils import get_query_region_ids, UnknownSubjectError
 
+
 class VariableGetterAll:
     vg = VariableGetter()
     vmr = VariableMetadataResource()
@@ -58,7 +59,8 @@ class VariableGetterAll:
             df_list.append(self.vg.get_direct(dataset, variable['variable_id'], include_cols, exclude_cols, -1, regions,
                                               return_df=True))
 
-        df = pd.concat(df_list)
+        df = pd.concat(df_list).replace('N/A', '')
+
         csv = df.to_csv(index=False)
         output = make_response(csv)
         output.headers['Content-Disposition'] = f'attachment; filename={dataset}_variables_all.csv'
