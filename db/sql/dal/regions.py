@@ -78,12 +78,17 @@ def list_to_where(field: str, elements: List[str], lower=False) -> Optional[str]
 
 
 def region_where_clause(region_field: str, region_list: List[str], region_id_field: str,
-                        region_id_list: List[str]) -> str:
+                        region_id_list: List[str], alias_field: Optional[str] = None) -> str:
     region_where = list_to_where(region_field, region_list, lower=True)
+    if alias_field:
+        alias_where = list_to_where(alias_field, region_list, lower=True)
+    else:
+        alias_where = "0 = 1"
+
     region_id_where = list_to_where(region_id_field, region_id_list)
 
     if region_where and region_id_where:
-        return f'({region_where} OR {region_id_where})'
+        return f'({region_where} OR {region_id_where} OR {alias_where})'
     elif region_where:
         return region_where
     elif region_id_where:
@@ -269,7 +274,7 @@ def query_admin3s(admin2: Optional[str] = None, admin2_id: Optional[str] = None,
 
 
 def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False) -> List[Region]:
-    where = region_where_clause('s_region_label.text', admins, 'e_region.node1', admin_ids)
+    where = region_where_clause('s_region_label.text', admins, 'e_region.node1', admin_ids, 's_region_alias.text')
 
     query = f'''
     SELECT e_region.node1 AS admin_id, s_region_label.text AS admin, e_region.node2 AS region_type,
@@ -302,6 +307,10 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
             JOIN coordinates c_coordinate
             ON (c_coordinate.edge_id=e_coordinate.id)
         ON (e_region.node1=e_coordinate.node1 AND e_coordinate.label='P625')
+        LEFT JOIN edges e_region_alias
+            JOIN strings s_region_alias
+            ON (s_region_alias.edge_id=e_region_alias.id)
+          ON (e_region.node1=e_region_alias.node1 AND e_region_alias.label='alias')
     WHERE e_region.label='P31' AND e_region.node2 IN ('Q6256', 'Q10864048', 'Q13220204', 'Q13221722') AND {where}
     '''
     if debug:
