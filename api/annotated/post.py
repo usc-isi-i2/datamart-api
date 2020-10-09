@@ -11,6 +11,7 @@ from api.variable.delete import VariableDeleter
 from api.metadata.main import DatasetMetadataResource, VariableMetadataResource
 from api.metadata.metadata import DatasetMetadata
 from annotation.validation.validate_annotation import ValidateAnnotation
+from time import time
 
 
 class AnnotatedData(object):
@@ -21,12 +22,15 @@ class AnnotatedData(object):
         self.vd = VariableDeleter()
 
     def process(self, dataset, is_request_put=False):
+        l = time()
         validate = request.args.get('validate', 'true').lower() == 'true'
         files_only = request.args.get('files_only', 'false').lower() == 'true'
         create_if_not_exist = request.args.get('create_if_not_exist', 'false').lower() == 'true'
 
         # check if the dataset exists
+        s = time()
         dataset_qnode = dal.get_dataset_id(dataset)
+        print(f'time take to get dataset: {time() - s} seconds')
 
         if not create_if_not_exist and not dataset_qnode:
             print(f'Dataset not defined: {dataset}')
@@ -46,10 +50,10 @@ class AnnotatedData(object):
         if create_if_not_exist and not dataset_qnode:
             try:
                 dataset_dict = {
-                    'dataset_id': df.iloc[0,1],
-                    'name': df.iloc[0,2],
-                    'description': df.iloc[0,3],
-                    'url': df.iloc[0,4]
+                    'dataset_id': df.iloc[0, 1],
+                    'name': df.iloc[0, 2],
+                    'description': df.iloc[0, 3],
+                    'url': df.iloc[0, 4]
                 }
             except Exception as e:
                 return {'Error': 'Failed to create dataset: ' + str(e)}, 400
@@ -67,7 +71,9 @@ class AnnotatedData(object):
             metadata.from_dict(dataset_dict)
             dataset_qnode, _ = DatasetMetadataResource.create_dataset(metadata)
 
+        s = time()
         validation_report, valid_annotated_file, rename_columns = self.va.validate(dataset, df=df)
+        print(f'time take to validate annotated file: {time() - s} seconds')
         if validate:
             if not valid_annotated_file:
                 return json.loads(validation_report), 400
@@ -87,7 +93,9 @@ class AnnotatedData(object):
             return send_from_directory(temp_tar_dir, 't2wml_annotation_files.tar.gz')
 
         else:
+            s = time()
             variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns)
+            print(f'time take to create kgtk files: {time() - s} seconds')
 
             if is_request_put:
                 # delete the variable canonical data and metadata before inserting into databse again!!
@@ -96,10 +104,13 @@ class AnnotatedData(object):
                     print(self.vmr.delete(dataset, v))
 
             # import to database
+            s = time()
+            print('number of rows to be imported: {}'.format(len(kgtk_exploded_df)))
             import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
+            print(f'time take to import kgtk file into database: {time() - s} seconds')
 
             variables_metadata = []
             for v in variable_ids:
                 variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
-
+            print(f'total time taken: {time() - l}')
             return variables_metadata, 201
