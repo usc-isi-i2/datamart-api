@@ -9,6 +9,7 @@ class _RegionCache:
     # Region storage
     _regions: Dict[str, Region]   # qnode to region mapping
     _regions_by_name: Dict[str, Set[Region]] # region name (lowercase) to region mapping. There can be more than one region per name
+    _regions_by_alias: Dict[str, Set[Region]] # Region alias (lowercase)
 
     def __init__(self):
         self._regions = {}
@@ -23,6 +24,12 @@ class _RegionCache:
             if not name in self._regions_by_name:
                 self._regions_by_name[name] = set()
             self._regions_by_name[name].add(region)
+
+            if region.alias:
+                alias = region.alias.lower()
+                if not alias in self._regions_by_name:
+                    self._regions_by_name[alias] = set()
+                self._regions_by_name[alias].add(region)
 
     def _load_from_db(self, names: Set[str]=set(), ids: Set[str]=set()) -> None:
         if not names and not ids:
@@ -98,6 +105,12 @@ def get_query_region_ids(request_args) -> Dict[str, List[str]]:
             found_regions_by_name[name] = {region}
         else:
             found_regions_by_name[name].add(region)
+        if region.alias:
+            alias = region.alias.lower()
+            if not alias in found_regions_by_name:
+                found_regions_by_name[alias] = {region}
+            else:
+                found_regions_by_name[alias].add(region)
 
     # Now go over the queried regions and make sure we have everything we asked for
     errors = []

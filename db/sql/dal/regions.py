@@ -16,6 +16,7 @@ class Region:
     admin3: Optional[str]
     admin3_id: Optional[str]
     region_coordinate: Optional[str]
+    alias: Optional[str]
 
     COUNTRY = 'Q6256'
     ADMIN1 = 'Q10864048'
@@ -35,6 +36,7 @@ class Region:
         self.admin3 = kwargs.get('admin3')
         self.admin3_id = kwargs.get('admin3_id')
         self.region_coordinate = kwargs.get('region_coordinate')
+        self.alias = kwargs.get('alias')
 
         # country, admin1 and admin2 queries return both admin and country,admin1,admin2 fields.
         # admin3 queries do not, so we need to feel these fields ourselves
@@ -79,22 +81,18 @@ def list_to_where(field: str, elements: List[str], lower=False) -> Optional[str]
 
 def region_where_clause(region_field: str, region_list: List[str], region_id_field: str,
                         region_id_list: List[str], alias_field: Optional[str] = None) -> str:
-    region_where = list_to_where(region_field, region_list, lower=True)
-    if alias_field:
-        alias_where = list_to_where(alias_field, region_list, lower=True)
-    else:
-        alias_where = "0 = 1"
-
-    region_id_where = list_to_where(region_id_field, region_id_list)
-
-    if region_where and region_id_where:
-        return f'({region_where} OR {region_id_where} OR {alias_where})'
-    elif region_where:
-        return region_where
-    elif region_id_where:
-        return region_id_where
-    else:
+    if not region_list and not region_id_list:
         return "1=1"
+
+    region_where = list_to_where(region_field, region_list, lower=True) or "0=1"
+    if alias_field:
+        alias_where = list_to_where(alias_field, region_list, lower=True) or "0=1"
+    else:
+        alias_where = "0=1"
+
+    region_id_where = list_to_where(region_id_field, region_id_list) or "0=1"
+
+    return f'({region_where} OR {region_id_where} OR {alias_where})'
 
 
 def _query_regions(query: str) -> List[Region]:
@@ -281,7 +279,8 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
         e_country.node2 AS country_id, s_country_label.text AS country,
         e_admin1.node2 AS admin1_id, s_admin1_label.text AS admin1,
         e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2,
-        'POINT(' || c_coordinate.longitude || ' ' || c_coordinate.latitude || ')' as region_coordinate
+        'POINT(' || c_coordinate.longitude || ' ' || c_coordinate.latitude || ')' as region_coordinate,
+        s_region_alias.text AS alias
         FROM edges e_region
         JOIN edges e_region_label ON (e_region_label.node1=e_region.node1 AND e_region_label.label='label')
         JOIN strings s_region_label ON (e_region_label.id=s_region_label.edge_id)
@@ -313,6 +312,6 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
           ON (e_region.node1=e_region_alias.node1 AND e_region_alias.label='alias')
     WHERE e_region.label='P31' AND e_region.node2 IN ('Q6256', 'Q10864048', 'Q13220204', 'Q13221722') AND {where}
     '''
-    if debug:
-        print(query)
+    #if debug:
+    print(query)
     return _query_regions(query)
