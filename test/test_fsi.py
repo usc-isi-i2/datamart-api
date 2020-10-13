@@ -21,12 +21,12 @@ dataset_ids = [
     'FSIall_AN',
     'FSIall_AN_extra'
 ]
-test_dataset = {
-    'name': dataset_id,
-    'dataset_id': dataset_id,
-    'description': f"Test dataset {dataset_id}",
-    'url': f"https://{dataset_id}.org/"
-}
+# test_dataset = {
+#     'name': dataset_id,
+#     'dataset_id': dataset_id,
+#     'description': f"Test dataset {dataset_id}",
+#     'url': f"https://{dataset_id}.org/"
+# }
 
 class Timer:
     def __init__(self, name):
