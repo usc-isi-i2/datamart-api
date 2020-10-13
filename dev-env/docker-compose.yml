@@ -12,7 +12,7 @@ services:
       - POSTGRES_DB=wikidata
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ./data/postgres/datamart.sql.gz:/docker-entrypoint-initdb.d/01-datamart.sql.gz
+      - ../db/sql/data/base.sql.gz:/docker-entrypoint-initdb.d/01-base.sql.gz
       - ./data/postgres/patches.sql:/docker-entrypoint-initdb.d/02-patches.sql
       - ./data/postgres:/backup
     ports:
@@ -48,7 +48,7 @@ services:
 #    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.0
 #    command: sh /src/docker/es-init.sh
 #    network_mode: "host"
-    
+
 # Use internal Docker presistent volumes for Postgres storage, as Windows is having issues with mounting
 # local folders as Postgres data folders
 
