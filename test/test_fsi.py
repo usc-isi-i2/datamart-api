@@ -96,7 +96,7 @@ for dataset_id in dataset_ids:
         response = get(f"{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=Cote d\\'Ivoire")
         print(response.text)
 
-    with Timer(f"get_variable Cote d\\'Ivoire {variable_id} {dataset_id}"):
+    with Timer(f"get_variable Congo Republic {variable_id} {dataset_id}"):
         variable_id = "x1_external_intervention"
         response = get(f"{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=Congo Republic")
         print(response.text)
