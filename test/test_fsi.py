@@ -14,12 +14,14 @@ datamart_api_url = 'http://localhost:12543'
 
 file_paths = [
     'test_data/FSI_all_Annotated.xlsx',
-    'test_data/FSI_extra_column.xlsx'
+    'test_data/FSI_extra_column.xlsx',
+    'test_data/FSI_4_qualifiers.xlsx',
 ]
 
 dataset_ids = [
     'FSIall_AN',
-    'FSIall_AN_extra'
+    'FSIall_AN_extra',
+    'FSIall_AN_4Q',
 ]
 # test_dataset = {
 #     'name': dataset_id,
