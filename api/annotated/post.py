@@ -1,4 +1,5 @@
 import json
+import sys
 import pandas as pd
 from db.sql import dal
 from flask import request
@@ -12,7 +13,7 @@ from api.metadata.main import DatasetMetadataResource, VariableMetadataResource
 from api.metadata.metadata import DatasetMetadata
 from annotation.validation.validate_annotation import ValidateAnnotation
 from time import time
-
+import traceback
 
 class AnnotatedData(object):
     def __init__(self):
@@ -106,7 +107,11 @@ class AnnotatedData(object):
             # import to database
             s = time()
             print('number of rows to be imported: {}'.format(len(kgtk_exploded_df)))
-            import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
+            try:
+                import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
+            except Exception as e:
+                print("Can't import exploded kgtk file")
+                traceback.print_exc(file=sys.stdout)
             print(f'time take to import kgtk file into database: {time() - s} seconds')
 
             variables_metadata = []

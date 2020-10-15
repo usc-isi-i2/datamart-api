@@ -312,6 +312,6 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
           ON (e_region.node1=e_region_alias.node1 AND e_region_alias.label='alias')
     WHERE e_region.label='P31' AND e_region.node2 IN ('Q6256', 'Q10864048', 'Q13220204', 'Q13221722') AND {where}
     '''
-    #if debug:
-    print(query)
+    if debug:
+        print(query)
     return _query_regions(query)

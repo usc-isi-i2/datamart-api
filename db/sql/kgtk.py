@@ -150,9 +150,10 @@ def import_kgtk_tsv(filename: str, config=None):
                 if not '?' in field:
                     raise ValueError(f"Non nullable field {column} as a null value")
                 return 'NULL'
+            val = str(val).replace("'", "''")
             if '$' in field:
-                return f"'{str(val)}'"
-            return str(val)
+                return f"'{val}'"
+            return val
 
         values = []
         for (idx, field) in enumerate(fields):
@@ -215,7 +216,7 @@ def import_kgtk_tsv(filename: str, config=None):
         return
 
     # Time to write the edges
-    if not 'POSTGRES' in config:
+    if config and not 'POSTGRES' in config:
         config = dict(POSTGRES=config)
 
     with postgres_connection(config) as conn:

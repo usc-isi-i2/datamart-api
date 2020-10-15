@@ -13,7 +13,6 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
       - ../db/sql/data/base.sql.gz:/docker-entrypoint-initdb.d/01-base.sql.gz
-      - ../dev-env/data/postgres/patches.sql:/docker-entrypoint-initdb.d/02-patches.sql
       - ../dev-env/data/postgres:/backup
     expose:
       - "5432"

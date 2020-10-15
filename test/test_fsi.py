@@ -64,12 +64,12 @@ for dataset_id, file_path in zip(dataset_ids, file_paths):
     }
     with Timer(f'create_dataset {dataset_id}'):
         td_response = post(f'{datamart_api_url}/metadata/datasets', json=test_dataset)
-        print(td_response.text)
+        # print(td_response.text)
 
     with Timer(f'post_dataset {dataset_id}'):
         url = f'{datamart_api_url}/datasets/{dataset_id}/annotated'
         post_response = upload_data_post(file_path, url)
-        print(post_response.text)
+        # print(post_response.text)
 
 all_variables = {}
 for dataset_id in dataset_ids:
@@ -87,18 +87,18 @@ for dataset_id in dataset_ids:
     variable_id = "x1_external_intervention"
     with Timer(f'get_variable china {variable_id} {dataset_id}'):
         response = get(f'{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=china')
-        print(response.text)
+        # print(response.text)
 
     variable_id = "p2_public_services"
     with Timer(f'get_variable china {variable_id} {dataset_id}'):
         response = get(f'{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=china')
-        print(response.text)
+        # print(response.text)
 
     with Timer(f"get_variable Cote d\\'Ivoire {variable_id} {dataset_id}"):
         response = get(f"{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=Cote d\\'Ivoire")
-        print(response.text)
+        # print(response.text)
 
     with Timer(f"get_variable Congo Republic {variable_id} {dataset_id}"):
         variable_id = "x1_external_intervention"
         response = get(f"{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=Congo Republic")
-        print(response.text)
+        # print(response.text)
