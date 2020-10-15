@@ -182,7 +182,7 @@ def import_kgtk_tsv(filename: str, config=None):
             slice = objects[x:x+CHUNK_SIZE]
             values = [object_values(obj, fields, columns) for obj in slice]
             statement += ',\n'.join(values)
-            statement += ";"
+            statement += "\nON CONFLICT DO NOTHING;"
             cursor.execute(statement)
             
     def save_objects(type_name: str, objects: List[Tuple]):
@@ -230,20 +230,6 @@ def import_kgtk_tsv(filename: str, config=None):
     print(f"Done saving {count} objects in {time.time() - start}")
 
     return
-    # Working in chunks is a lot faster than feeding everything to the database at once.
-    CHUNK_SIZE = 50000
-    for start in range(0, len(edges), CHUNK_SIZE):
-        edge_chunk = edges[start:start + CHUNK_SIZE]
-        value_chunk = values[start:start + CHUNK_SIZE]
-        ids = [edge.id for edge in edge_chunk]
-        delete_q = Edge.__table__.delete().where(Edge.id.in_(ids))
-        # We have ON DELETE CASCADE on foreign keys, so values are also deleted
-        session.execute(delete_q)
-        session.bulk_save_objects(edge_chunk)
-        session.bulk_save_objects(value_chunk)
-
-    session.commit()
-
 
 def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
     temp_dir = tempfile.mkdtemp()

@@ -110,8 +110,10 @@ class AnnotatedData(object):
             try:
                 import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
             except Exception as e:
+                # Not sure what's going on here, so print for debugging purposes
                 print("Can't import exploded kgtk file")
                 traceback.print_exc(file=sys.stdout)
+                raise e
             print(f'time take to import kgtk file into database: {time() - s} seconds')
 
             variables_metadata = []

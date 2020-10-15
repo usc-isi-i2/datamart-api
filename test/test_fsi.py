@@ -13,12 +13,14 @@ datamart_api_url = 'http://localhost:12543'
 
 
 file_paths = [
+    'test_data/test_file_main_subject_country.xlsx',
     'test_data/FSI_all_Annotated.xlsx',
     'test_data/FSI_extra_column.xlsx',
     'test_data/FSI_4_qualifiers.xlsx',
 ]
 
 dataset_ids = [
+    'unittestuploaddataset',
     'FSIall_AN',
     'FSIall_AN_extra',
     'FSIall_AN_4Q',
@@ -47,11 +49,11 @@ def upload_data_post(file_path, url, json_result=True):
     response = post(url, files=files)
     if response.status_code == 400:
         print(json.dumps(response.json(), indent=2))
-    elif json_result:
-        try:
-            print(response.json())
-        except:
-            print(response.text)
+    # elif json_result:
+    #     try:
+    #         print(response.json())
+    #     except:
+    #         print(response.text)
     return response
 
 for dataset_id, file_path in zip(dataset_ids, file_paths):
@@ -76,7 +78,7 @@ for dataset_id in dataset_ids:
     with Timer(f'get_all_variables {dataset_id}'):
         url = f'{datamart_api_url}/datasets/{dataset_id}/variables'
         get_all_response = get(url)
-        print(f'status: {get_all_response.status_code}')
+        print(f'status for get_all_response: {get_all_response.status_code}')
 
     all_variables[dataset_id] = pd.read_csv(StringIO(get_all_response.text))
 
