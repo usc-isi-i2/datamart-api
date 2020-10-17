@@ -10,14 +10,13 @@ class VariableResource(Resource):
         imp = VariableGetter()
         return imp.get(dataset, variable)
 
-    # Disable put and post, since we now support uploading annotated spreadsheets
-    # def put(self, dataset, variable):
-    #     put_data = CanonicalData()
-    #     return put_data.canonical_data(dataset, variable)
+    def put(self, dataset, variable):
+        put_data = CanonicalData()
+        return put_data.canonical_data(dataset, variable)
 
-    # def post(self, dataset, variable):
-    #     put_data = CanonicalData()
-    #     return put_data.canonical_data(dataset, variable, is_request_put=False)
+    def post(self, dataset, variable):
+        put_data = CanonicalData()
+        return put_data.canonical_data(dataset, variable, is_request_put=False)
 
     def delete(self, dataset, variable):
         imp = VariableDeleter()
