@@ -28,10 +28,23 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/script/create_search_views.py",
-            "args": ["--recreate"],
+            "args": [
+                "--recreate"
+            ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
-
+        {
+            "name": "Import kgtk edges",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/import_tsv_postgres.py",
+            "args": [
+                "c:\\users\\zmbq\\Downloads\\kgtk.tsv"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+    
     ]
 }

@@ -12,7 +12,7 @@ services:
       - POSTGRES_DB=wikidata
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ../dev-env/data/postgres/datamart.sql.gz:/docker-entrypoint-initdb.d/01-datamart.sql.gz
+      - ../db/sql/data/base.sql.gz:/docker-entrypoint-initdb.d/01-base.sql.gz
       - ../dev-env/data/postgres:/backup
     expose:
       - "5432"
