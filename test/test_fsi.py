@@ -13,13 +13,17 @@ datamart_api_url = 'http://localhost:12543'
 
 
 file_paths = [
+    'test_data/test_file_main_subject_country.xlsx',
+    'test_data/FSI_all_Annotated.xlsx',
     'test_data/FSI_extra_column.xlsx',
-    'test_data/FSI_all_Annotated.xlsx'
+    'test_data/FSI_4_qualifiers.xlsx',
 ]
 
 dataset_ids = [
+    'unittestuploaddataset',
     'FSIall_AN',
-    'FSIall_AN_extra'
+    'FSIall_AN_extra',
+    'FSIall_AN_4Q',
 ]
 # test_dataset = {
 #     'name': dataset_id,
@@ -45,11 +49,11 @@ def upload_data_post(file_path, url, json_result=True):
     response = post(url, files=files)
     if response.status_code == 400:
         print(json.dumps(response.json(), indent=2))
-    elif json_result:
-        try:
-            print(response.json())
-        except:
-            print(response.text)
+    # elif json_result:
+    #     try:
+    #         print(response.json())
+    #     except:
+    #         print(response.text)
     return response
 
 for dataset_id, file_path in zip(dataset_ids, file_paths):
@@ -62,19 +66,19 @@ for dataset_id, file_path in zip(dataset_ids, file_paths):
     }
     with Timer(f'create_dataset {dataset_id}'):
         td_response = post(f'{datamart_api_url}/metadata/datasets', json=test_dataset)
-        print(td_response.text)
+        # print(td_response.text)
 
     with Timer(f'post_dataset {dataset_id}'):
         url = f'{datamart_api_url}/datasets/{dataset_id}/annotated'
         post_response = upload_data_post(file_path, url)
-        print(post_response.text)
+        # print(post_response.text)
 
 all_variables = {}
 for dataset_id in dataset_ids:
     with Timer(f'get_all_variables {dataset_id}'):
         url = f'{datamart_api_url}/datasets/{dataset_id}/variables'
         get_all_response = get(url)
-        print(f'status: {get_all_response.status_code}')
+        print(f'status for get_all_response: {get_all_response.status_code}')
 
     all_variables[dataset_id] = pd.read_csv(StringIO(get_all_response.text))
 
@@ -85,18 +89,18 @@ for dataset_id in dataset_ids:
     variable_id = "x1_external_intervention"
     with Timer(f'get_variable china {variable_id} {dataset_id}'):
         response = get(f'{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=china')
-        print(response.text)
+        # print(response.text)
 
     variable_id = "p2_public_services"
     with Timer(f'get_variable china {variable_id} {dataset_id}'):
         response = get(f'{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=china')
-        print(response.text)
+        # print(response.text)
 
     with Timer(f"get_variable Cote d\\'Ivoire {variable_id} {dataset_id}"):
         response = get(f"{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=Cote d\\'Ivoire")
-        print(response.text)
+        # print(response.text)
 
     with Timer(f"get_variable Congo Republic {variable_id} {dataset_id}"):
         variable_id = "x1_external_intervention"
         response = get(f"{datamart_api_url}/datasets/{dataset_id}/variables/{variable_id}?country=Congo Republic")
-        print(response.text)
+        # print(response.text)

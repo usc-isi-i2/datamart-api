@@ -1,3 +1,4 @@
 env/
 **/__pycache__/
 dev_env/**
+**/*.sql.gz

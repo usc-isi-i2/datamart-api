@@ -1,18 +1,22 @@
 # This file contains code that imports a KGTK file into the database. This code is taken from the postgres-wikidata
 # repository, and should at some point be united into the KGTK toolkit
 
+import csv
 # Import edges from a KGTK TSV file
 import datetime
-from csv import DictReader
-import csv
-
-from db.sql.models import CoordinateValue, DateValue, SymbolValue, QuantityValue, Edge, StringValue
-import dateutil.parser
-from db.sql.utils import create_sqlalchemy_session
-import tempfile
-import shutil
 import os.path
+import shutil
 import subprocess
+import tempfile
+import time
+from csv import DictReader
+from typing import Tuple, List, Dict
+
+import dateutil.parser
+
+from db.sql.models import (CoordinateValue, DateValue, Edge, QuantityValue,
+                           StringValue, SymbolValue)
+from db.sql.utils import create_sqlalchemy_session, postgres_connection
 
 
 def create_edge_objects(row):
@@ -130,32 +134,102 @@ def unquote_dict(row: dict):
         row[key] = unquote(value)
 
 def import_kgtk_tsv(filename: str, config=None):
-    session = create_sqlalchemy_session(config)
+    def column_names(fields):
+        for field in fields:
+            if field[-2:] == '$?':
+                yield field[:-2]
+            elif field[-1] in ('$', '?'):
+                yield field[:-1]
+            else:
+                yield field
 
+    def object_values(obj, fields, column_names):
+        def format_value(obj, field, column):
+            val = getattr(obj, column, None)
+            if val is None:
+                if not '?' in field:
+                    raise ValueError(f"Non nullable field {column} as a null value")
+                return 'NULL'
+            val = str(val).replace("'", "''")
+            if '$' in field:
+                return f"'{val}'"
+            return val
+
+        values = []
+        for (idx, field) in enumerate(fields):
+            column = column_names[idx]
+            values.append(format_value(obj, field, column))
+        return "(" + ", ".join(values) + ")"
+            
+    def write_objects(typename, objects):
+        # Map from object type name to ('table-name', list of fields)
+        # A $ signifies a string value. A ? signifies a nullable value
+        OBJECT_INFO = {  
+            'Edge': ('edges', ['id$', 'node1$', 'label$', 'node2$', 'data_type$']),
+            'StringValue': ('strings', ['edge_id$', 'text$', 'language$?']),
+            'DateValue': ('dates', ['edge_id$', 'date_and_time$', 'precision$?', 'calendar$?']),
+            'QuantityValue': ('quantities', ['edge_id$', 'number', 'unit$?', 'low_tolerance?', 'high_tolerance?']),
+            'CoordinateValue': ('coordinates', ['edge_id$', 'latitude', 'longitude', 'precision$?']),
+            'SymbolValue': ('symbols', ['edge_id$', 'symbol$']),
+        }
+
+        table_name, fields = OBJECT_INFO[typename]
+        columns = list(column_names(fields))
+
+        CHUNK_SIZE = 10000
+        for x in range(0, len(objects), CHUNK_SIZE):
+            statement = f"INSERT INTO {table_name} ( {', '.join(columns)} ) VALUES\n"
+            slice = objects[x:x+CHUNK_SIZE]
+            values = [object_values(obj, fields, columns) for obj in slice]
+            statement += ',\n'.join(values)
+            statement += "\nON CONFLICT DO NOTHING;"
+            cursor.execute(statement)
+            
+    def save_objects(type_name: str, objects: List[Tuple]):
+        edges = [t[0] for t in objects]
+        write_objects('Edge', edges)
+        values = [t[1] for t in objects]
+        write_objects(type_name, values)
+
+
+    obj_map: Dict[str, List[Tuple]] = dict()   # Map from value type to list of (edge, value)
+    start = time.time()
+    print("Reading rows")
     with open(filename, "r", encoding="utf-8") as f:
         reader = DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 
-        values = []
-        edges = []
         for row in reader:
             unquote_dict(row)
             edge, value = create_edge_objects(row)
-            edges.append(edge)
-            values.append(value)
-    # Working in chunks is a lot faster than feeding everything to the database at once.
-    CHUNK_SIZE = 50000
-    for start in range(0, len(edges), CHUNK_SIZE):
-        edge_chunk = edges[start:start + CHUNK_SIZE]
-        value_chunk = values[start:start + CHUNK_SIZE]
-        ids = [edge.id for edge in edge_chunk]
-        delete_q = Edge.__table__.delete().where(Edge.id.in_(ids))
-        # We have ON DELETE CASCADE on foreign keys, so values are also deleted
-        session.execute(delete_q)
-        session.bulk_save_objects(edge_chunk)
-        session.bulk_save_objects(value_chunk)
+            value_type = type(value).__name__
+            if value_type not in obj_map:
+                obj_map[value_type] = []
+            obj_map[value_type].append((edge, value))
 
-    session.commit()
+    count = 0
+    for (type_name, objects) in obj_map.items():
+        count += len(objects)
+        print(f"{type_name}\t{len(objects)}")
+    print(f"Read {count} objects in {time.time() - start}")
 
+    if count == 0:
+        return
+
+    # Time to write the edges
+    if config and not 'POSTGRES' in config:
+        config = dict(POSTGRES=config)
+
+    with postgres_connection(config) as conn:
+        with conn.cursor() as cursor:
+            # Everything here runs under one transaction
+            for (type_name, objects) in obj_map.items():
+                save_objects(type_name, objects)
+                print(f"Saved {len(objects)} of {type_name} - {time.time() - start}")
+        conn.commit()
+
+    print(f"Done saving {count} objects in {time.time() - start}")
+
+    return
 
 def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
     temp_dir = tempfile.mkdtemp()
@@ -166,7 +240,7 @@ def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
         df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
 
         if not is_file_exploded:
-            subprocess.run(['kgtk', 'explode', tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
+            subprocess.run(['kgtk', 'explode', "-i", tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
             if not os.path.isfile(exploded_tsv_path):
                 raise ValueError("Couldn't create exploded TSV file")
 
