@@ -1,0 +1,7 @@
+dataset	FSI	FSI dataset	data downloaded from FSI	https://fragilestatesindex.org												
+role	main subject	time			variable	variable	variable	variable	variable	variable	variable	variable	variable	variable	variable	variable
+type	country	%Y-%m-%d %H:%M:%S			number	number	number	number	number	number	number	number	number	number	number	number
+description																
+name																
+unit																
+header	Country	Year	Rank	Total	C1: Security Apparatus	C2: Factionalized Elites	C3: Group Grievance	E1: Economy	E2: Economic Inequality	E3: Human Flight and Brain Drain	P1: State Legitimacy	P2: Public Services	P3: Human Rights	S1: Demographic Pressures	S2: Refugees and IDPs	X1: External Intervention
