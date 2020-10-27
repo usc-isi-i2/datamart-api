@@ -233,8 +233,6 @@ class FuzzySearchResource(Resource):
         # if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
         #    return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
 
-        print('Regions asked for in query: ', regions)
-
         try:
             limit = int(request.args.get('limit', 100))
             if limit < 1:
@@ -242,8 +240,10 @@ class FuzzySearchResource(Resource):
         except:
             limit = 100
 
+        tags = request.args.getlist('tag')
+
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries, regions, limit, True)
+        results = dal.fuzzy_query_variables(queries, regions, tags, limit, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
