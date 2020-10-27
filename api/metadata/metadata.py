@@ -574,7 +574,8 @@ class VariableMetadata(Metadata):
         'data_interval',
         'column_index',
         'qualifier',
-        'count'
+        'count',
+        'tag'
     ]
     _required_fields = [
         'name',
