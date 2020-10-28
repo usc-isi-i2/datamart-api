@@ -59,8 +59,8 @@ class GeographyLevel(Enum):
 class VariableGetter:
     def get(self, dataset, variable):
 
-        include_cols = request.args.getlist('include') or []
-        exclude_cols = request.args.getlist('exclude') or []
+        include_cols = [col.lower() for col in request.args.getlist('include') or []]
+        exclude_cols = [col.lower() for col in request.args.getlist('exclude') or []]
         main_subjects = []
         limit = -1
         if request.args.get('limit') is not None:
@@ -106,6 +106,8 @@ class VariableGetter:
                 return None
             return '', 204
 
+        tags = dal.query_tags(result['dataset_id'], result['variable_qnode'])
+
         location_qualifier = 'location' in [q.name for q in qualifiers]
         # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(include_cols, exclude_cols, qualifiers)
@@ -132,6 +134,7 @@ class VariableGetter:
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
 
         self.add_region_columns(result_df, select_cols)
+        self.add_tag_columns(result_df, tags, exclude_cols)
 
         if 'main_subject_id' not in select_cols:
             result_df = result_df.drop(columns=['main_subject_id'])
@@ -192,3 +195,22 @@ class VariableGetter:
         for col in region_columns:
             if col in select_cols:
                 df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
+
+    def add_tag_columns(self, df, tags: List[str], exclude_cols: List[str]):
+        def tag_to_columns():
+            # Break the tags into headers and values.
+            # A tag is A:B, which appears as column A, with the value B.
+            # If there are two tags A:B, A:C, we have one column A with the value B|C
+            tag_dict = {}
+            for tag in tags:
+                tA, tB = tag.split(':')
+                if not tA in tag_dict:
+                    tag_dict[tA] = tB
+                else:
+                    tag_dict[tA] += ' | ' + tB
+            return tag_dict
+
+        tag_dict = tag_to_columns()
+        for tag_name in tag_dict.keys():
+            if tag_name.lower() not in exclude_cols:
+                df[tag_name] = tag_dict[tag_name]

@@ -152,7 +152,7 @@ def query_variables_metadata(variable_select: str, debug=False):
 
         return run_query(select, join)
 
-    def fetch_list(entity, edge_label, results, qualifier=False):
+    def fetch_list(entity, edge_label, results, qualifier=False, name_field='name'):
         select = f"""
         SELECT e_dataset.node1 AS internal_dataset_id, e_var.node1 AS internal_variable_id, e_{entity}.node2 AS identifier, s_{entity}_label.text AS name
         """
@@ -185,7 +185,7 @@ def query_variables_metadata(variable_select: str, debug=False):
                 current_list = current_result[entity] = []
 
             if not qualifier:
-                element = row['name']
+                element = row[name_field]
             else:
                 element = { 'name': row['name'], 'identifier': row['identifier'] }
                 if row['wikidata_data_type']:  # Don't add anything if it's not stored explicitly in the database
@@ -212,6 +212,7 @@ def query_variables_metadata(variable_select: str, debug=False):
     fetch_list('country', 'P17', results)
     fetch_list('location', 'P276', results)
     fetch_list('qualifier', 'P2006020002', results, True)
+    fetch_list('tag', 'P2010050001', results, False, name_field='identifier')
 
     # Now clean the results - drop the internal fields
     variables = list(results.values())

@@ -68,7 +68,7 @@ and e_variable.label = 'P1813' and e_variable.node2 similar to '{prefix}[0-9]+';
     return number
 
 
-def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], limit: int, debug=False):
+def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], tags: List[str], limit: int, debug=False):
     def get_region_where():
         # Adds the where clause for regions specified in the regions dict
         # We have two EXIST clauses per admin type - one for variables whose main_subject is the location,
@@ -86,8 +86,15 @@ def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], l
             return "1=1"
         return '\nOR '.join(admin_wheres)
 
+    def get_tag_where():
+        if not tags:
+            return "1=1"
+
+        tag_list = ', '.join([f"'{tag}'" for tag in tags])
+        return f"s_tag.text IN ({tag_list})"
+
     if not questions:
-        return region_only_query_variables(get_region_where(), limit, debug)
+        return no_keywords_query_variables(get_region_where(), get_tag_where(), limit, debug)
 
     if debug:
         print('questions:', questions)
@@ -100,6 +107,7 @@ def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], l
         print('combined_ts_query:', combined_ts_query)
 
     region_where = get_region_where()
+    tag_where = get_tag_where()
 
     # Use Postgres's full text search capabilities
     sql = f"""
@@ -116,8 +124,9 @@ def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], l
             LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
             LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
             LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
+            LEFT JOIN edges e_tag JOIN strings s_tag ON (e_tag.id=s_tag.edge_id) ON (e_var.node1=e_tag.node1 AND e_tag.label='P2010050001')
 
-        WHERE e_var.label='P31' AND e_var.node2='Q50701' AND ({region_where})) AS fuzzy
+        WHERE e_var.label='P31' AND e_var.node2='Q50701' AND ({region_where}) AND ({tag_where})) AS fuzzy
     WHERE variable_text @@ {combined_ts_query}
     ORDER BY rank DESC
     LIMIT {limit}
@@ -129,7 +138,7 @@ def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], l
     return results
 
 
-def region_only_query_variables(region_where: str, limit: int, debug=False):
+def no_keywords_query_variables(region_where: str, tag_where: str, limit: int, debug=False):
     sql = f"""
     SELECT e_var_name.node2 AS variable_id,
                 -- e_dataset_name.node2 AS dataset_id,
@@ -143,8 +152,9 @@ def region_only_query_variables(region_where: str, limit: int, debug=False):
             LEFT JOIN edges e_description JOIN strings s_description ON (e_description.id=s_description.edge_id) ON (e_var.node1=e_description.node1 AND e_description.label='description')
             LEFT JOIN edges e_name JOIN strings s_name ON (e_name.id=s_name.edge_id) ON (e_var.node1=e_name.node1 AND e_name.label='P1813')
             LEFT JOIN edges e_label JOIN strings s_label ON (e_label.id=s_label.edge_id) ON (e_var.node1=e_label.node1 AND e_label.label='label')
+            LEFT JOIN edges e_tag JOIN strings s_tag ON (e_tag.id=s_tag.edge_id) ON (e_var.node1=e_tag.node1 AND e_tag.label='P2010050001')
 
-        WHERE e_var.label='P31' AND e_var.node2='Q50701' AND ({region_where})
+        WHERE e_var.label='P31' AND e_var.node2='Q50701' AND ({region_where}) AND ({tag_where})
         LIMIT {limit}
     """
     if debug:
