@@ -24,6 +24,16 @@
             "jinja": true
         },
         {
+            "name": "Clean for Causex",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/clean-for-causex.py",
+            "args": [
+                "d:\\temp\\datamart\\causex-vars.xlsx"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Create Fuzzy-search Views",
             "type": "python",
             "request": "launch",
@@ -45,6 +55,5 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
-    
     ]
 }
