@@ -33,7 +33,7 @@ COMMON_COLUMN = {
     'time_precision': ColumnStatus.DEFAULT,
     'country': ColumnStatus.DEFAULT,
     'country_id': ColumnStatus.OPTIONAL,
-    'country_cameo': ColumnStatus.OPTIONAL,
+    'country_cameo': ColumnStatus.DEFAULT,
     'admin1': ColumnStatus.DEFAULT,
     'admin1_id': ColumnStatus.OPTIONAL,
     'admin2': ColumnStatus.DEFAULT,
