@@ -203,11 +203,12 @@ class VariableGetter:
             # If there are two tags A:B, A:C, we have one column A with the value B|C
             tag_dict = {}
             for tag in tags:
-                tA, tB = tag.split(':')
-                if not tA in tag_dict:
-                    tag_dict[tA] = tB
-                else:
-                    tag_dict[tA] += ' | ' + tB
+                if tag.strip() != '':
+                    tA, tB = tag.split(':')
+                    if not tA in tag_dict:
+                        tag_dict[tA] = tB
+                    else:
+                        tag_dict[tA] += ' | ' + tB
             return tag_dict
 
         tag_dict = tag_to_columns()
