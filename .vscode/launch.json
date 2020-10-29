@@ -24,12 +24,12 @@
             "jinja": true
         },
         {
-            "name": "Clean for Causex",
+            "name": "Clean for CausX",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/script/clean-for-causex.py",
+            "program": "${workspaceFolder}/script/clean-for-causx.py",
             "args": [
-                "d:\\temp\\datamart\\causex-vars.xlsx"
+                "d:\\temp\\datamart\\causx-vars.xlsx"
             ],
             "console": "integratedTerminal"
         },

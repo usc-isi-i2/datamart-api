@@ -1,4 +1,4 @@
-# This script keeps just the Causex variables specified in a spreadshet
+# This script keeps just the CausX variables specified in a spreadshet
 
 import argparse
 import requests
@@ -68,28 +68,28 @@ def get_datamart_variables(dataset):
     return variables
 
 def add_extra_datasets(variables):
-    # Add the datasets that are not listed in the Causex spreadsheet, with no variables,
+    # Add the datasets that are not listed in the CausX spreadsheet, with no variables,
     # so all of their variables are deleted
     datamart_datasets = get_datamart_datasets()
 
     for dataset in variables.keys():
         if dataset not in datamart_datasets:
-            raise ValueError(f"Dataset {dataset} is expected in Causex, but not in datamart")
+            raise ValueError(f"Dataset {dataset} is expected in CausX, but not in datamart")
     
     for dataset in datamart_datasets:
         if dataset not in variables:
             variables[dataset] = []
 
-def clean_dataset(dataset, causex_variables, dry_run):
+def clean_dataset(dataset, causx_variables, dry_run):
     datamart_variables = get_datamart_variables(dataset)
-    causex_variables_lower = [v.lower() for v in causex_variables]
-    # First, make sure all causex_variables are in the dataset
-    for variable in causex_variables:
+    causx_variables_lower = [v.lower() for v in causx_variables]
+    # First, make sure all causx_variables are in the dataset
+    for variable in causx_variables:
         if variable.lower() not in [dv.lower() for dv in datamart_variables]:
-            raise ValueError(f"In dataset {dataset}, variable {variable} is expected in Causex, but is not found in dataset")
+            raise ValueError(f"In dataset {dataset}, variable {variable} is expected in CausX, but is not found in dataset")
 
     for variable in datamart_variables:
-        if variable.lower() not in causex_variables_lower:
+        if variable.lower() not in causx_variables_lower:
             print(f'Deleting {variable} from {dataset}')
             if not dry_run:
                 datamart_request(f'/datasets/{dataset}/variables/{variable}', delete=True)
