@@ -6,6 +6,7 @@ from flask import request, make_response
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
+from api.metadata.update import DatasetMetadataUpdater
 from api.region_utils import get_query_region_ids, UnknownSubjectError
 
 
@@ -121,21 +122,6 @@ class DatasetMetadataResource(Resource):
     vd = VariableDeleter()
     vmr = VariableMetadataResource()
 
-    @staticmethod
-    def create_dataset(metadata: DatasetMetadata, *, create: bool = True):
-        # Create qnode
-        dataset_id = f'Q{metadata.dataset_id}'
-        edges = None
-        if dal.get_dataset_id(metadata.dataset_id) is None:
-            metadata._dataset_id = dataset_id
-
-            edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
-
-            if create:
-                import_kgtk_dataframe(edges)
-
-        return dataset_id, edges
-
     def post(self, dataset=None):
         if not request.json:
             content = {
@@ -174,7 +160,7 @@ class DatasetMetadataResource(Resource):
             }
             return content, 409
 
-        _, edges = DatasetMetadataResource.create_dataset(metadata, create='test' not in request.args)
+        _, edges = DatasetMetadataUpdater().create_dataset(metadata, create='test' not in request.args)
 
         content = metadata.to_dict()
 

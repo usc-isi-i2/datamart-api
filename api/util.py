@@ -121,6 +121,8 @@ class TimePrecision:
 class Literal:
     @staticmethod
     def time_int_precision(datetime: str, precision: int) -> str:
+        # remove microsecond
+        datetime = f'{datetime}'.split('.')[0]
         if precision:
             return f"^{datetime}/{precision}"
         else:
