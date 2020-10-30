@@ -125,7 +125,8 @@ def create_edge_objects(row):
 
 def unquote(string):
     if len(string)>1 and string[0] == '"' and string[-1] == '"':
-        return string[1:-1]
+        # Kgtk escapes double quotes, remove the escape characters
+        return string[1:-1].replace('\\"', '"')
     else:
         return string
 
@@ -160,11 +161,11 @@ def import_kgtk_tsv(filename: str, config=None):
             column = column_names[idx]
             values.append(format_value(obj, field, column))
         return "(" + ", ".join(values) + ")"
-            
+
     def write_objects(typename, objects):
         # Map from object type name to ('table-name', list of fields)
         # A $ signifies a string value. A ? signifies a nullable value
-        OBJECT_INFO = {  
+        OBJECT_INFO = {
             'Edge': ('edges', ['id$', 'node1$', 'label$', 'node2$', 'data_type$']),
             'StringValue': ('strings', ['edge_id$', 'text$', 'language$?']),
             'DateValue': ('dates', ['edge_id$', 'date_and_time$', 'precision$?', 'calendar$?']),
@@ -184,7 +185,7 @@ def import_kgtk_tsv(filename: str, config=None):
             statement += ',\n'.join(values)
             statement += "\nON CONFLICT DO NOTHING;"
             cursor.execute(statement)
-            
+
     def save_objects(type_name: str, objects: List[Tuple]):
         edges = [t[0] for t in objects]
         write_objects('Edge', edges)
