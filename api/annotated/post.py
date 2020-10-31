@@ -16,6 +16,7 @@ from annotation.validation.validate_annotation import ValidateAnnotation
 from time import time
 import traceback
 
+
 class AnnotatedData(object):
     def __init__(self):
         self.ta = T2WMLAnnotation()
@@ -50,8 +51,10 @@ class AnnotatedData(object):
             df = pd.read_csv(request.files['file'], dtype=object, header=None).fillna('')
 
         if dataset_qnode:
-            # update dataset metadata last_updated field
-            DatasetMetadataUpdater().update(dataset)
+            # only update metadata if we are going to insert data, if the request is only to return files, skip
+            if not files_only:
+                # update dataset metadata last_updated field
+                DatasetMetadataUpdater().update(dataset)
         else:
             try:
                 dataset_dict = {
