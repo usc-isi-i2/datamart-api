@@ -32,7 +32,8 @@ COMMON_COLUMN = {
     'time': ColumnStatus.REQUIRED,
     'time_precision': ColumnStatus.DEFAULT,
     'country': ColumnStatus.DEFAULT,
-    'country_id': ColumnStatus.OPTIONAL,
+    'country_id': ColumnStatus.DEFAULT,
+    'country_cameo': ColumnStatus.OPTIONAL,
     'admin1': ColumnStatus.DEFAULT,
     'admin1_id': ColumnStatus.OPTIONAL,
     'admin2': ColumnStatus.DEFAULT,
@@ -190,8 +191,8 @@ class VariableGetter:
         #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
-        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id',
-                          'region_coordinate']
+        region_columns = ['country', 'country_id', 'country_cameo', 'admin1', 'admin1_id', 'admin2', 'admin2_id',
+                          'admin3', 'admin3_id', 'region_coordinate']
         for col in region_columns:
             if col in select_cols:
                 df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
