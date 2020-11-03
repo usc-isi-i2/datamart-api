@@ -4,4 +4,7 @@ type	%m/%d/%Y	string	string	string	number	string	country	admin1		string	string	s
 description																	
 name																	
 unit																	
+tag																	
 header	date	cmname	unit	category	price	currency	country	admname	adm1id	mktname	mktid	cmid	ptid	umid	catid	sn	default
+																	
+data																	
