@@ -8,7 +8,7 @@ def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug
 
     # Shortcut to helper, with only the parameters we need
     def join_edge(alias, label, satellite_type=None, left=False):
-        return _join_edge_helper('e_dataset', alias, label, satellite_type, left)
+        return _join_edge_helper('e_dataset', alias, label, satellite_type=satellite_type, left=left)
 
     if dataset_name:
         dataset_id = get_dataset_id(dataset_name)  # Already calls sanitize
@@ -37,7 +37,9 @@ def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug
             s_short_name.text AS dataset_id,
             s_name.text AS name,
             s_description.text AS description,
-            s_url.text AS url
+            s_url.text AS url,
+            d_last_update.date_and_time AS last_update,
+            d_last_update.precision AS last_update_precision
 
 
         FROM edges e_dataset
@@ -47,6 +49,7 @@ def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug
     query += join_edge('description', 'description', 's')
     query += join_edge('url', 'P2699', 's')
     query += join_edge('short_name', 'P1813', 's')
+    query += join_edge('last_update', 'P5017', 'd', left=True)
 
 
     query += f'''
@@ -263,4 +266,3 @@ def delete_dataset_metadata(dataset_qnode, debug=False):
             if debug:
                 print(query)
             cursor.execute(query)
-

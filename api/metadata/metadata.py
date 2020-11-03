@@ -534,9 +534,11 @@ class DatasetMetadata(Metadata):
         self.data_interval = None
         self.variable_measured = None
         self.mapping_file = None
-        # Remove microseconds
-        self.last_update = datetime.datetime.now().isoformat().split('.')[0]
-        self.last_update_precision = 14  # second
+        # # Remove microseconds
+        # self.last_update = datetime.datetime.now().isoformat().split('.')[0]
+        # self.last_update_precision = 14  # second
+        self.last_update = None
+        self.last_update_precision = None
 
     def to_kgtk_edges(self, dataset_node) -> typing.List[dict]:
 
