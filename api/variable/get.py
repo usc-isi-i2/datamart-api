@@ -32,7 +32,8 @@ COMMON_COLUMN = {
     'time': ColumnStatus.REQUIRED,
     'time_precision': ColumnStatus.DEFAULT,
     'country': ColumnStatus.DEFAULT,
-    'country_id': ColumnStatus.OPTIONAL,
+    'country_id': ColumnStatus.DEFAULT,
+    'country_cameo': ColumnStatus.OPTIONAL,
     'admin1': ColumnStatus.DEFAULT,
     'admin1_id': ColumnStatus.OPTIONAL,
     'admin2': ColumnStatus.DEFAULT,
@@ -143,6 +144,9 @@ class VariableGetter:
             return result_df
 
         result_df.replace('N/A', '', inplace=True)
+        # TODO SUPER HACK FOR CAUSX on Nov 3, 2020: IF COLUMNS HAVE "Units", REMOVE 'value_unit'
+        if 'Units' in result_df and 'value_unit' in result_df:
+            result_df.drop(columns=['value_unit'], inplace=True)
         csv = result_df.to_csv(index=False)
         output = make_response(csv)
         output.headers['Content-Disposition'] = f'attachment; filename={variable}.csv'
@@ -190,8 +194,8 @@ class VariableGetter:
         #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
-        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id',
-                          'region_coordinate']
+        region_columns = ['country', 'country_id', 'country_cameo', 'admin1', 'admin1_id', 'admin2', 'admin2_id',
+                          'admin3', 'admin3_id', 'region_coordinate']
         for col in region_columns:
             if col in select_cols:
                 df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
@@ -204,7 +208,10 @@ class VariableGetter:
             tag_dict = {}
             for tag in tags:
                 if tag.strip() != '':
-                    tA, tB = tag.split(':')
+                    _ = tag.split(':')
+                    tA = _[0]
+                    tB = ':'.join(_[1:])
+                    # tA, tB = tag.split(':')
                     if not tA in tag_dict:
                         tag_dict[tA] = tB
                     else:
