@@ -16,6 +16,10 @@ class DatasetMetadataUpdater():
         if dal.get_dataset_id(metadata.dataset_id) is None:
             metadata._dataset_id = dataset_id
 
+            if not metadata.last_update:
+                metadata.last_update = datetime.datetime.now().isoformat().split('.')[0]
+                metadata.last_update_precision = 14  # second
+
             edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
 
             if create:
