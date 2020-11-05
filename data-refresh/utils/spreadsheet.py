@@ -21,7 +21,7 @@ def get_sheet(filename: str, nCols: int) -> DataFrame:
     # Read with headers
     sheet = pd.DataFrame()
     if filename.endswith('.xlsx'):
-        sheet = pd.read_excel(filename, dtype=object).fillna('')
+        sheet = pd.read_excel(filename, dtype=object, engine="openpyxl").fillna('')
     elif filename.endswith('.csv'):
         sheet = pd.read_csv(filename, encoding='latin1', dtype=object).fillna('')
     else:
@@ -88,7 +88,8 @@ def create_annotated_sheet(template_path: str, dataset_path: str,
         for p in paths:
             for filename in glob.iglob(p):
                 annotated_sheet, add_datatag = append_sheet(annotated_sheet, filename, add_datatag)
-        yield annotated_sheet
+        if len(annotated_sheet) > len(df_template):
+            yield annotated_sheet
     else:
         # Annotate the files separatedly, and POST it to datamart (multiple times)
         for p in paths:
