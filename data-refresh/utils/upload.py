@@ -72,7 +72,9 @@ def submit_sheet_bulk(datamart_api_url: str, template_path: str, dataset_path: s
             The number of sheets submitted
     '''
     sheets_submitted = 0
-    for annotated_sheet in create_annotated_sheet(template_path, dataset_path, flag_combine_sheets):
+    file_counts = 0
+    for annotated_sheet, ct in create_annotated_sheet(template_path, dataset_path, flag_combine_sheets):
+        file_counts = ct
         if submit_sheet(datamart_api_url, annotated_sheet):
             sheets_submitted += 1
-    return sheets_submitted
+    return file_counts, sheets_submitted
