@@ -40,7 +40,8 @@
             "program": "${workspaceFolder}/script/dump-datasets.py",
             "args": [
                 "c:\\temp\\datamart",
-                "--datamart-api", "http://localhost:14000"
+                "--datamart-api", "http://localhost:14000",
+                "--package", "c:\\temp\\datamart.tar.gz"
             ],
             "console": "integratedTerminal"
         },

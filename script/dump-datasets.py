@@ -2,7 +2,7 @@
 import argparse
 import os
 import sys
-
+import tarfile
 import requests
 
 
@@ -10,6 +10,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('output', type=str, help='Output directory for dump')
     parser.add_argument('--datamart-api', type=str, default='http://localhost:12543', help="Datamart API URL")
+    parser.add_argument('--package', type=str, default=None, help='Package dump into one tar.gz file specified by this argument')
 
     return parser.parse_args()
 
@@ -53,6 +54,12 @@ def dump_variables(dataset, dir):
     with open(dump_path, 'w', encoding='utf-8') as of:
         print(dump, file=of)
 
+def package_dump(dump_dir, tar_gz_path):
+    print(f'Packaging dump into {tar_gz_path}')
+    # tar-gzip file in folders, based on https://stackoverflow.com/a/17081026/871910
+    with tarfile.open(tar_gz_path, "w:gz") as tar:
+        tar.add(dump_dir, arcname='datamart-dump')
+
 def run():
     args = parse_args()
     store_datamart_url(args.datamart_api)
@@ -68,6 +75,9 @@ def run():
 
     for dataset in datasets:
         dump_variables(dataset, args.output)
+
+    if args.package:
+        package_dump(args.output, args.package)
 
     print('Done')
 
