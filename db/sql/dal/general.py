@@ -9,7 +9,7 @@ from db.sql.utils import query_to_dicts
 from db.sql import search_views
 import re
 
-_sanitation_pattern = re.compile(r'[^\w_\- ]')
+_sanitation_pattern = re.compile(r'[^\w_\- /#:]')
 
 
 def sanitize(term: str) -> str:

@@ -48,25 +48,6 @@ class Region:
     def __getitem__(self, key: str) -> str:
         return getattr(self, key)
 
-
-def query_country_qnodes(countries: List[str]) -> Dict[str, Optional[str]]:
-    # Translates countries to Q-nodes. Returns a dictionary of each input country and its QNode (None if not found)
-    # We look for countries in a case-insensitive fashion.
-    if not countries:
-        return {}
-
-    regions = query_countries(countries)
-    result_dict: Dict[str, Optional[str]] = {region.country: region.country_id for region in regions}
-
-    # The result dictionary contains all the countries we have found, we need to add those we did not find
-    found_countries = set([country.lower() for country in result_dict.keys()])
-    for country in countries:
-        if country.lower() not in found_countries:
-            result_dict[country] = None
-
-    return result_dict
-
-
 def list_to_where(field: str, elements: List[str], lower=False) -> Optional[str]:
     if not elements:
         return None
