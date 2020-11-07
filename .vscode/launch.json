@@ -34,6 +34,17 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Dump Datasets",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/dump-datasets.py",
+            "args": [
+                "c:\\temp\\datamart",
+                "--datamart-api", "http://localhost:14000"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Create Fuzzy-search Views",
             "type": "python",
             "request": "launch",
