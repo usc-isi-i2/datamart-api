@@ -24,7 +24,7 @@ class Qualifier:
         self.is_optional = name != 'time'
         self.data_type = self._get_data_type(wikidata_data_type)
 
-        if self.data_type == 'location' and not self.name:
+        if self.data_type == 'location' and (not self.name or self.label == 'P131'):  # P131 qualifiers are always 'location'
             self.name = 'location'
 
         self._init_sql()
