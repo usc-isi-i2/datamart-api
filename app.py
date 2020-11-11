@@ -4,6 +4,7 @@ from flask import Flask
 from flask_cors import CORS
 from flask_restful import Api
 from api.t2wml import T2WMLResource
+from api.bulk import BulkResource
 from api.annotated import AnnotatedResource
 from api.variable import VariableResource, VariableResourceAll
 from api.metadata import DatasetMetadataResource, VariableMetadataResource, FuzzySearchResource
@@ -26,6 +27,7 @@ api.add_resource(VariableMetadataResource, '/metadata/datasets/<string:dataset>/
 api.add_resource(FuzzySearchResource, '/metadata/variables')
 api.add_resource(AnnotatedResource, '/datasets/<string:dataset>/annotated')
 api.add_resource(T2WMLResource, '/datasets/<string:dataset>/t2wml')
+api.add_resource(BulkResource, '/datasets/bulk')
 
 if __name__ == '__main__':
     app.run(port=12543)
