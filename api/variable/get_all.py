@@ -59,7 +59,10 @@ class VariableGetterAll:
             df_list.append(self.vg.get_direct(dataset, variable['variable_id'], include_cols, exclude_cols, -1, regions,
                                               return_df=True))
 
-        df = pd.concat(df_list).replace('N/A', '')
+        if len(df_list) > 0:
+            df = pd.concat(df_list).replace('N/A', '')
+        else:
+            df = pd.DataFrame()
 
         csv = df.to_csv(index=False)
         output = make_response(csv)
