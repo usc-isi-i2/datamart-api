@@ -1,5 +1,5 @@
 import unittest
-from requests import post, delete, get
+from requests import get
 import pandas as pd
 from io import StringIO
 from test.utility import create_dataset, delete_dataset
