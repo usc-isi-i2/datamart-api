@@ -8,6 +8,10 @@ from test.utility import create_dataset, delete_dataset
 class TestCreateDataset(unittest.TestCase):
     def setUp(self):
         self.url = 'http://localhost:12543'
+        self.expected_response = {'name': 'Unit Test Dataset',
+                                  'description': 'will be deleted in this unit test',
+                                  'url': 'http://unittest101.org',
+                                  'dataset_id': 'unittestdataset'}
 
     def test_create_dataset_blank_description_url(self):
 
@@ -33,8 +37,6 @@ class TestCreateDataset(unittest.TestCase):
 
     def test_create_dataset_3(self):
         delete_dataset(self.url)
-        expected_response = {'name': 'Unit Test Dataset', 'description': 'will be deleted in this unit test',
-                             'url': 'http://unittest101.org', 'dataset_id': 'unittestdataset'}
 
         response = create_dataset(self.url)
 
@@ -44,7 +46,7 @@ class TestCreateDataset(unittest.TestCase):
 
         d_metadata = None
         for x in response:
-            if x['dataset_id'] == expected_response['dataset_id']:
+            if x['dataset_id'] == self.expected_response['dataset_id']:
                 d_metadata = x
         self.assertTrue('name' in d_metadata)
         self.assertTrue('description' in d_metadata)
@@ -52,10 +54,10 @@ class TestCreateDataset(unittest.TestCase):
         self.assertTrue('url' in d_metadata)
         self.assertTrue('last_update_precision' in d_metadata)
         self.assertTrue('last_update' in d_metadata)
-        self.assertEqual(expected_response['dataset_id'], d_metadata['dataset_id'])
-        self.assertEqual(expected_response['name'], d_metadata['name'])
-        self.assertEqual(expected_response['url'], d_metadata['url'])
-        self.assertEqual(expected_response['description'], d_metadata['description'])
+        self.assertEqual(self.expected_response['dataset_id'], d_metadata['dataset_id'])
+        self.assertEqual(self.expected_response['name'], d_metadata['name'])
+        self.assertEqual(self.expected_response['url'], d_metadata['url'])
+        self.assertEqual(self.expected_response['description'], d_metadata['description'])
 
         # delete the dataset for future runs
         delete_dataset(self.url)
@@ -98,6 +100,24 @@ class TestCreateDataset(unittest.TestCase):
 
             if row['label'] == 'P1813':
                 self.assertEqual(row['node2'], 'unittestdataset')
+
+            # test the actual response from API as well
+            response = get(f'{self.url}/metadata/datasets').json()
+
+            d_metadata = None
+            for x in response:
+                if x['dataset_id'] == self.expected_response['dataset_id']:
+                    d_metadata = x
+            self.assertTrue('name' in d_metadata)
+            self.assertTrue('description' in d_metadata)
+            self.assertTrue('dataset_id' in d_metadata)
+            self.assertTrue('url' in d_metadata)
+            self.assertTrue('last_update_precision' in d_metadata)
+            self.assertTrue('last_update' in d_metadata)
+            self.assertEqual(self.expected_response['dataset_id'], d_metadata['dataset_id'])
+            self.assertEqual(self.expected_response['name'], d_metadata['name'])
+            self.assertEqual(self.expected_response['url'], d_metadata['url'])
+            self.assertEqual(self.expected_response['description'], d_metadata['description'])
 
         # delete the dataset for future runs
         delete_dataset(self.url)
