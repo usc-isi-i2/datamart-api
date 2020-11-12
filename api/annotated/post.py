@@ -104,7 +104,7 @@ class AnnotatedData(object):
             s = time()
             variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns)
             print(f'time take to create kgtk files: {time() - s} seconds')
-
+            variable_ids = [v.replace('"', '') for v in variable_ids]
             if is_request_put:
                 # delete the variable canonical data and metadata before inserting into databse again!!
                 for v in variable_ids:
