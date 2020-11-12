@@ -31,18 +31,25 @@ def delete_dataset(url, dataset_id='unittestdataset'):
     delete(f'{url}/metadata/datasets/{dataset_id}')
 
 
-def create_variable(p_url, variable_id='unittestvariable', name='unit test variable', return_edges=False):
+def get_dataset(url, dataset_id='unittestdataset'):
+    return get(f'{url}/metadata/datasets/{dataset_id}')
+
+
+def create_variable(p_url, dataset_id, variable_id='unittestvariable', name='unit test variable', return_edges=False):
     metadata = {
         'name': name,
         'variable_id': variable_id
     }
 
-    dataset_id = create_dataset(p_url).json()['dataset_id']
     if return_edges:
         post_url = f'{p_url}/metadata/datasets/{dataset_id}/variables?tsv=true'
     else:
         post_url = f'{p_url}/metadata/datasets/{dataset_id}/variables'
     return post(post_url, json=metadata)
+
+
+def get_variable(p_url, dataset_id='unittestdataset', variable_id='unittestvariable'):
+    return get(f'{p_url}/metadata/datasets/{dataset_id}/variables/{variable_id}')
 
 
 def delete_variable(url, dataset_id='unittestdataset', variable_id='unittestvariable'):

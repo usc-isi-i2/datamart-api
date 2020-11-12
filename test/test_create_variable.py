@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
 from io import StringIO
-from test.utility import create_variable, delete_variable, delete_dataset
+from test.utility import create_variable, create_dataset, delete_variable, delete_dataset
 
 
 class TestCreateVariable(unittest.TestCase):
@@ -18,7 +18,8 @@ class TestCreateVariable(unittest.TestCase):
             "corresponds_to_property": "Punittestdataset-unittestvariable"
         }
 
-        response = create_variable(self.url)
+        dataset_id = create_dataset(self.url).json()['dataset_id']
+        response = create_variable(self.url, dataset_id)
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(expected_response, response.json())
@@ -28,18 +29,44 @@ class TestCreateVariable(unittest.TestCase):
     def test_create_variable_edges(self):
         delete_variable(self.url)
         delete_dataset(self.url)
-        expected_response = {
-            "name": "unit test variable",
-            "variable_id": "unittestvariable",
-            "dataset_id": "unittestdataset",
-            "corresponds_to_property": "Punittestdataset-unittestvariable"
-        }
 
-        response = create_variable(self.url, return_edges=True)
+        expected_labels = [
+            'P31',
+            'label',
+            'P1476',
+            'P2006020003',
+            'P2006020004',
+            'P1813',
+            'P1687'
+        ]
+
+        dataset_id = create_dataset(self.url).json()['dataset_id']
+
+        response = create_variable(self.url, dataset_id, return_edges=True)
         df = pd.read_csv(StringIO(response.text), sep='\t')
-        print(df)
 
-        # self.assertEqual(response.status_code, 201)
-        # self.assertEqual(expected_response, response.json())
+        for i, row in df.iterrows():
+            self.assertTrue(row['label'] in expected_labels)
+            if row['label'] == 'P31':
+                self.assertEqual(row['node2'], 'Q50701')
+
+            if row['label'] == 'label':
+                self.assertEqual(row['node2'], 'unit test variable')
+
+            if row['label'] == 'P1476':
+                self.assertEqual(row['node2'], 'unit test variable')
+
+            if row['label'] == 'P1813':
+                self.assertEqual(row['node2'], 'unittestvariable')
+
+            if row['label'] == 'P2006020003':
+                self.assertEqual(row['node2'], 'Qunittestdataset-unittestvariable')
+
+            if row['label'] == 'P2006020004':
+                self.assertEqual(row['node2'], 'Qunittestdataset')
+
+            if row['label'] == 'P1687':
+                self.assertEqual(row['node2'], 'Punittestdataset-unittestvariable')
+
         delete_variable(self.url)
         delete_dataset(self.url)
