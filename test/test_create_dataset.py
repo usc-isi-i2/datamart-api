@@ -2,80 +2,68 @@ import unittest
 from requests import post, delete, get
 import pandas as pd
 from io import StringIO
+from test.utility import create_dataset, delete_dataset
 
 
 class TestCreateDataset(unittest.TestCase):
     def setUp(self):
         self.url = 'http://localhost:12543'
 
-    def test_create_dataset_1(self):
-        metadata = {
-            "name": "failure dataset",
-            "dataset_id": "setup_for_failure",
-            "description": "",
-            "url": ""
-        }
+    def test_create_dataset_blank_description_url(self):
+
         expected_response = [{'error': 'Metadata field: description, cannot be blank'},
                              {'error': 'Metadata field: url, cannot be blank'}]
 
-        response = post(f'{self.url}/metadata/datasets', json=metadata)
+        response = create_dataset(self.url, description='', url='')
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(expected_response, response.json())
 
-    def test_create_dataset_2(self):
-        metadata = {
-            "name": "",
-            "dataset_id": "",
-            "description": "",
-            "url": ""
-        }
+    def test_create_dataset_blank_all_fields(self):
+
         expected_response = [{'error': 'Metadata field: name, cannot be blank'},
                              {'error': 'Metadata field: dataset_id, cannot be blank'},
                              {'error': 'Metadata field: description, cannot be blank'},
                              {'error': 'Metadata field: url, cannot be blank'}]
 
-        response = post(f'{self.url}/metadata/datasets', json=metadata)
+        response = create_dataset(self.url, name='', description='', url='', dataset_id='')
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(expected_response, response.json())
 
     def test_create_dataset_3(self):
-        metadata = {
-            "name": "UnitTestDataset",
-            "dataset_id": "unittestdataset",
-            "description": "will be deleted in this unit test",
-            "url": "http://unittest101.org"
-        }
-        expected_response = {'name': 'UnitTestDataset', 'description': 'will be deleted in this unit test',
+        delete_dataset(self.url)
+        expected_response = {'name': 'Unit Test Dataset', 'description': 'will be deleted in this unit test',
                              'url': 'http://unittest101.org', 'dataset_id': 'unittestdataset'}
 
-        response = post(f'{self.url}/metadata/datasets', json=metadata)
+        response = create_dataset(self.url)
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(expected_response, response.json())
 
         response = get(f'{self.url}/metadata/datasets').json()
+
         d_metadata = None
         for x in response:
-            if x['dataset_id'] == metadata['dataset_id']:
+            if x['dataset_id'] == expected_response['dataset_id']:
                 d_metadata = x
-
-        self.assertEqual(metadata, d_metadata)
+        self.assertTrue('name' in d_metadata)
+        self.assertTrue('description' in d_metadata)
+        self.assertTrue('dataset_id' in d_metadata)
+        self.assertTrue('url' in d_metadata)
+        self.assertTrue('last_update_precision' in d_metadata)
+        self.assertTrue('last_update' in d_metadata)
+        self.assertEqual(expected_response['dataset_id'], d_metadata['dataset_id'])
+        self.assertEqual(expected_response['name'], d_metadata['name'])
+        self.assertEqual(expected_response['url'], d_metadata['url'])
+        self.assertEqual(expected_response['description'], d_metadata['description'])
 
         # delete the dataset for future runs
-        delete(f'{self.url}/metadata/datasets/unittestdataset')
+        delete_dataset(self.url)
 
     def test_create_dataset_edges(self):
-        delete(f'{self.url}/metadata/datasets/unittestdataset')
-        metadata = {
-            "name": "Unit Test Dataset",
-            "dataset_id": "unittestdataset",
-            "description": "will be deleted in this unit test",
-            "url": "http://unittest101.org"
-        }
+        delete_dataset(self.url)
 
-        r = post(f'{self.url}/metadata/datasets?tsv=true', json=metadata)
+        r = create_dataset(self.url, return_edges=True)
         expected_labels = [
             'P31',
             'label',
@@ -112,4 +100,4 @@ class TestCreateDataset(unittest.TestCase):
                 self.assertEqual(row['node2'], 'unittestdataset')
 
         # delete the dataset for future runs
-        delete(f'{self.url}/metadata/datasets/unittestdataset')
+        delete_dataset(self.url)
