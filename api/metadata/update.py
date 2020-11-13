@@ -37,12 +37,20 @@ class DatasetMetadataUpdater():
         if not dataset_metadata:
             raise Exception(f"No such dataset {dataset_id}")
 
+        # Remove previous last_update
         dataset_metadata = dataset_metadata[0]
         dataset_qnode = dataset_metadata.pop('dataset_qnode')
-        dal.delete_dataset_metadata(dataset_qnode, debug=True)
+        if 'last_update' in dataset_metadata:
+            dal.delete_dataset_last_update(dataset_qnode)
 
+        # New last_update
         dataset_metadata['last_update'] = last_update
         dataset_metadata['last_update_precision'] = 14  # second
 
-        self.create_dataset(DatasetMetadata().from_dict(dataset_metadata))
+        # Add just the last_update edge
+        edge_list = DatasetMetadata().from_dict(dataset_metadata).to_kgtk_edges(dataset_qnode)
+        edge_list = [edge for edge in edge_list if edge['label'] == 'P5017']
+        edges = pd.DataFrame(edge_list)
+        import_kgtk_dataframe(edges)
+
         return dataset_metadata
