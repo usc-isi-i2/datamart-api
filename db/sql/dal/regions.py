@@ -91,6 +91,7 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
         e_country.node2 AS country_id, s_country_label.text AS country, s_country_cameo.text AS country_cameo,
         e_admin1.node2 AS admin1_id, s_admin1_label.text AS admin1,
         e_admin2.node2 AS admin2_id, s_admin2_label.text AS admin2,
+        e_admin3.node2 AS admin3_id, s_admin3_label.text AS admin3,
         'POINT(' || c_coordinate.longitude || ' ' || c_coordinate.latitude || ')' as region_coordinate,
         s_region_alias.text AS alias
         FROM edges e_region
@@ -118,6 +119,12 @@ def query_admins(admins: List[str] = [], admin_ids: List[str] = [], debug=False)
                 ON (s_admin2_label.edge_id=e_admin2_label.id)
             ON (e_admin2.node2=e_admin2_label.node1 AND e_admin2_label.label='label')
         ON (e_region.node1=e_admin2.node1 AND e_admin2.label='P2006190002')
+        LEFT JOIN edges e_admin3
+            JOIN edges e_admin3_label
+                JOIN strings s_admin3_label
+                ON (s_admin3_label.edge_id=e_admin3_label.id)
+            ON (e_admin3.node2=e_admin3_label.node1 AND e_admin3_label.label='label')
+        ON (e_region.node1=e_admin3.node1 AND e_admin3.label='P2006190003')
         LEFT JOIN edges e_coordinate
             JOIN coordinates c_coordinate
             ON (c_coordinate.edge_id=e_coordinate.id)

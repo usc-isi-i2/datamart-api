@@ -198,10 +198,15 @@ def import_kgtk_tsv(filename: str, config=None):
     print("Reading rows")
     with open(filename, "r", encoding="utf-8") as f:
         reader = DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
-
+        row_num = 1
         for row in reader:
+            row_num += 1
             unquote_dict(row)
-            edge, value = create_edge_objects(row)
+            try:
+                edge, value = create_edge_objects(row)
+            except:
+                print(f"Error in row {row_num}")
+                raise
             value_type = type(value).__name__
             if value_type not in obj_map:
                 obj_map[value_type] = []
