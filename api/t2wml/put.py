@@ -4,6 +4,7 @@ from flask import request
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.main import VariableMetadataResource
+from api.metadata.update import DatasetMetadataUpdater
 import csv
 import tempfile
 import subprocess
@@ -23,6 +24,10 @@ class IngestT2WMLOutput(object):
 
         if not dataset_qnode:
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
+
+        if dataset_qnode:
+            # update dataset metadata last_updated field
+            DatasetMetadataUpdater().update(dataset)
 
         t2wml_file_name = request.files['kgtk_output'].filename
         item_defs_file_name = request.files['item_definitions'].filename

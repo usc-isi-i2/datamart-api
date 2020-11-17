@@ -8,7 +8,7 @@ def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug
 
     # Shortcut to helper, with only the parameters we need
     def join_edge(alias, label, satellite_type=None, left=False):
-        return _join_edge_helper('e_dataset', alias, label, satellite_type, left)
+        return _join_edge_helper('e_dataset', alias, label, satellite_type=satellite_type, left=left)
 
     if dataset_name:
         dataset_id = get_dataset_id(dataset_name)  # Already calls sanitize
@@ -37,7 +37,9 @@ def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug
             s_short_name.text AS dataset_id,
             s_name.text AS name,
             s_description.text AS description,
-            s_url.text AS url
+            s_url.text AS url,
+            d_last_update.date_and_time AS last_update,
+            d_last_update.precision AS last_update_precision
 
 
         FROM edges e_dataset
@@ -47,6 +49,7 @@ def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug
     query += join_edge('description', 'description', 's')
     query += join_edge('url', 'P2699', 's')
     query += join_edge('short_name', 'P1813', 's')
+    query += join_edge('last_update', 'P5017', 'd', left=True)
 
 
     query += f'''
@@ -152,7 +155,7 @@ def query_variables_metadata(variable_select: str, debug=False):
 
         return run_query(select, join)
 
-    def fetch_list(entity, edge_label, results, qualifier=False):
+    def fetch_list(entity, edge_label, results, qualifier=False, name_field='name'):
         select = f"""
         SELECT e_dataset.node1 AS internal_dataset_id, e_var.node1 AS internal_variable_id, e_{entity}.node2 AS identifier, s_{entity}_label.text AS name
         """
@@ -185,7 +188,7 @@ def query_variables_metadata(variable_select: str, debug=False):
                 current_list = current_result[entity] = []
 
             if not qualifier:
-                element = row['name']
+                element = row[name_field]
             else:
                 element = { 'name': row['name'], 'identifier': row['identifier'] }
                 if row['wikidata_data_type']:  # Don't add anything if it's not stored explicitly in the database
@@ -212,6 +215,7 @@ def query_variables_metadata(variable_select: str, debug=False):
     fetch_list('country', 'P17', results)
     fetch_list('location', 'P276', results)
     fetch_list('qualifier', 'P2006020002', results, True)
+    fetch_list('tag', 'P2010050001', results, False, name_field='identifier')
 
     # Now clean the results - drop the internal fields
     variables = list(results.values())
@@ -263,3 +267,10 @@ def delete_dataset_metadata(dataset_qnode, debug=False):
                 print(query)
             cursor.execute(query)
 
+def delete_dataset_last_update(dataset_qnode, debug=False):
+    with postgres_connection() as conn:
+        with conn.cursor() as cursor:
+            query = f"DELETE FROM edges WHERE node1='{dataset_qnode}' and label='P5017'"
+            if debug:
+                print(query)
+            cursor.execute(query)

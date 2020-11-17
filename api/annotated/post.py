@@ -11,9 +11,11 @@ from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.main import DatasetMetadataResource, VariableMetadataResource
 from api.metadata.metadata import DatasetMetadata
+from api.metadata.update import DatasetMetadataUpdater
 from annotation.validation.validate_annotation import ValidateAnnotation
 from time import time
 import traceback
+
 
 class AnnotatedData(object):
     def __init__(self):
@@ -48,7 +50,12 @@ class AnnotatedData(object):
         elif file_name.endswith('.csv'):
             df = pd.read_csv(request.files['file'], dtype=object, header=None).fillna('')
 
-        if create_if_not_exist and not dataset_qnode:
+        if dataset_qnode:
+            # only update metadata if we are going to insert data, if the request is only to return files, skip
+            if not files_only:
+                # update dataset metadata last_updated field
+                DatasetMetadataUpdater().update(dataset)
+        else:
             try:
                 dataset_dict = {
                     'dataset_id': df.iloc[0, 1],
@@ -70,7 +77,7 @@ class AnnotatedData(object):
 
             metadata = DatasetMetadata()
             metadata.from_dict(dataset_dict)
-            dataset_qnode, _ = DatasetMetadataResource.create_dataset(metadata)
+            dataset_qnode, _ = DatasetMetadataUpdater().create_dataset(metadata)
 
         s = time()
         validation_report, valid_annotated_file, rename_columns = self.va.validate(dataset, df=df)
@@ -97,7 +104,7 @@ class AnnotatedData(object):
             s = time()
             variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns)
             print(f'time take to create kgtk files: {time() - s} seconds')
-
+            variable_ids = [v.replace('"', '') for v in variable_ids]
             if is_request_put:
                 # delete the variable canonical data and metadata before inserting into databse again!!
                 for v in variable_ids:

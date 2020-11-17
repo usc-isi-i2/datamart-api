@@ -32,7 +32,8 @@ COMMON_COLUMN = {
     'time': ColumnStatus.REQUIRED,
     'time_precision': ColumnStatus.DEFAULT,
     'country': ColumnStatus.DEFAULT,
-    'country_id': ColumnStatus.OPTIONAL,
+    'country_id': ColumnStatus.DEFAULT,
+    'country_cameo': ColumnStatus.OPTIONAL,
     'admin1': ColumnStatus.DEFAULT,
     'admin1_id': ColumnStatus.OPTIONAL,
     'admin2': ColumnStatus.DEFAULT,
@@ -59,8 +60,8 @@ class GeographyLevel(Enum):
 class VariableGetter:
     def get(self, dataset, variable):
 
-        include_cols = request.args.getlist('include') or []
-        exclude_cols = request.args.getlist('exclude') or []
+        include_cols = [col.lower() for col in request.args.getlist('include') or []]
+        exclude_cols = [col.lower() for col in request.args.getlist('exclude') or []]
         main_subjects = []
         limit = -1
         if request.args.get('limit') is not None:
@@ -106,6 +107,8 @@ class VariableGetter:
                 return None
             return '', 204
 
+        tags = dal.query_tags(result['dataset_id'], result['variable_qnode'])
+
         location_qualifier = 'location' in [q.name for q in qualifiers]
         # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
         select_cols = self.get_columns(include_cols, exclude_cols, qualifiers)
@@ -132,6 +135,7 @@ class VariableGetter:
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
 
         self.add_region_columns(result_df, select_cols)
+        self.add_tag_columns(result_df, tags, exclude_cols)
 
         if 'main_subject_id' not in select_cols:
             result_df = result_df.drop(columns=['main_subject_id'])
@@ -140,6 +144,9 @@ class VariableGetter:
             return result_df
 
         result_df.replace('N/A', '', inplace=True)
+        # TODO SUPER HACK FOR CAUSX on Nov 3, 2020: IF COLUMNS HAVE "Units", REMOVE 'value_unit'
+        if 'Units' in result_df and 'value_unit' in result_df:
+            result_df.drop(columns=['value_unit'], inplace=True)
         csv = result_df.to_csv(index=False)
         output = make_response(csv)
         output.headers['Content-Disposition'] = f'attachment; filename={variable}.csv'
@@ -187,8 +194,31 @@ class VariableGetter:
         #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
 
         # Add the other columns
-        region_columns = ['country', 'country_id', 'admin1', 'admin1_id', 'admin2', 'admin2_id', 'admin3', 'admin3_id',
-                          'region_coordinate']
+        region_columns = ['country', 'country_id', 'country_cameo', 'admin1', 'admin1_id', 'admin2', 'admin2_id',
+                          'admin3', 'admin3_id', 'region_coordinate']
         for col in region_columns:
             if col in select_cols:
                 df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
+
+    def add_tag_columns(self, df, tags: List[str], exclude_cols: List[str]):
+        def tag_to_columns():
+            # Break the tags into headers and values.
+            # A tag is A:B, which appears as column A, with the value B.
+            # If there are two tags A:B, A:C, we have one column A with the value B|C
+            tag_dict = {}
+            for tag in tags:
+                if tag.strip() != '':
+                    _ = tag.split(':')
+                    tA = _[0]
+                    tB = ':'.join(_[1:])
+                    # tA, tB = tag.split(':')
+                    if not tA in tag_dict:
+                        tag_dict[tA] = tB
+                    else:
+                        tag_dict[tA] += ' | ' + tB
+            return tag_dict
+
+        tag_dict = tag_to_columns()
+        for tag_name in tag_dict.keys():
+            if tag_name.lower() not in exclude_cols:
+                df[tag_name] = tag_dict[tag_name]

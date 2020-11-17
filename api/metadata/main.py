@@ -6,6 +6,7 @@ from flask import request, make_response
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
+from api.metadata.update import DatasetMetadataUpdater
 from api.region_utils import get_query_region_ids, UnknownSubjectError
 
 
@@ -121,21 +122,6 @@ class DatasetMetadataResource(Resource):
     vd = VariableDeleter()
     vmr = VariableMetadataResource()
 
-    @staticmethod
-    def create_dataset(metadata: DatasetMetadata, *, create: bool = True):
-        # Create qnode
-        dataset_id = f'Q{metadata.dataset_id}'
-        edges = None
-        if dal.get_dataset_id(metadata.dataset_id) is None:
-            metadata._dataset_id = dataset_id
-
-            edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
-
-            if create:
-                import_kgtk_dataframe(edges)
-
-        return dataset_id, edges
-
     def post(self, dataset=None):
         if not request.json:
             content = {
@@ -174,7 +160,7 @@ class DatasetMetadataResource(Resource):
             }
             return content, 409
 
-        _, edges = DatasetMetadataResource.create_dataset(metadata, create='test' not in request.args)
+        _, edges = DatasetMetadataUpdater().create_dataset(metadata, create='test' not in request.args)
 
         content = metadata.to_dict()
 
@@ -233,8 +219,6 @@ class FuzzySearchResource(Resource):
         # if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
         #    return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
 
-        print('Regions asked for in query: ', regions)
-
         try:
             limit = int(request.args.get('limit', 100))
             if limit < 1:
@@ -242,8 +226,10 @@ class FuzzySearchResource(Resource):
         except:
             limit = 100
 
+        tags = request.args.getlist('tag')
+
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries, regions, limit, True)
+        results = dal.fuzzy_query_variables(queries, regions, tags, limit, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
