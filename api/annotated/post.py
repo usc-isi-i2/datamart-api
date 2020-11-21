@@ -1,6 +1,7 @@
 import json
 import sys
 import pandas as pd
+from pandas import DataFrame
 from db.sql import dal
 from flask import request
 import tempfile
@@ -118,19 +119,23 @@ class AnnotatedData(object):
                     print(self.vmr.delete(dataset, v))
 
             # import to database
-            s = time()
-            print('number of rows to be imported: {}'.format(len(kgtk_exploded_df)))
-            try:
-                import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
-            except Exception as e:
-                # Not sure what's going on here, so print for debugging purposes
-                print("Can't import exploded kgtk file")
-                traceback.print_exc(file=sys.stdout)
-                raise e
-            print(f'time take to import kgtk file into database: {time() - s} seconds')
+            self.import_to_database(kgtk_exploded_df)
 
             variables_metadata = []
             for v in variable_ids:
                 variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
             print(f'total time taken: {time() - l}')
             return variables_metadata, 201
+
+    def import_to_database(self, kgtk_exploded_df: DataFrame):
+
+        s = time()
+        print('number of rows to be imported: {}'.format(len(kgtk_exploded_df)))
+        try:
+            import_kgtk_dataframe(kgtk_exploded_df, is_file_exploded=True)
+        except Exception as e:
+            # Not sure what's going on here, so print for debugging purposes
+            print("Can't import exploded kgtk file")
+            traceback.print_exc(file=sys.stdout)
+            raise e
+        print(f'time take to import kgtk file into database: {time() - s} seconds')
