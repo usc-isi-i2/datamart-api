@@ -94,7 +94,8 @@ class AnnotatedData(object):
         if files_only:
             t2wml_yaml, combined_item_def_df, consolidated_wikifier_df = self.ta.process(dataset_qnode, df,
                                                                                          rename_columns,
-                                                                                         extra_files=True)
+                                                                                         extra_files=True,
+                                                                                         t2wml_yaml=t2wml_yaml)
 
             temp_tar_dir = tempfile.mkdtemp()
             open(f'{temp_tar_dir}/t2wml.yaml', 'w').write(t2wml_yaml)
