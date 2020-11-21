@@ -1,5 +1,6 @@
 import datetime
 import gzip
+import hashlib
 import json
 import typing
 import os
@@ -10,10 +11,28 @@ from enum import Enum
 
 from api.util import DataInterval, Literal, TimePrecision
 
-from api.variable.put import CanonicalData
 from db.sql import dal
 
-pcd = CanonicalData()
+
+class Triple:
+    def __init__(self):
+        self.all_ids_dict = {}
+    def create_triple(self, node1, label, node2):
+        id_key = '{}-{}'.format(node1, label)
+        if id_key not in self.all_ids_dict:
+            self.all_ids_dict[id_key] = 0
+        else:
+            self.all_ids_dict[id_key] += 1
+        id_index = self.all_ids_dict[id_key]
+        return {
+            'node1': node1,
+            'label': label,
+            'node2': node2,
+            'id': 'Q{}'.format(
+                hashlib.sha256(bytes('{}{}{}{}'.format(node1, label, node2, id_index), encoding='utf-8')).hexdigest())
+        }
+
+pcd = Triple()
 
 DEFAULT_DATE = datetime.datetime(1900, 1, 1)
 
@@ -51,6 +70,7 @@ PROPERTY_LABEL = {
     'P2699': 'url',
     'P2860': 'cites work',
     'P3896': 'geoshape',
+    'P5017': 'last update',
     'P6269': 'apiEndpoint',
     'P6339': 'data interval',
     'label': '',
@@ -151,6 +171,7 @@ class Metadata:
     # official properties
     _datamart_fields: typing.List[str] = []
 
+    # mapping from property name to data type
     _datamart_field_type: typing.Dict[str, DataType] = {}
 
     # properties for internal use
@@ -196,7 +217,7 @@ class Metadata:
         return field in cls._list_fields
 
     def field_edge(self, node1: str, field_name: str, *, required: bool = False,
-                   is_time: bool = False, is_item: bool = False):
+                   is_time: bool = False, is_item: bool = False) -> typing.Optional[dict]:
         value = getattr(self, field_name, None)
         label = self._name_to_pnode_map[field_name]
 
@@ -210,7 +231,7 @@ class Metadata:
             else:
                 raise ValueError(f'Do not know how to handle dict: {node1} {field_name} {value}')
         elif not isinstance(value, (float, int, str)):
-            raise ValueError(f'Do not know how to handle: {node1} {field_name} {value}')
+            raise ValueError(f'Do not know how to handle: {node1} {field_name} {value} ({type(value)})')
 
         if is_time:
             precision = getattr(self, f'{field_name}_precision')
@@ -404,7 +425,9 @@ class DatasetMetadata(Metadata):
         'date_created',
         'api_endpoint',
         'included_in_data_catalog',
-        'has_part'
+        'has_part',
+        'last_update',
+        'last_update_precision'
     ]
     _required_fields = [
         'name',
@@ -451,7 +474,9 @@ class DatasetMetadata(Metadata):
         'date_created': DataType.DATE,
         'api_endpoint': DataType.URL,
         'included_in_data_catalog': DataType.QNODE,
-        'has_part': DataType.URL
+        'has_part': DataType.URL,
+        'last_update': DataType.DATE,
+        'last_update_precision': DataType.PRECISION
     }
     _name_to_pnode_map = {
         'name': 'P1476',
@@ -481,7 +506,8 @@ class DatasetMetadata(Metadata):
         'date_created': 'schema:dateCreated',
         'api_endpoint': 'P6269',
         'included_in_data_catalog': 'schema:includedInDataCatalog',
-        'has_part': 'P527'
+        'has_part': 'P527',
+        'last_update': 'P5017'
 
     }
     def __init__(self):
@@ -508,6 +534,11 @@ class DatasetMetadata(Metadata):
         self.data_interval = None
         self.variable_measured = None
         self.mapping_file = None
+        # # Remove microseconds
+        # self.last_update = datetime.datetime.now().isoformat().split('.')[0]
+        # self.last_update_precision = 14  # second
+        self.last_update = None
+        self.last_update_precision = None
 
     def to_kgtk_edges(self, dataset_node) -> typing.List[dict]:
 
@@ -545,6 +576,7 @@ class DatasetMetadata(Metadata):
         edges.append(self.field_edge(dataset_node, 'data_interval', is_item=True))
         edges.append(self.field_edge(dataset_node, 'variable_measured', is_item=True))
         edges.append(self.field_edge(dataset_node, 'mapping_file'))
+        edges.append(self.field_edge(dataset_node, 'last_update', is_time=True))
 
         edges = [edge for edge in edges if edge is not None]
         return edges
@@ -574,7 +606,8 @@ class VariableMetadata(Metadata):
         'data_interval',
         'column_index',
         'qualifier',
-        'count'
+        'count',
+        'tag'
     ]
     _required_fields = [
         'name',

@@ -70,13 +70,12 @@ def read_input_file(filename, ids):
 
             try:
                 edge, value = create_edge_objects(row)
+                yield edge, value
             except ValueError:
                 warn(count, f"Can't deduce edge type, id is {id}")
                 errors += 1
             if count % 100000 == 0:
                 print(f'Read {count} records from {filename}')
-
-            yield edge, value
 
     print(f'Read {count} records with {errors} errors from {filename}')
 
@@ -198,6 +197,8 @@ def run():
     # copying to the database.
     if not args.ignore_duplicates:
         existing = read_existing_edges(args)
+    else:
+        existing = {}
     new = set ()
 
     written = 0

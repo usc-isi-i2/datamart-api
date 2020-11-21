@@ -1,0 +1,10 @@
+dataset	WFP	WFP dataset	"World food prices data compiled by the World Food Program, distributed by HDX"	https://data.humdata.org/dataset/wfp-food-prices													
+role	time	main subject	unit	qualifier	variable	unit	location	location		qualifier	qualifier	qualifier	qualifier	qualifier	qualifier	qualifier	
+type	%m/%d/%Y	string	string	string	number	string	country	admin1		string	string	string	string	string	string	string	
+description																	
+name																	
+unit																	
+tag																	
+header	date	cmname	unit	category	price	currency	country	admname	adm1id	mktname	mktid	cmid	ptid	umid	catid	sn	default
+																	
+data																	

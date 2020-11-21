@@ -9,10 +9,10 @@ from api.util import TimePrecision
 from db.sql.dal.general import sanitize
 from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
+from api.metadata.update import DatasetMetadataUpdater
 from api.variable.delete import VariableDeleter
 from .ethiopia_wikifier import EthiopiaWikifier
 from .country_wikifier import DatamartCountryWikifier
-
 
 
 class CanonicalData(object):
@@ -473,6 +473,7 @@ class CanonicalData(object):
             # this is a PUT request, delete all data for this variable and upload the current data
             self.vd.delete(dataset, variable)
 
+        DatasetMetadataUpdater().update(dataset)
         df_kgtk = pd.DataFrame(kgtk_format_list)
         import_kgtk_dataframe(df_kgtk)
 

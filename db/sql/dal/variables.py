@@ -24,7 +24,7 @@ class Qualifier:
         self.is_optional = name != 'time'
         self.data_type = self._get_data_type(wikidata_data_type)
 
-        if self.data_type == 'location' and not self.name:
+        if self.data_type == 'location' and (not self.name or self.label == 'P131'):  # P131 qualifiers are always 'location'
             self.name = 'location'
 
         self._init_sql()
@@ -198,6 +198,23 @@ def query_qualifiers(dataset_id, variable_qnode):
     """
     qualifiers = query_to_dicts(query)
     return [Qualifier(**q) for q in qualifiers]
+
+def query_tags(dataset_id, variable_qnode):
+    dataset_id = sanitize(dataset_id)
+    variable_qnode = sanitize(variable_qnode)
+
+    query = f"""
+    SELECT e_tag.node2 AS tag
+        FROM edges e_var
+        JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+        JOIN edges e_tag ON (e_var.node1=e_tag.node1 AND e_tag.label='P2010050001')
+    WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'  AND e_var.node1='{variable_qnode}'
+    """
+    result = query_to_dicts(query)
+    tags = [r['tag'] for r in result]
+
+    return tags
+    
 
 
 def preprocess_places(places: Dict[str, List[str]], region_field) -> Tuple[str, str]:
