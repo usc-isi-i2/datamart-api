@@ -29,6 +29,7 @@ class AnnotatedData(object):
         validate = request.args.get('validate', 'true').lower() == 'true'
         files_only = request.args.get('files_only', 'false').lower() == 'true'
         create_if_not_exist = request.args.get('create_if_not_exist', 'false').lower() == 'true'
+        return_tsv = request.args.get('tsv', 'false').lower() == 'true'
 
         # check if the dataset exists
         s = time()
@@ -40,6 +41,10 @@ class AnnotatedData(object):
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
         file_name = request.files['file'].filename
+        t2wml_yaml = None
+        if 't2wml_yaml' in request.files:
+            request.files['t2wml_yaml'].seek(0)
+            t2wml_yaml = str(request.files['t2wml_yaml'].read(), 'utf-8')
 
         if not (file_name.endswith('.xlsx') or file_name.endswith('.csv')):
             return {"Error": "Please upload an annotated excel file or a csv file "
@@ -102,7 +107,7 @@ class AnnotatedData(object):
 
         else:
             s = time()
-            variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns)
+            variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns, t2wml_yaml=t2wml_yaml)
             print(f'time take to create kgtk files: {time() - s} seconds')
             variable_ids = [v.replace('"', '') for v in variable_ids]
             if is_request_put:
