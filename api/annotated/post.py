@@ -6,6 +6,7 @@ from db.sql import dal
 from flask import request
 import tempfile
 import tarfile
+import shutil
 from flask import send_from_directory
 from annotation.main import T2WMLAnnotation
 from db.sql.kgtk import import_kgtk_dataframe
@@ -107,8 +108,11 @@ class AnnotatedData(object):
 
             with tarfile.open(f'{temp_tar_dir}/t2wml_annotation_files.tar.gz', "w:gz") as tar:
                 tar.add(temp_tar_dir, arcname='.')
-            return send_from_directory(temp_tar_dir, 't2wml_annotation_files.tar.gz')
 
+            try:
+                return send_from_directory(temp_tar_dir, 't2wml_annotation_files.tar.gz')
+            finally:
+                shutil.rmtree(temp_tar_dir)
         else:
 
             variable_ids, kgtk_exploded_df = self.generate_kgtk_dataset(dataset, dataset_qnode, df, rename_columns, t2wml_yaml, is_request_put)
