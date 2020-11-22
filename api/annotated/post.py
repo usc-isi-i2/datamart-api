@@ -15,6 +15,8 @@ from api.metadata.metadata import DatasetMetadata
 from api.metadata.update import DatasetMetadataUpdater
 from annotation.validation.validate_annotation import ValidateAnnotation
 from time import time
+from datetime import datetime
+from typing import Dict, List, Any, Union, NoReturn, Optional, Tuple
 import traceback
 
 
@@ -108,26 +110,17 @@ class AnnotatedData(object):
             return send_from_directory(temp_tar_dir, 't2wml_annotation_files.tar.gz')
 
         else:
-            s = time()
-            variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns, t2wml_yaml=t2wml_yaml)
-            print(f'time take to create kgtk files: {time() - s} seconds')
-            variable_ids = [v.replace('"', '') for v in variable_ids]
-            if is_request_put:
-                # delete the variable canonical data and metadata before inserting into databse again!!
-                for v in variable_ids:
-                    print(self.vd.delete(dataset, v))
-                    print(self.vmr.delete(dataset, v))
 
-            # import to database
+            variable_ids, kgtk_exploded_df = self.generate_kgtk_dataset(dataset, dataset_qnode, df, rename_columns, t2wml_yaml, is_request_put)
+
             self.import_to_database(kgtk_exploded_df)
 
-            variables_metadata = []
-            for v in variable_ids:
-                variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
+            variables_metadata = self.generate_variable_metadata(dataset, variable_ids)
+
             print(f'total time taken: {time() - l}')
             return variables_metadata, 201
 
-    def import_to_database(self, kgtk_exploded_df: DataFrame):
+    def import_to_database(self, kgtk_exploded_df: DataFrame) -> NoReturn:
 
         s = time()
         print('number of rows to be imported: {}'.format(len(kgtk_exploded_df)))
@@ -139,3 +132,43 @@ class AnnotatedData(object):
             traceback.print_exc(file=sys.stdout)
             raise e
         print(f'time take to import kgtk file into database: {time() - s} seconds')
+
+    def generate_dataset_metadata(self, dataset: str) -> Dict[str, Union[str, datetime]]:
+
+        dataset_metadata = dal.query_dataset_metadata(dataset, include_dataset_qnode=True)[0]
+        # Convert last_update from type<datetime.datetime> to type<str>
+        dataset_metadata['last_update'] = dataset_metadata['last_update'].isoformat().split('.')[0]
+
+        return dataset_metadata
+
+    def generate_variable_metadata(self, dataset: str, variable_ids: List) -> List[Dict]:
+
+        variables_metadata = []
+        for v in variable_ids:
+            variables_metadata.append(self.vmr.get(dataset, variable=v)[0])
+
+        return variables_metadata
+
+    def generate_kgtk_dataset_metadata(self, dataset: str) -> List:
+
+        # Retrieve the metadata from database
+        dataset_metadata = self.generate_dataset_metadata(dataset)
+        dataset_qnode = dataset_metadata.pop('dataset_qnode')
+
+        return DatasetMetadata().from_dict(dataset_metadata).to_kgtk_edges(dataset_qnode)
+
+    def generate_kgtk_dataset(self, dataset: str, dataset_qnode: str, df: DataFrame,
+                                rename_columns: List, t2wml_yaml: Optional[str] = None,
+                                is_request_put: bool = False) -> Tuple[List[str], DataFrame]:
+
+        s = time()
+        variable_ids, kgtk_exploded_df = self.ta.process(dataset_qnode, df, rename_columns, t2wml_yaml=t2wml_yaml)
+        print(f'time take to create kgtk files: {time() - s} seconds')
+        variable_ids = [v.replace('"', '') for v in variable_ids]
+        if is_request_put:
+            # delete the variable canonical data and metadata before inserting into databse again!!
+            for v in variable_ids:
+                print(self.vd.delete(dataset, v))
+                print(self.vmr.delete(dataset, v))
+
+        return variable_ids, kgtk_exploded_df
