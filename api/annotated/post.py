@@ -6,7 +6,9 @@ from db.sql import dal
 from flask import request
 import tempfile
 import tarfile
+import csv
 import shutil
+import subprocess
 from flask import send_from_directory
 from annotation.main import T2WMLAnnotation
 from db.sql.kgtk import import_kgtk_dataframe
@@ -45,7 +47,7 @@ class AnnotatedData(object):
             return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
         file_name = request.files['file'].filename
-        t2wml_yaml = None
+        t2wml_yaml, metadata_edges = None, None
         if 't2wml_yaml' in request.files:
             request.files['t2wml_yaml'].seek(0)
             t2wml_yaml = str(request.files['t2wml_yaml'].read(), 'utf-8')
@@ -86,7 +88,7 @@ class AnnotatedData(object):
 
             metadata = DatasetMetadata()
             metadata.from_dict(dataset_dict)
-            dataset_qnode, _ = DatasetMetadataUpdater().create_dataset(metadata)
+            dataset_qnode, metadata_edges = DatasetMetadataUpdater().create_dataset(metadata)
 
         s = time()
         validation_report, valid_annotated_file, rename_columns = self.va.validate(dataset, df=df)
@@ -113,6 +115,43 @@ class AnnotatedData(object):
                 return send_from_directory(temp_tar_dir, 't2wml_annotation_files.tar.gz')
             finally:
                 shutil.rmtree(temp_tar_dir)
+
+        elif return_tsv:
+
+            variable_ids, kgtk_exploded_df = self.generate_kgtk_dataset(dataset, dataset_qnode, df, rename_columns, t2wml_yaml, is_request_put)
+
+            self.import_to_database(kgtk_exploded_df)
+
+            temp_tar_dir = tempfile.mkdtemp()
+
+            # Generate dataset kgtk file
+            dataset_path = f'/{temp_tar_dir}/{dataset}-dataset-exploded.tsv'
+            kgtk_exploded_df.to_csv(dataset_path, index=None, sep='\t', quoting=csv.QUOTE_NONE, quotechar='')
+
+            # Generate dataset metadata kgtk file and explode it
+            metadata_path = f'/{temp_tar_dir}/{dataset}-metadata-exploded.tsv'
+            if not metadata_edges:
+                metadata_edges = self.generate_kgtk_dataset_metadata(dataset)
+            metadata_df = pd.DataFrame(metadata_edges)
+            metadata_df.to_csv(metadata_path, index=None, sep='\t', quoting=csv.QUOTE_NONE, quotechar='')
+            subprocess.run(['kgtk', 'explode', "-i", metadata_path, '-o', metadata_path, '--allow-lax-qnodes'])
+
+            # Concatenate
+            output_path = f'/{temp_tar_dir}/{dataset}-exploded.tsv'
+            subprocess.run(['kgtk', 'cat', metadata_path, dataset_path,
+                            '--allow-lax-qnodes', 'True', '-o', output_path])
+            subprocess.run(['kgtk', 'validate', '--allow-lax-qnodes', 'True', output_path])
+
+            # Compress and return
+            compressed_file_path = f'/{temp_tar_dir}/{dataset}-compressed.tar.gz'
+            with tarfile.open(compressed_file_path, "w:gz") as tar:
+                tar.add(output_path, arcname=f'./{dataset}-exploded.tsv')
+
+            try:
+                return send_from_directory(temp_tar_dir, f'{dataset}-compressed.tar.gz')
+            finally:
+                shutil.rmtree(temp_tar_dir)
+
         else:
 
             variable_ids, kgtk_exploded_df = self.generate_kgtk_dataset(dataset, dataset_qnode, df, rename_columns, t2wml_yaml, is_request_put)
