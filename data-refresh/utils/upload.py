@@ -68,13 +68,13 @@ def submit_tsv(datamart_url: str, file_path: str, put_data: Optional[bool] = Tru
     # Send to Datamart
     response = submit_files(url, files, params)
 
-    if response.status_code in [200, 201, 204]:
-        if verbose:
-            print(json.dumps(response.json(), indent=2))
-        return True
+    if not response.status_code in [200, 201, 204]:
+        print(json.dumps(response.json(), indent=2))
+        return False
 
-    print(json.dumps(response.json(), indent=2))
-    return False
+    if verbose:
+        print(json.dumps(response.json(), indent=2))
+    return True
 
 def submit_annotated_sheet(datamart_url: str, annotated_path: str, yaml_path: Optional[str]=None,
                             put_data: Optional[bool]=False, verbose: Optional[bool] = False,
