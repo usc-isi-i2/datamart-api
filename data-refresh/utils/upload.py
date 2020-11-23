@@ -154,7 +154,7 @@ def submit_annotated_dataframe(datamart_url: str, annotated_df: DataFrame, yaml_
     return submit_annotated_sheet(datamart_url, input_file.name, yaml_path, put_data, verbose, save_tsv, save_files)
 
 def submit_sheet_bulk(datamart_api_url: str, template_path: str, dataset_path: str,
-                        flag_combine_sheets: bool=False) -> None:
+                        flag_combine_sheets: bool=False, put_data: bool=False) -> None:
     ''' Submit multiple annotated sheets to Datamart
         Args:
             datamart_api_url: Datamart url
@@ -169,6 +169,6 @@ def submit_sheet_bulk(datamart_api_url: str, template_path: str, dataset_path: s
     file_counts = 0
     for annotated_sheet, ct in create_annotated_sheet(template_path, dataset_path, flag_combine_sheets):
         file_counts = ct
-        if submit_annotated_dataframe(datamart_api_url, annotated_sheet):
+        if submit_annotated_dataframe(datamart_api_url, annotated_sheet, put_data=put_data):
             sheets_submitted += 1
     return file_counts, sheets_submitted
