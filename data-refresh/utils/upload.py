@@ -27,6 +27,43 @@ def submit_files(url:str, files: Dict, params: Dict) -> Response:
 
     return response
 
+def submit_tsv(datamart_url: str, file_path: str, put_data: Optional[bool] = True,
+                verbose: Optional[bool] = False) -> bool:
+    ''' Upload a tsv file to Datamart
+        Args:
+            datamart_url: Datamart base address
+            file_path: The file to be uploaded
+            put_data: Whether to PUT or POST the data to Datamart
+            verbose: Whether to show variable metadata upon submission success
+        Returns:
+            A boolean values indicates whether the sheet is uploaded successfully
+    '''
+    def find_dataset_id(file_path: str):
+        x = pd.read_csv(file_path, sep='\t').query("label == 'P1813'")
+        dataset_id = x[x['node1'].apply(lambda x: not x.startswith('QVARIABLE'))]['node2'].tolist()[0]
+        return dataset_id
+
+    if not file_path.endswith('.tsv'):
+        print('Error: submit_tsv() does not accept non-tsv files')
+        return False
+
+    file_name = os.path.basename(file_path)
+    dataset_id = find_dataset_id(file_path)
+
+    url = f'{datamart_url}/datasets/{dataset_id}/tsv'
+    files = { 'file': (file_name, open(file_path, mode='rb'), 'application/octet-stream') }
+    params = { 'put_data': put_data }
+
+    response = submit_files(url, files, params)
+
+    if response.status_code in [200, 201, 204]:
+        if verbose:
+            print(json.dumps(response.json(), indent=2))
+        return True
+
+    print(json.dumps(response.json(), indent=2))
+    return False
+
 def upload_data_annotated(url: str, file_path: str, yamlfile_path: str=None,
                             fBuffer: io.StringIO=None, put_data: bool=False) -> bool:
     ''' Upload an annotated sheet to Datamart
