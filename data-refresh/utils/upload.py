@@ -3,15 +3,37 @@ import pandas as pd
 from pandas import DataFrame
 from utils.spreadsheet import create_annotated_sheet
 from requests import post, put
+from requests.models import Response
+from typing import Dict, Optional
 
 sheet_id = 0
 
-def upload_data_annotated(url: str, file_path: str,
+def submit_files(url:str, files: Dict, params: Dict) -> Response:
+    ''' Upload files to Datamart
+        Args:
+            url: Datamart API url
+            files: The files to be uploaded
+            params: Parameters of the request, must include key 'put_data'
+        Returns:
+            The HTTP response from Datamart
+    '''
+
+    # Upload the data to Datamart
+    put_data = params.pop('put_data')
+    if put_data:
+        response = put(url, files=files, params=params)
+    else:
+        response = post(url, files=files, params=params)
+
+    return response
+
+def upload_data_annotated(url: str, file_path: str, yamlfile_path: str=None,
                             fBuffer: io.StringIO=None, put_data: bool=False) -> bool:
     ''' Upload an annotated sheet to Datamart
         Args:
             datamart_api_url: Datamart API url
             file_path: If input is a file, this will be the place where the data is located
+            yamlfile_path: If user supplies a yaml file, it would be uploaded to Datamart
             fBuffer: If input is buffer, this will be the serialized annotated sheet
             put_data: Whether to PUT or POST the data to Datamart
         Returns:
@@ -30,6 +52,9 @@ def upload_data_annotated(url: str, file_path: str,
         fBuffer.seek(0)
         files = { 'file': (file_name, fBuffer, 'application/octet-stream') }
 
+    if yamlfile_path:
+        files['t2wml_yaml'] = (os.path.basename(yamlfile_path), open(yamlfile_path, mode='rb'), 'application/octet-stream')
+
     # Upload the data to Datamart
     if put_data:
         response = put(url, files=files)
@@ -44,7 +69,7 @@ def upload_data_annotated(url: str, file_path: str,
     return True
 
 def submit_sheet(datamart_api_url: str, annotated_sheet: DataFrame,
-                    put_data: bool=False) -> bool:
+                    put_data: bool=False, tsv: bool=False) -> bool:
     ''' Submit an annotated sheet to Datamart
         Args:
             datamart_api_url: Datamart url
@@ -58,10 +83,12 @@ def submit_sheet(datamart_api_url: str, annotated_sheet: DataFrame,
 
     annotated_sheet.to_csv(buffer, index=False, header=False)
     url = f'{datamart_api_url}/datasets/{dataset_id}/annotated?create_if_not_exist=true'
-    return upload_data_annotated(url, '', buffer, put_data)
+    if tsv:
+        url += '&tsv=true'
+    return upload_data_annotated(url, '', None, buffer, put_data)
 
-def submit_annotated_sheet(datamart_api_url: str, annotated_sheet: str,
-                            put_data: bool=False) -> bool:
+def submit_annotated_sheet(datamart_api_url: str, annotated_sheet: str, yamlfile_path: str=None,
+                            put_data: bool=False, tsv: bool=False) -> bool:
     ''' Submit an annotated sheet
         Args:
             datamart_api_url: Datamart url
@@ -80,7 +107,10 @@ def submit_annotated_sheet(datamart_api_url: str, annotated_sheet: str,
 
     dataset_id = df.iat[0,1]
     url = f'{datamart_api_url}/datasets/{dataset_id}/annotated?create_if_not_exist=true'
-    return upload_data_annotated(url, annotated_sheet, None, put_data)
+    if tsv:
+        url += '&tsv=true'
+
+    return upload_data_annotated(url, annotated_sheet, yamlfile_path, None, put_data)
 
 def submit_sheet_bulk(datamart_api_url: str, template_path: str, dataset_path: str,
                         flag_combine_sheets: bool=False) -> None:
