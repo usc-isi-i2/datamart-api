@@ -24,9 +24,6 @@ class TsvData(object):
 
     def process(self, dataset, is_request_put=False):
         l = time()
-        validate = request.args.get('validate', 'true').lower() == 'true'
-        files_only = request.args.get('files_only', 'false').lower() == 'true'
-        create_if_not_exist = request.args.get('create_if_not_exist', 'false').lower() == 'true'
 
         # check if the dataset exists
         s = time()
