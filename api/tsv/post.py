@@ -30,10 +30,6 @@ class TsvData(object):
         dataset_qnode = dal.get_dataset_id(dataset)
         print(f'time take to get dataset: {time() - s} seconds')
 
-        if not create_if_not_exist and not dataset_qnode:
-            print(f'Dataset not defined: {dataset}')
-            return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
-
         file_name = request.files['file'].filename
 
         if not file_name.endswith('.tsv'):
