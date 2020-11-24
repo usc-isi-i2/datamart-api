@@ -24,18 +24,11 @@ class TsvData(object):
 
     def process(self, dataset, is_request_put=False):
         l = time()
-        validate = request.args.get('validate', 'true').lower() == 'true'
-        files_only = request.args.get('files_only', 'false').lower() == 'true'
-        create_if_not_exist = request.args.get('create_if_not_exist', 'false').lower() == 'true'
 
         # check if the dataset exists
         s = time()
         dataset_qnode = dal.get_dataset_id(dataset)
         print(f'time take to get dataset: {time() - s} seconds')
-
-        if not create_if_not_exist and not dataset_qnode:
-            print(f'Dataset not defined: {dataset}')
-            return {'Error': 'Dataset not found: {}'.format(dataset)}, 404
 
         file_name = request.files['file'].filename
 
