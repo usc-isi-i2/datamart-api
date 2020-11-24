@@ -130,7 +130,7 @@ class AnnotatedData(object):
 
             # Generate dataset metadata kgtk file and explode it
             metadata_path = f'/{temp_tar_dir}/{dataset}-metadata-exploded.tsv'
-            if not metadata_edges:
+            if metadata_edges is None:
                 metadata_edges = self.generate_kgtk_dataset_metadata(dataset)
             metadata_df = pd.DataFrame(metadata_edges)
             metadata_df.to_csv(metadata_path, index=None, sep='\t', quoting=csv.QUOTE_NONE, quotechar='')
