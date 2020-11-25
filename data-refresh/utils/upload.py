@@ -59,20 +59,25 @@ def submit_tsv(datamart_url: str, file_path: str, put_data: bool=True,
         print('Error: submit_tsv() does not accept non-tsv files')
         return False
 
+    file_name = os.path.basename(file_path)
+    dataset_id = find_dataset_id(file_path)
+
     with open(file_path, mode='rb') as fd:
         # Supply arguments
         url = f'{datamart_url}/datasets/{dataset_id}/tsv'
         files = { 'file': (file_name, fd, 'application/octet-stream') }
-        params = { 'put_data': put_data }
+        
+        # Temporary add create_if_not_exist to help Ed upload his files
+        params = { 'put_data': put_data, 'create_if_not_exist' : True }
         # Send to Datamart
         response = submit_files(url, files, params, auth=auth)
 
     if not response.status_code in [200, 201, 204]:
-        print(json.dumps(response.json(), indent=2))
+        print(response.text)
         return False
 
     if verbose:
-        print(json.dumps(response.json(), indent=2))
+        print(response.text)
     return True
 
 def submit_annotated_sheet(datamart_url: str, annotated_path: str, yaml_path: Optional[str]=None,
@@ -122,7 +127,7 @@ def submit_annotated_sheet(datamart_url: str, annotated_path: str, yaml_path: Op
             files['t2wml_yaml'][1].close()
 
     if not response.status_code in [200, 201, 204]:
-        print(json.dumps(response.json(), indent=2))
+        print(response.text)
         return False
 
     # Generate output
@@ -139,7 +144,7 @@ def submit_annotated_sheet(datamart_url: str, annotated_path: str, yaml_path: Op
             fd.write(response.content)
 
     if verbose:
-        print(json.dumps(response.json(), indent=2))
+        print(response.text)
     return True
 
 def submit_annotated_dataframe(datamart_url: str, annotated_df: DataFrame, yaml_path: Optional[str]=None,
