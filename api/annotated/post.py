@@ -74,8 +74,8 @@ class AnnotatedData(object):
                     'description': df.iloc[0, 3],
                     'url': df.iloc[0, 4]
                 }
-            except Exception as e:
-                return {'Error': 'Failed to create dataset: ' + str(e)}, 400
+            except IndexError as e:
+                return {'Error': 'Dataset does not exist. And metadata is not avaliable to create it.'}, 400
 
             missing = []
             for key, value in dataset_dict.items():
