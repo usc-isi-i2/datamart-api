@@ -11,6 +11,59 @@ from api.region_utils import get_query_region_ids, UnknownSubjectError
 
 
 class VariableMetadataResource(Resource):
+    def put(self, dataset, variable=None):
+        '''Update metadata'''
+        if not request.json:
+            content = {
+                'Error': 'JSON content body is empty'
+            }
+            return content, 400
+
+        if variable is None:
+            content = {
+                'Error': 'Variable id is required.'
+            }
+            return content, 400
+
+        dataset_qnode = dal.get_dataset_id(dataset)
+        if not dataset_qnode:
+            status = {
+                'Error': f'Cannot find dataset {dataset}'
+            }
+            return status, 404
+
+        # Get current variable metadata
+        metadata_dict = dal.query_variable_metadata(dataset, variable, debug=True)
+        if metadata_dict is None:
+            return {'Error': f"No variable {variable} in dataset {dataset}"}, 404
+        variable_qnode = dal.get_variable_id(dataset_qnode, variable)
+
+        metadata_dict['dataset_id'] = dataset
+
+        # Delete existing fields that are to be updated
+        request_dict = request.json
+        for field_name in request_dict.keys():
+            if field_name not in VariableMetadata.fields():
+                return {'Error': f'Not valid field name: {field_name}'}, 404
+        labels = [VariableMetadata.get_label(field_name) for field_name in request_dict.keys()]
+
+        dal.delete_variable_metadata(dataset_qnode, [variable_qnode], labels=labels, debug=True)
+
+        # Update and validate
+        metadata_dict.update(request_dict)
+        metadata = VariableMetadata().from_dict(metadata_dict)
+
+        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_qnode, variable_qnode))
+        edges = edges[edges['label'].isin(labels)]
+
+        import_kgtk_dataframe(edges)
+
+        DatasetMetadataUpdater().update(dataset)
+
+        content = VariableMetadata().from_dict(dal.query_variable_metadata(dataset, variable)).to_dict()
+
+        return content, 201
+
     def post(self, dataset, variable=None):
         if not request.json:
             content = {
@@ -54,9 +107,8 @@ class VariableMetadataResource(Resource):
         metadata._variable_id = variable_id
         metadata.corresponds_to_property = variable_pnode
 
-        # pprint(metadata.to_dict())
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id, variable_id))
-        # pprint(edges)
+        print(edges)
 
         if 'test' not in request.args:
             import_kgtk_dataframe(edges)

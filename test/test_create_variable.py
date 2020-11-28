@@ -26,6 +26,29 @@ class TestCreateVariable(unittest.TestCase):
         delete_variable(self.url)
         delete_dataset(self.url)
 
+    def test_create_variable_with_desc_tag(self):
+        delete_variable(self.url)
+        delete_dataset(self.url)
+        expected_response = {
+            "name": "unit test variable",
+            "variable_id": "unittestvariable",
+            "dataset_id": "unittestdataset",
+            "description": "A test variable",
+            "corresponds_to_property": "Punittestdataset-unittestvariable",
+            "tag": [
+                "tag1",
+                "tag2:True"
+            ]
+        }
+
+        dataset_id = create_dataset(self.url).json()['dataset_id']
+        response = create_variable(self.url, dataset_id, description='A test variable', tag=['tag1', 'tag2:True'])
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(expected_response, response.json())
+        delete_variable(self.url)
+        delete_dataset(self.url)
+
     def test_create_variable_edges(self):
         delete_variable(self.url)
         delete_dataset(self.url)
@@ -67,6 +90,23 @@ class TestCreateVariable(unittest.TestCase):
 
             if row['label'] == 'P1687':
                 self.assertEqual(row['node2'], 'Punittestdataset-unittestvariable')
+
+        delete_variable(self.url)
+        delete_dataset(self.url)
+
+    def test_create_variable_with_desc_tag_edges(self):
+        delete_variable(self.url)
+        delete_dataset(self.url)
+
+        dataset_id = create_dataset(self.url).json()['dataset_id']
+        response = create_variable(self.url, dataset_id, description='A test variable', tag=['tag1', 'tag2:True'], return_edges=True)
+        df = pd.read_csv(StringIO(response.text), sep='\t')
+
+        self.assertTrue((df['label'] == 'description').sum() == 1)
+        self.assertTrue(df[df['label'] == 'description']['node2'].iloc[0] == 'A test variable')
+
+        self.assertTrue((df['label'] == 'P2010050001').sum() == 2)
+        self.assertTrue(set(df[df['label'] == 'P2010050001']['node2']) == {'tag1', 'tag2:True'})
 
         delete_variable(self.url)
         delete_dataset(self.url)

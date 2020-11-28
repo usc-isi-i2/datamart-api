@@ -13,17 +13,19 @@ from api.util import DataInterval, Literal, TimePrecision
 
 from db.sql import dal
 
-
 class Triple:
     def __init__(self):
         self.all_ids_dict = {}
     def create_triple(self, node1, label, node2):
+        if not node1 or not node1[0] == 'Q':
+            raise Exception(f'node1 must begin with Q: {node1}')
         id_key = '{}-{}'.format(node1, label)
         if id_key not in self.all_ids_dict:
             self.all_ids_dict[id_key] = 0
         else:
             self.all_ids_dict[id_key] += 1
         id_index = self.all_ids_dict[id_key]
+        id_value = f'{node1}-{label}-{node2}'
         return {
             'node1': node1,
             'label': label,
@@ -48,6 +50,7 @@ class DataType(Enum):
     INTERVAL = 9
     INTEGER = 10
     FLOAT = 11
+    SLIST = 12  # list of strings
 
 PROPERTY_LABEL = {
     'P17': 'country',
@@ -165,7 +168,6 @@ def process_pnode_list(qlist: typing.List) -> typing.List[dict]:
         result.append(process_pnode_obj(item))
     return result
 
-
 class Metadata:
 
     # official properties
@@ -215,6 +217,10 @@ class Metadata:
     @classmethod
     def is_list_field(cls, field: str) -> bool:
         return field in cls._list_fields
+
+    @classmethod
+    def get_label(cls, field_name: str) -> str:
+        return cls._name_to_pnode_map[field_name]
 
     def field_edge(self, node1: str, field_name: str, *, required: bool = False,
                    is_time: bool = False, is_item: bool = False) -> typing.Optional[dict]:
@@ -333,6 +339,14 @@ class Metadata:
                 if isinstance(value, list):
                     try:
                         result[name] = process_pnode_list(value)
+                    except ValueError as err:
+                        error[name] = str(err)
+                else:
+                    error[name] = 'Expecting a list'
+            elif data_type == DataType.SLIST:
+                if isinstance(value, list):
+                    try:
+                        result[name] = value
                     except ValueError as err:
                         error[name] = str(err)
                 else:
@@ -646,7 +660,8 @@ class VariableMetadata(Metadata):
         'data_interval': DataType.INTERVAL,
         'column_index': DataType.STRING,
         'qualifier': DataType.QLIST,
-        'count': DataType.INTEGER
+        'count': DataType.INTEGER,
+        'tag': DataType.SLIST
     }
     _name_to_pnode_map = {
         'name': 'P1476',
@@ -665,7 +680,8 @@ class VariableMetadata(Metadata):
         'data_interval': 'P6339',
         'column_index': 'P2006020001',
         'qualifier': 'P2006020002',
-        'count': 'P1114'
+        'count': 'P1114',
+        'tag': 'P2010050001'
     }
 
     def __init__(self):
@@ -688,12 +704,19 @@ class VariableMetadata(Metadata):
         self.column_index: typing.Union(int, None) = None
         self.qualifier = []
         self.count = None
+        self.tag = []
 
         self._max_admin_level = None
         self._precision = None
 
     def to_kgtk_edges(self, dataset_node: str, variable_node, defined_labels: set = None,
     ) -> typing.List[dict]:
+
+        if not dataset_node or not dataset_node[0] == 'Q':
+            raise Exception(f'Dataset_node must begin with Q: {dataset_node}')
+        if not variable_node or not variable_node[0] == 'Q':
+            raise Exception(f'node2 must begin with Q: {variable_node}')
+
 
         edges = []
 
@@ -762,6 +785,9 @@ class VariableMetadata(Metadata):
         if self.location:
             for location_obj in self.location:
                 edges.append(pcd.create_triple(variable_node, 'P276', location_obj['identifier']))
+
+        for tag in self.tag:
+            edges.append(pcd.create_triple(variable_node, self._name_to_pnode_map['tag'], tag))
 
         edges = [edge for edge in edges if edge is not None]
         return edges
