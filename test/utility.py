@@ -6,10 +6,12 @@ from requests import post, delete, get
 
 def upload_data_put(file_path, url):
     file_name = os.path.basename(file_path)
-    files = {
-        'file': (file_name, open(file_path, mode='rb'), 'application/octet-stream')
-    }
-    return put(url, files=files)
+    with open(file_path, mode='rb') as fd:
+        files = {
+            'file': (file_name, fd, 'application/octet-stream')
+        }
+        result = put(url, files=files)
+    return result
 
 
 def create_dataset(p_url, return_edges=False, name='Unit Test Dataset', dataset_id='unittestdataset',
@@ -56,16 +58,31 @@ def create_variable(p_url, dataset_id, variable_id='unittestvariable', name='uni
 
 
 def get_variable(p_url, dataset_id='unittestdataset', variable_id='unittestvariable'):
-    return get(f'{p_url}/metadata/datasets/{dataset_id}/variables/{variable_id}')
+    if variable_id is None:
+        return get(f'{p_url}/metadata/datasets/{dataset_id}/variables')
+    else:
+        return get(f'{p_url}/metadata/datasets/{dataset_id}/variables/{variable_id}')
 
 
 def delete_variable(url, dataset_id='unittestdataset', variable_id='unittestvariable'):
     delete(f'{url}/metadata/datasets/{dataset_id}/variables/{variable_id}')
 
-def update_variable_metadata(url, dataset_id='unittestdataset', variable_id='unittestvariable', description=None, tag=[]):
+def update_variable_metadata(url, dataset_id='unittestdataset', variable_id='unittestvariable', name=None, description=None, tag=[]):
     update = {}
+    if name:
+        update['name'] = name
     if description:
         update['description'] = description
     if tag:
         update['tag'] = tag
     return put(f'{url}/metadata/datasets/{dataset_id}/variables/{variable_id}', json=update)
+
+def update_dataset_metadata(datamart_url, dataset_id='unittestdataset', name=None, description=None, url=None):
+    update = {}
+    if name:
+        update['name'] = name
+    if description:
+        update['description'] = description
+    if url:
+        update['url'] = url
+    return put(f'{datamart_url}/metadata/datasets/{dataset_id}', json=update)

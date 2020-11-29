@@ -45,7 +45,7 @@ class VariableMetadataResource(Resource):
         for field_name in request_dict.keys():
             if field_name not in VariableMetadata.fields():
                 return {'Error': f'Not valid field name: {field_name}'}, 404
-        labels = [VariableMetadata.get_label(field_name) for field_name in request_dict.keys()]
+        labels = [VariableMetadata.get_property(field_name) for field_name in request_dict.keys()]
 
         dal.delete_variable_metadata(dataset_qnode, [variable_qnode], labels=labels, debug=True)
 
@@ -60,9 +60,11 @@ class VariableMetadataResource(Resource):
 
         DatasetMetadataUpdater().update(dataset)
 
-        content = VariableMetadata().from_dict(dal.query_variable_metadata(dataset, variable)).to_dict()
+        results = dal.query_variable_metadata(dataset, variable)
+        results['dataset_id'] = dataset
+        results = VariableMetadata().from_dict(results).to_dict()
 
-        return content, 201
+        return results, 201
 
     def post(self, dataset, variable=None):
         if not request.json:
@@ -173,6 +175,73 @@ class VariableMetadataResource(Resource):
 class DatasetMetadataResource(Resource):
     vd = VariableDeleter()
     vmr = VariableMetadataResource()
+
+    def put(self, dataset=None) :
+        if not request.json:
+            content = {
+                'Error': 'JSON content body is empty'
+            }
+            return content, 400
+
+        if not dataset:
+            content = {
+                'Error': 'Please supply a dataset-id when PUTing'
+            }
+            return content, 400
+
+        dataset_qnode = dal.get_dataset_id(dataset)
+        if not dataset_qnode:
+            content = {
+                'Error': f'Dataset is not defined {metadata.dataset_id}'
+            }
+            return content, 404
+
+        request_dict = request.json
+
+        invalid_metadata = False
+        error_report = []
+        for key in request_dict:
+            if request_dict[key].strip() == "":
+                error_report.append(
+                    {'error': f'Metadata field: {key}, cannot be blank'}
+                )
+                invalid_metadata = True
+
+        if invalid_metadata:
+            return error_report, 400
+
+        metadata = DatasetMetadata()
+        status, code = metadata.from_request(request_dict, check_required_fields=False)
+        if not code == 200:
+            return status, code
+
+        labels = [DatasetMetadata.get_property(name) for name in request_dict]
+        print('labels:', labels)
+
+        # Get current dataset metadat
+        metadata_dict = dal.query_dataset_metadata(dataset, debug=True)[0]
+
+        # delete old edges
+        dal.delete_dataset_metadata(dataset_qnode, labels=labels, debug=True)
+
+        metadata_dict.update(request_dict)
+        metadata = DatasetMetadata().from_dict(metadata_dict)
+
+        # keep just the changed edges
+        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_qnode))
+        edges = edges[edges['label'].isin(labels)]
+        print(edges)
+
+        import_kgtk_dataframe(edges)
+
+        DatasetMetadataUpdater().update(dataset)
+
+        result = dal.query_dataset_metadata(dataset)[0]
+
+        # validate, just in case
+        result = DatasetMetadata().from_dict(result).to_dict()
+
+        return result, 200
 
     def post(self, dataset=None):
         if not request.json:

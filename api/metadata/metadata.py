@@ -219,7 +219,8 @@ class Metadata:
         return field in cls._list_fields
 
     @classmethod
-    def get_label(cls, field_name: str) -> str:
+    def get_property(cls, field_name: str) -> str:
+        '''Returns property name corresponding to name'''
         return cls._name_to_pnode_map[field_name]
 
     def field_edge(self, node1: str, field_name: str, *, required: bool = False,
@@ -281,7 +282,10 @@ class Metadata:
     def from_dict(self, desc: dict):
         for key, value in desc.items():
             if key in self._datamart_fields or key in self._internal_fields:
-                setattr(self, key, value)
+                if isinstance(value, datetime.datetime):
+                    setattr(self, key, value.isoformat())
+                else:
+                    setattr(self, key, value)
             else:
                 raise ValueError(f'Key not allowed: {key}')
         return self
@@ -292,21 +296,22 @@ class Metadata:
     def from_json(self, desc: str):
         return self.from_dict(json.loads(desc))
 
-    def from_request(self, desc: dict) -> typing.Tuple[dict, int]:
+    def from_request(self, desc: dict, check_required_fields=True) -> typing.Tuple[dict, int]:
         '''Process description from REST request'''
         result = {}
         error = {}
 
         # Check required fields
-        for required in self._required_fields:
-            if required not in desc:
-                error['Error'] = 'Missing required properties'
-                if 'Missing' in error:
-                    error['Missing'].append(required)
-                else:
-                    error['Missing'] = [required]
-        if error:
-            return error, 400
+        if check_required_fields:
+            for required in self._required_fields:
+                if required not in desc:
+                    error['Error'] = 'Missing required properties'
+                    if 'Missing' in error:
+                        error['Missing'].append(required)
+                    else:
+                        error['Missing'] = [required]
+            if error:
+                return error, 400
 
         # Parse each field
         for name in self._datamart_fields:

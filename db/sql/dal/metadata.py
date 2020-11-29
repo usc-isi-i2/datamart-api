@@ -269,10 +269,15 @@ def delete_variable_metadata(dataset_id, variable_qnodes, labels=None, debug=Fal
                 print(query)
             cursor.execute(query)
 
-def delete_dataset_metadata(dataset_qnode, debug=False):
+def delete_dataset_metadata(dataset_qnode, labels=None, debug=False):
+    if not labels:
+        labels_where = "1=1"
+    else:
+        labels_str =', '.join([f"'{label}'" for label in labels])
+        labels_where = f"label in ({labels_str})"
     with postgres_connection() as conn:
         with conn.cursor() as cursor:
-            query = f"DELETE FROM edges WHERE node1='{dataset_qnode}'"
+            query = f"DELETE FROM edges WHERE node1='{dataset_qnode}' and {labels_where}"
             if debug:
                 print(query)
             cursor.execute(query)
