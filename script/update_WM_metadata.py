@@ -1,7 +1,10 @@
 import json
 import pandas as pd
+from requests import put, post, delete, get
 
 datamart_host_url = 'http://localhost:12543'
+# datamart_host_url = 'http://dsbox01.isi.edu:12543/'
+
 desc_file = 'WM_allvars_expanded_descriptions_AG_PB_FINAL.csv'
 
 def update_dataset_metadata(datamart_url, dataset_id, name=None, description=None, url=None):
@@ -40,6 +43,9 @@ def variable_metadata_changed(row):
     changed = not row['variable_name'] == variables_metadata[dataset_id][variable_id]['name']
     changed |= not row['variable_description'] == variables_metadata[dataset_id][variable_id]['description']
     return changed
+
+def get_dataset(url, dataset_id='unittestdataset'):
+    return get(f'{url}/metadata/datasets/{dataset_id}')
 
 def update_dataset(row):
     dataset_id = row['dataset_id']
