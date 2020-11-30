@@ -31,7 +31,7 @@ def create_dataset(p_url, return_edges=False, name='Unit Test Dataset', dataset_
 
 
 def delete_dataset(url, dataset_id='unittestdataset'):
-    delete(f'{url}/metadata/datasets/{dataset_id}')
+    return delete(f'{url}/metadata/datasets/{dataset_id}')
 
 
 def get_dataset(url, dataset_id='unittestdataset'):
@@ -65,7 +65,10 @@ def get_variable(p_url, dataset_id='unittestdataset', variable_id='unittestvaria
 
 
 def delete_variable(url, dataset_id='unittestdataset', variable_id='unittestvariable'):
-    delete(f'{url}/metadata/datasets/{dataset_id}/variables/{variable_id}')
+    return delete(f'{url}/metadata/datasets/{dataset_id}/variables/{variable_id}')
+
+def delete_variable_data(url, dataset_id='unittestdataset', variable_id='unittestvariable'):
+    return delete(f'{url}/datasets/{dataset_id}/variables/{variable_id}')
 
 def update_variable_metadata(url, dataset_id='unittestdataset', variable_id='unittestvariable', name=None, description=None, tag=[]):
     update = {}
@@ -86,3 +89,7 @@ def update_dataset_metadata(datamart_url, dataset_id='unittestdataset', name=Non
     if url:
         update['url'] = url
     return put(f'{datamart_url}/metadata/datasets/{dataset_id}', json=update)
+
+def get_data(datamart_url, dataset_id='unittestdataset', variable_id='unittestvariable'):
+    url = f'{datamart_url}/datasets/{dataset_id}/variables/{variable_id}'
+    return get(url)

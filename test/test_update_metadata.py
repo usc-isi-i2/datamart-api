@@ -3,8 +3,8 @@ import time
 import unittest
 import pandas as pd
 from io import StringIO
-from test.utility import create_variable, create_dataset, delete_variable, delete_dataset, \
-    get_dataset, get_variable, update_variable_metadata, upload_data_put, update_dataset_metadata
+from test.utility import create_variable, create_dataset, delete_variable, delete_variable_data, delete_dataset, \
+    get_dataset, get_variable, get_data, update_variable_metadata, upload_data_put, update_dataset_metadata
 
 
 class TestUpdateMetadata(unittest.TestCase):
@@ -109,8 +109,9 @@ class TestUpdateMetadata(unittest.TestCase):
     def test_update_variable_name(self):
         dataset_id = 'unittestuploaddataset'
         variable_id = 'ingo'
-        delete_variable(self.url, dataset_id='unittestuploaddataset', variable_id='ingo')
-        delete_dataset(self.url, dataset_id='unittestuploaddataset')
+        delete_variable_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        delete_variable(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        delete_dataset(self.url, dataset_id=dataset_id)
 
         expected_metadata = {
             "name": "INGO",
@@ -120,7 +121,7 @@ class TestUpdateMetadata(unittest.TestCase):
             "corresponds_to_property": "PVARIABLE-Qunittestuploaddataset-005",
             "qualifier": [
                 {
-                    "name": "Location",
+                    "name": "Location0",
                     "identifier": "PQUALIFIER-Qunittestuploaddataset-008",
                     "data_type": "String"
                 },
@@ -159,15 +160,29 @@ class TestUpdateMetadata(unittest.TestCase):
             ]
         }
 
+        response = create_dataset(self.url, dataset_id=dataset_id)
+        self.assertEqual(response.status_code, 201, response.text)
+
         f_path = 'test/test_data/test_file_main_subject_country_simple.csv'
         udp = upload_data_put(f_path, f'{self.url}/datasets/unittestuploaddataset/annotated')
-        self.assertTrue(udp.status_code==201)
-        self.assertTrue(udp.json()[0] == expected_metadata)
+        self.assertTrue(udp.status_code==201, udp.text)
+        self.assertTrue(udp.json()[0] == expected_metadata, udp.json()[0])
 
-        uvm = update_variable_metadata(self.url, dataset_id = 'unittestuploaddataset', variable_id = 'ingo', name='International NGO')
+        new_name = 'International NGO'
+        uvm = update_variable_metadata(self.url, dataset_id = dataset_id, variable_id = variable_id, name=new_name)
         updated_metadata = uvm.json()
         self.assertTrue(updated_metadata['name']=='International NGO')
 
         updated_metadata.pop('name')
         expected_metadata.pop('name')
         self.assertTrue(expected_metadata==expected_metadata)
+
+        response = get_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        self.assertEqual(response.status_code, 200, response.text)
+
+        data = pd.read_csv(StringIO(response.text))
+        self.assertEqual(data.loc[0, 'variable'], new_name, f"{data.loc[0, 'variable']} == {new_name}")
+
+        delete_variable_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        delete_variable(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        delete_dataset(self.url, dataset_id=dataset_id)

@@ -5,7 +5,7 @@ description,,,,,,,,,,,,
 name,,,,,,,,,,,,
 unit,,,,,,,person,,,,,
 tag,,,,,,,,,,,,
-header,Year,Month,Day,Country,Region,City,INGO,Means of attack,Attack context,Location,Latitude,Longitude
+header,Year,Month,Day,Country,Region,City,INGO,Means of attack,Attack context,Location0,Latitude,Longitude
 data,1997,9,24,Ethiopia,Ogaden,roadside,0,Shooting,Individual attack,Unknown,8.53056,44.795
 ,1998,6,25,Ethiopia,Somali,travelling from Gode to Degeh Bur,0,Kidnapping,Ambush,Road,7,44
 ,1999,4,1,Ethiopia,,around the corner,1,Kidnapping,Unknown,Unknown,9.145,40.489673

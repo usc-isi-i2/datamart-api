@@ -47,6 +47,11 @@ class VariableMetadataResource(Resource):
                 return {'Error': f'Not valid field name: {field_name}'}, 404
         labels = [VariableMetadata.get_property(field_name) for field_name in request_dict.keys()]
 
+        # If name changes, then so should its label.
+        # Note: variable metadata uses 'P1476', but CSV data uses 'label'
+        if 'P1476' in labels:
+            labels.append('label')
+
         dal.delete_variable_metadata(dataset_qnode, [variable_qnode], labels=labels, debug=True)
 
         # Update and validate
@@ -216,7 +221,10 @@ class DatasetMetadataResource(Resource):
             return status, code
 
         labels = [DatasetMetadata.get_property(name) for name in request_dict]
-        print('labels:', labels)
+
+        # If name changes, then so should its label
+        if 'P1476' in labels:
+            labels.append('label')
 
         # Get current dataset metadat
         metadata_dict = dal.query_dataset_metadata(dataset, debug=True)[0]
