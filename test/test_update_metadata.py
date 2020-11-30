@@ -46,7 +46,7 @@ class TestUpdateMetadata(unittest.TestCase):
         self.assertTrue(get_var_response.status_code==200)
 
         response = update_variable_metadata(self.url, description=description)
-        self.assertTrue(response.status_code==201)
+        self.assertTrue(response.status_code==200)
         self.assertTrue(get_var_response.json()==response.json())
 
         delete_variable(self.url)
@@ -66,7 +66,7 @@ class TestUpdateMetadata(unittest.TestCase):
         time.sleep(1)
 
         response = update_variable_metadata(self.url, description='A new description')
-        self.assertTrue(response.status_code == 201)
+        self.assertTrue(response.status_code == 200)
         metadata = response.json()
 
         self.assertTrue(metadata['description']=='A new description')
@@ -94,7 +94,7 @@ class TestUpdateMetadata(unittest.TestCase):
         create_time = datetime.datetime.fromisoformat(create_json['last_update'])
 
         response = update_variable_metadata(self.url, tag=['tag2:False', 'tag3'])
-        self.assertTrue(response.status_code == 201)
+        self.assertTrue(response.status_code == 200)
         metadata = response.json()
 
         self.assertTrue('tag2:False' in metadata['tag'])

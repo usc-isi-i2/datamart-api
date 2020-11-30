@@ -69,7 +69,7 @@ class VariableMetadataResource(Resource):
         results['dataset_id'] = dataset
         results = VariableMetadata().from_dict(results).to_dict()
 
-        return results, 201
+        return results, 200
 
     def post(self, dataset, variable=None):
         if not request.json:
