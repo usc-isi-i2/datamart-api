@@ -1,5 +1,5 @@
 import io, os, json
-import tempfile, csv
+import tempfile, csv, tarfile, shutil
 import pandas as pd
 from pandas import DataFrame
 from utils.spreadsheet import create_annotated_sheet
@@ -38,6 +38,33 @@ def submit_files(url:str, files: Dict, params: Dict, auth: Optional[Tuple]=None)
 
     return response
 
+def submit_tar(datamart_url: str, file_path: str, dataset_id: str, mode: str='tsv', params: Dict={},
+                put_data: bool=True, verbose: bool=False, auth: Optional[Tuple]=None) -> bool:
+    ''' Upload a compressed file to Datamart
+        Must supply with dataset_id to upload the tar.gz file
+    '''
+
+    params['put_data'] = put_data
+
+    file_name = os.path.basename(file_path)
+    with open(file_path, mode='rb') as fd:
+        # Supply arguments
+        url = f'{datamart_url}/datasets/{dataset_id}/{mode}'
+        files = { 'tar': (file_name, fd, 'application/octet-stream') }
+        # Send to Datamart
+        response = submit_files(url, files, params, auth=auth)
+
+    if not response.status_code in [200, 201, 204]:
+        print(response.text)
+        return False
+
+    if verbose:
+        try:
+            print(json.dumps(response.json(), indent=2))
+        except:
+            print(response.text)
+    return True
+
 def submit_tsv(datamart_url: str, file_path: str, put_data: bool=True,
                 verbose: bool=False, auth: Optional[Tuple]=None) -> bool:
     ''' Upload a tsv file to Datamart
@@ -66,7 +93,7 @@ def submit_tsv(datamart_url: str, file_path: str, put_data: bool=True,
         # Supply arguments
         url = f'{datamart_url}/datasets/{dataset_id}/tsv'
         files = { 'file': (file_name, fd, 'application/octet-stream') }
-        
+
         # Temporary add create_if_not_exist to help Ed upload his files
         params = { 'put_data': put_data, 'create_if_not_exist' : True }
         # Send to Datamart
@@ -77,12 +104,74 @@ def submit_tsv(datamart_url: str, file_path: str, put_data: bool=True,
         return False
 
     if verbose:
-        print(response.text)
+        try:
+            print(json.dumps(response.json(), indent=2))
+        except:
+            print(response.text)
     return True
+
+def submit_annotated_dir(datamart_url: str, annotated_path: str, yaml_path: Optional[str]=None,
+                            put_data: bool=False, verbose: bool=False, save_tsv: Optional[str]=None,
+                            save_files: Optional[str]=None, validate: bool=True, auth: Optional[Tuple]=None,
+                            wikifier_file: Optional[str]=None, extra_edges_file: Optional[str]=None) -> bool:
+
+    def find_dataset_id(file_path: str):
+        x = pd.read_csv(file_path, sep='\t').query("label == 'P1813'")
+        dataset_id = x[x['node1'].apply(lambda x: not x.startswith('QVARIABLE'))]['node2'].tolist()[0]
+        return dataset_id
+
+    ct = 0
+
+    files = [f for f in os.listdir(annotated_path) if f.endswith('.csv') or f.endswith('.xlsx')]
+    td = tempfile.mkdtemp()
+    tempdir1 = tempfile.mkdtemp()
+    tempdir2 = tempfile.mkdtemp()
+
+    for i, fname in enumerate(files):
+        if save_tsv is None:
+            save_tsv_p = None
+        elif save_tsv.endswith('.tar.gz'):
+            save_tsv_p = f'{tempdir1}/{os.path.basename(save_tsv)[:-7]}{i}.tar.gz'
+        else:
+            save_tsv_p = f'{tempdir1}/{os.path.basename(save_tsv)}{i}.tar.gz'
+
+        if not submit_annotated_sheet(datamart_url, os.path.join(annotated_path, fname), yaml_path, put_data,
+                                        verbose, save_tsv_p, save_files, validate, auth,
+                                        wikifier_file, extra_edges_file):
+            return False, ct
+
+        if not save_tsv_p is None:
+            with tarfile.open(save_tsv_p, 'r') as tar:
+                tar.extractall(td)
+            fname = [f for f in os.listdir(td)][0]
+            # Cut metadata info if not the first one
+            if i > 0:
+                dataset_id = find_dataset_id(fname)
+                df = pd.read_csv(f'{td}/{fname}', sep='\t')
+                df = df[df['node1'].apply(lambda x: not x.startswith(f'Q{dataset_id}'))]
+                df = df[df['node1'].apply(lambda x: not x.startswith(f'QVARIABLE-Q{dataset_id}'))]
+                df = df[df['node1'].apply(lambda x: not x.startswith(f'PVARIABLE-Q{dataset_id}'))]
+                df = df[df['node1'].apply(lambda x: not x.startswith(f'QUNIT-Q{dataset_id}'))]
+                df.to_csv(f'{td}/{fname}', sep='\t', index=False)
+
+            shutil.copy(f'{td}/{fname}', f'{tempdir2}/{fname[:-4]}{i}.tsv')
+        ct += 1
+
+    if not save_tsv is None:
+        with tarfile.open(save_tsv, "w:gz") as tar:
+            tar.add(tempdir2, arcname='.')
+
+    shutil.rmtree(td)
+    shutil.rmtree(tempdir1)
+    shutil.rmtree(tempdir2)
+
+    return True, ct
+
 
 def submit_annotated_sheet(datamart_url: str, annotated_path: str, yaml_path: Optional[str]=None,
                             put_data: bool=False, verbose: bool=False, save_tsv: Optional[str]=None,
-                            save_files: Optional[str]=None, validate: bool=True, auth: Optional[Tuple]=None) -> bool:
+                            save_files: Optional[str]=None, validate: bool=True, auth: Optional[Tuple]=None,
+                            wikifier_file: Optional[str]=None, extra_edges_file: Optional[str]=None) -> bool:
     ''' Submit an annotated sheet
         Args:
             datamart_url: Datamart base address
@@ -117,6 +206,10 @@ def submit_annotated_sheet(datamart_url: str, annotated_path: str, yaml_path: Op
         files = { 'file': (file_name, fd, 'application/octet-stream') }
         if yaml_path:
             files['t2wml_yaml'] = os.path.basename(yaml_path), open(yaml_path, mode='rb'), 'application/octet-stream'
+        if wikifier_file:
+            files['wikifier'] = os.path.basename(wikifier_file), open(wikifier_file, mode='rb'), 'application/octet-stream'
+        if extra_edges_file:
+            files['extra_edges'] = os.path.basename(extra_edges_file), open(extra_edges_file, mode='rb'), 'application/octet-stream'
 
         params = { 'put_data': put_data, 'create_if_not_exist': True,
                     'tsv': bool(save_tsv), 'files_only': bool(save_files),
@@ -143,8 +236,11 @@ def submit_annotated_sheet(datamart_url: str, annotated_path: str, yaml_path: Op
         with open(save_files, 'wb') as fd:
             fd.write(response.content)
 
-    if verbose:
-        print(response.text)
+    if verbose and not save_tsv:
+        try:
+            print(json.dumps(response.json(), indent=2))
+        except:
+            print(response.text)
     return True
 
 def submit_annotated_dataframe(datamart_url: str, annotated_df: DataFrame, yaml_path: Optional[str]=None,
