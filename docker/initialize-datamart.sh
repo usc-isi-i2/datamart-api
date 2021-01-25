@@ -26,8 +26,9 @@ result=$(psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -tAc "select
 if [ "$result" != "edges" ]; then
     >&2 echo "Creating database $POSTGRES_DB"
     >&2 echo $(ls docker/dev-env/data/postgres/causx.sql)
-    >&2 echo "docker/dev-env/data/postgres/causx.sql | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB"
-    cat docker/dev-env/data/postgres/causx.sql | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB
+    >&2 echo "zcat docker/dev-env/data/postgres/causx.sql.gz | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB"
+    # zcat docker/dev-env/data/postgres/causx.sql.gz | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB
+    zcat dev-env/data/postgres/causx.sql.gz | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB
 fi
 
 gunicorn -b 0.0.0.0:80 --timeout 3600 wsgi:app

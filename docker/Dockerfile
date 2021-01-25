@@ -8,12 +8,13 @@ RUN pip install --upgrade pip
 RUN pip install gunicorn
 
 COPY requirements.txt /src/requirements.txt
-RUN pip install -r src/requirements.txt
-#RUN git clone https://github.com/usc-isi-i2/table-linker && cd table-linker && git checkout jun_devel
-#RUN pip install -e table-linker
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation
-RUN pip install -e t2wml-annotation
+RUN pip install -r src/requirements.txt && pip uninstall -y torch
+
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 1c750e99ad34467d85ff478603a338015bbfe67f
+
+# Uninstall unnecessary packages
+RUN pip install -e t2wml-annotation && pip uninstall -y torch
 
 RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout development
 RUN pip install -e t2wml-api
@@ -31,6 +32,7 @@ RUN apt-get -y install postgresql
 COPY . /src
 RUN mkdir -p /src/instance
 COPY docker/docker_config.py /src/instance/config.py
+COPY dev-env/data/postgres/causx.sql.gz /src/dev-env/data/postgres/causx.sql.gz
 WORKDIR /src
 
 # CMD ["gunicorn", "-b", "0.0.0.0:80", "--timeout", "3600", "wsgi:app"]
