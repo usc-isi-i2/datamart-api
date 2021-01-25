@@ -62,7 +62,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/script/import_tsv_postgres.py",
             "args": [
-                "c:\\users\\zmbq\\Downloads\\kgtk.tsv"
+                "d:\\temp\\homicide-with-datatype-symbol.tsv",
+                "--delete"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"

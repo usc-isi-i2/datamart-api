@@ -134,7 +134,7 @@ def unquote_dict(row: dict):
     for key, value in row.items():
         row[key] = unquote(value)
 
-def import_kgtk_tsv(filename: str, config=None):
+def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
     def column_names(fields):
         for field in fields:
             if field[-2:] == '$?':
@@ -160,19 +160,25 @@ def import_kgtk_tsv(filename: str, config=None):
         for (idx, field) in enumerate(fields):
             column = column_names[idx]
             values.append(format_value(obj, field, column))
+        return values
+
+    def formatted_object_values(obj, fields, column_names):
+        values = object_values(obj, fields, column_names)
         return "(" + ", ".join(values) + ")"
 
+    # Map from object type name to ('table-name', list of fields)
+    # A $ signifies a string value. A ? signifies a nullable value
+    OBJECT_INFO = {
+        'Edge': ('edges', ['id$', 'node1$', 'label$', 'node2$', 'data_type$']),
+        'StringValue': ('strings', ['edge_id$', 'text$', 'language$?']),
+        'DateValue': ('dates', ['edge_id$', 'date_and_time$', 'precision$?', 'calendar$?']),
+        'QuantityValue': ('quantities', ['edge_id$', 'number', 'unit$?', 'low_tolerance?', 'high_tolerance?']),
+        'CoordinateValue': ('coordinates', ['edge_id$', 'latitude', 'longitude', 'precision$?']),
+        'SymbolValue': ('symbols', ['edge_id$', 'symbol$']),
+    }
+
     def write_objects(typename, objects):
-        # Map from object type name to ('table-name', list of fields)
-        # A $ signifies a string value. A ? signifies a nullable value
-        OBJECT_INFO = {
-            'Edge': ('edges', ['id$', 'node1$', 'label$', 'node2$', 'data_type$']),
-            'StringValue': ('strings', ['edge_id$', 'text$', 'language$?']),
-            'DateValue': ('dates', ['edge_id$', 'date_and_time$', 'precision$?', 'calendar$?']),
-            'QuantityValue': ('quantities', ['edge_id$', 'number', 'unit$?', 'low_tolerance?', 'high_tolerance?']),
-            'CoordinateValue': ('coordinates', ['edge_id$', 'latitude', 'longitude', 'precision$?']),
-            'SymbolValue': ('symbols', ['edge_id$', 'symbol$']),
-        }
+        nonlocal OBJECT_INFO
 
         table_name, fields = OBJECT_INFO[typename]
         columns = list(column_names(fields))
@@ -181,7 +187,7 @@ def import_kgtk_tsv(filename: str, config=None):
         for x in range(0, len(objects), CHUNK_SIZE):
             statement = f"INSERT INTO {table_name} ( {', '.join(columns)} ) VALUES\n"
             slice = objects[x:x+CHUNK_SIZE]
-            values = [object_values(obj, fields, columns) for obj in slice]
+            values = [formatted_object_values(obj, fields, columns) for obj in slice]
             statement += ',\n'.join(values)
             statement += "\nON CONFLICT DO NOTHING;"
             cursor.execute(statement)
@@ -192,6 +198,29 @@ def import_kgtk_tsv(filename: str, config=None):
         values = [t[1] for t in objects]
         write_objects(type_name, values)
 
+    def delete_object_records(typename, objects):
+        nonlocal OBJECT_INFO
+        table_name, fields = OBJECT_INFO[typename]
+        columns = list(column_names(fields))
+
+        # The id is the first column
+        CHUNK_SIZE = 10000 # Delete 10000 rows at a time
+        for x in range(0, len(objects), CHUNK_SIZE):
+            slice = objects[x:x+CHUNK_SIZE]
+            ids = [object_values(obj, fields[:1], columns[:1])[0] for obj in slice]
+            ids_string = '(' + ','.join(ids) + ')'
+            statement = f"DELETE FROM {table_name} WHERE {columns[0]} IN {ids_string};"
+            cursor.execute(statement)
+
+    def delete_objects(type_name: str, objects: List[Tuple]):
+        edges = [t[0] for t in objects]
+        delete_object_records('Edge', edges)
+        values = [t[1] for t in objects]
+        delete_object_records(type_name, values)
+
+
+    if delete and replace:
+        raise ValueError("delete and replace can't both be True")
 
     obj_map: Dict[str, List[Tuple]] = dict()   # Map from value type to list of (edge, value)
     start = time.time()
@@ -229,8 +258,12 @@ def import_kgtk_tsv(filename: str, config=None):
         with conn.cursor() as cursor:
             # Everything here runs under one transaction
             for (type_name, objects) in obj_map.items():
-                save_objects(type_name, objects)
-                print(f"Saved {len(objects)} of {type_name} - {time.time() - start}")
+                if delete or replace:
+                    delete_objects(type_name, objects)
+                    print(f"Deleted {len(objects)} of {type_name} - {time.time() - start}")
+                if not delete:
+                    save_objects(type_name, objects)
+                    print(f"Saved {len(objects)} of {type_name} - {time.time() - start}")
         conn.commit()
 
     print(f"Done saving {count} objects in {time.time() - start}")
