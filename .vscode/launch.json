@@ -24,6 +24,28 @@
             "jinja": true
         },
         {
+            "name": "Clean for CausX",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/clean-for-causx.py",
+            "args": [
+                "d:\\temp\\datamart\\causx-vars.xlsx"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Dump Datasets",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/dump-datasets.py",
+            "args": [
+                "c:\\temp\\datamart",
+                "--datamart-api", "http://localhost:14000",
+                "--package", "c:\\temp\\datamart.tar.gz"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Create Fuzzy-search Views",
             "type": "python",
             "request": "launch",
@@ -40,11 +62,11 @@
             "request": "launch",
             "program": "${workspaceFolder}/script/import_tsv_postgres.py",
             "args": [
-                "c:\\users\\zmbq\\Downloads\\kgtk.tsv"
+                "d:\\temp\\homicide-with-datatype-symbol.tsv",
+                "--delete"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
-    
     ]
 }

@@ -6,10 +6,71 @@ from flask import request, make_response
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
+from api.metadata.update import DatasetMetadataUpdater
 from api.region_utils import get_query_region_ids, UnknownSubjectError
 
 
 class VariableMetadataResource(Resource):
+    def put(self, dataset, variable=None):
+        '''Update metadata'''
+        if not request.json:
+            content = {
+                'Error': 'JSON content body is empty'
+            }
+            return content, 400
+
+        if variable is None:
+            content = {
+                'Error': 'Variable id is required.'
+            }
+            return content, 400
+
+        dataset_qnode = dal.get_dataset_id(dataset)
+        if not dataset_qnode:
+            status = {
+                'Error': f'Cannot find dataset {dataset}'
+            }
+            return status, 404
+
+        # Get current variable metadata
+        metadata_dict = dal.query_variable_metadata(dataset, variable, debug=True)
+        if metadata_dict is None:
+            return {'Error': f"No variable {variable} in dataset {dataset}"}, 404
+        variable_qnode = dal.get_variable_id(dataset_qnode, variable)
+
+        metadata_dict['dataset_id'] = dataset
+
+        # Delete existing fields that are to be updated
+        request_dict = request.json
+        for field_name in request_dict.keys():
+            if field_name not in VariableMetadata.fields():
+                return {'Error': f'Not valid field name: {field_name}'}, 404
+        labels = [VariableMetadata.get_property(field_name) for field_name in request_dict.keys()]
+
+        # If name changes, then so should its label.
+        # Note: variable metadata uses 'P1476', but CSV data uses 'label'
+        if 'P1476' in labels:
+            labels.append('label')
+
+        dal.delete_variable_metadata(dataset_qnode, [variable_qnode], labels=labels, debug=True)
+
+        # Update and validate
+        metadata_dict.update(request_dict)
+        metadata = VariableMetadata().from_dict(metadata_dict)
+
+        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_qnode, variable_qnode))
+        edges = edges[edges['label'].isin(labels)]
+
+        import_kgtk_dataframe(edges)
+
+        DatasetMetadataUpdater().update(dataset)
+
+        results = dal.query_variable_metadata(dataset, variable)
+        results['dataset_id'] = dataset
+        results = VariableMetadata().from_dict(results).to_dict()
+
+        return results, 200
+
     def post(self, dataset, variable=None):
         if not request.json:
             content = {
@@ -53,9 +114,8 @@ class VariableMetadataResource(Resource):
         metadata._variable_id = variable_id
         metadata.corresponds_to_property = variable_pnode
 
-        # pprint(metadata.to_dict())
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id, variable_id))
-        # pprint(edges)
+        print(edges)
 
         if 'test' not in request.args:
             import_kgtk_dataframe(edges)
@@ -121,20 +181,75 @@ class DatasetMetadataResource(Resource):
     vd = VariableDeleter()
     vmr = VariableMetadataResource()
 
-    @staticmethod
-    def create_dataset(metadata: DatasetMetadata, *, create: bool = True):
-        # Create qnode
-        dataset_id = f'Q{metadata.dataset_id}'
-        edges = None
-        if dal.get_dataset_id(metadata.dataset_id) is None:
-            metadata._dataset_id = dataset_id
+    def put(self, dataset=None) :
+        if not request.json:
+            content = {
+                'Error': 'JSON content body is empty'
+            }
+            return content, 400
 
-            edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id))
+        if not dataset:
+            content = {
+                'Error': 'Please supply a dataset-id when PUTing'
+            }
+            return content, 400
 
-            if create:
-                import_kgtk_dataframe(edges)
+        dataset_qnode = dal.get_dataset_id(dataset)
+        if not dataset_qnode:
+            content = {
+                'Error': f'Dataset is not defined {metadata.dataset_id}'
+            }
+            return content, 404
 
-        return dataset_id, edges
+        request_dict = request.json
+
+        invalid_metadata = False
+        error_report = []
+        for key in request_dict:
+            if request_dict[key].strip() == "":
+                error_report.append(
+                    {'error': f'Metadata field: {key}, cannot be blank'}
+                )
+                invalid_metadata = True
+
+        if invalid_metadata:
+            return error_report, 400
+
+        metadata = DatasetMetadata()
+        status, code = metadata.from_request(request_dict, check_required_fields=False)
+        if not code == 200:
+            return status, code
+
+        labels = [DatasetMetadata.get_property(name) for name in request_dict]
+
+        # If name changes, then so should its label
+        if 'P1476' in labels:
+            labels.append('label')
+
+        # Get current dataset metadat
+        metadata_dict = dal.query_dataset_metadata(dataset, debug=True)[0]
+
+        # delete old edges
+        dal.delete_dataset_metadata(dataset_qnode, labels=labels, debug=True)
+
+        metadata_dict.update(request_dict)
+        metadata = DatasetMetadata().from_dict(metadata_dict)
+
+        # keep just the changed edges
+        edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_qnode))
+        edges = edges[edges['label'].isin(labels)]
+        print(edges)
+
+        import_kgtk_dataframe(edges)
+
+        DatasetMetadataUpdater().update(dataset)
+
+        result = dal.query_dataset_metadata(dataset)[0]
+
+        # validate, just in case
+        result = DatasetMetadata().from_dict(result).to_dict()
+
+        return result, 200
 
     def post(self, dataset=None):
         if not request.json:
@@ -174,7 +289,7 @@ class DatasetMetadataResource(Resource):
             }
             return content, 409
 
-        _, edges = DatasetMetadataResource.create_dataset(metadata, create='test' not in request.args)
+        _, edges = DatasetMetadataUpdater().create_dataset(metadata, create='test' not in request.args)
 
         content = metadata.to_dict()
 
@@ -233,8 +348,6 @@ class FuzzySearchResource(Resource):
         # if regions.get('admin1') or regions.get('admin2') or regions.get('admin3'):
         #    return {'Error': 'Filtering on admin1, admin2 or admin3 levels is not supported'}, 400
 
-        print('Regions asked for in query: ', regions)
-
         try:
             limit = int(request.args.get('limit', 100))
             if limit < 1:
@@ -242,8 +355,10 @@ class FuzzySearchResource(Resource):
         except:
             limit = 100
 
+        tags = request.args.getlist('tag')
+
         # We're using Postgres's full text search capabilities for now
-        results = dal.fuzzy_query_variables(queries, regions, limit, True)
+        results = dal.fuzzy_query_variables(queries, regions, tags, limit, True)
 
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names

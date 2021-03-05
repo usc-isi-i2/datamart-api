@@ -13,4 +13,4 @@ if __name__ == '__main__':
     parser.add_argument("input_file_path", help="input file", type=str)
 
     parsed = parser.parse_args()
-    import_kgtk_tsv(parsed.input_file_path, config=conf-ig)
+    import_kgtk_tsv(parsed.input_file_path, config=config)

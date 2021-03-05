@@ -24,7 +24,7 @@ class Qualifier:
         self.is_optional = name != 'time'
         self.data_type = self._get_data_type(wikidata_data_type)
 
-        if self.data_type == 'location' and not self.name:
+        if self.data_type == 'location' and (not self.name or self.label == 'P131'):  # P131 qualifiers are always 'location'
             self.name = 'location'
 
         self._init_sql()
@@ -199,6 +199,23 @@ def query_qualifiers(dataset_id, variable_qnode):
     qualifiers = query_to_dicts(query)
     return [Qualifier(**q) for q in qualifiers]
 
+def query_tags(dataset_id, variable_qnode):
+    dataset_id = sanitize(dataset_id)
+    variable_qnode = sanitize(variable_qnode)
+
+    query = f"""
+    SELECT e_tag.node2 AS tag
+        FROM edges e_var
+        JOIN edges e_dataset ON (e_dataset.label='P2006020003' AND e_dataset.node2=e_var.node1)
+        JOIN edges e_tag ON (e_var.node1=e_tag.node1 AND e_tag.label='P2010050001')
+    WHERE e_var.label='P31' AND e_var.node2='Q50701' AND e_dataset.node1='{dataset_id}'  AND e_var.node1='{variable_qnode}'
+    """
+    result = query_to_dicts(query)
+    tags = [r['tag'] for r in result]
+
+    return tags
+    
+
 
 def preprocess_places(places: Dict[str, List[str]], region_field) -> Tuple[str, str]:
     joins: List[str] = []
@@ -308,31 +325,38 @@ def delete_variable(dataset_id, variable_id, property_id, debug=False):
     with postgres_connection() as conn:
         with conn.cursor() as cursor:
             # Everything here is running under the same transaction
+            # We need to delete all edges for this variable, as well as all edges connected to them.
+            # 
+            # To do so, we first create a temporary table with the IDs of all the edges that need to be deleted,
+            # and then use it to delete the actual edges
+            #
+            # Step 1. create the temporary table
+            query = f"""SELECT e_main.id INTO TEMPORARY TABLE to_be_deleted
+                            FROM edges AS e_main
+                            JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
+                        WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}';
+            """
+            if (debug):
+                print(query)
+            cursor.execute(query)
 
-            # Delete properties
+            # Step 2. Delete all propery edges
             query = f"""
-            DELETE FROM edges WHERE node1 IN (
-                    SELECT e_main.id
-                        FROM edges AS e_main
-                        JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
-                    WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
-            );"""
+            DELETE FROM edges WHERE node1 IN (SELECT id FROM to_be_deleted);
+            """;
             if debug:
                 print(query)
             cursor.execute(query)
 
-            # Now delete the main edges
+            # Step 3. Now delete the main edges
             query = f"""
-            DELETE FROM edges e_main WHERE id IN (
-                    SELECT e_main.id
-                        FROM edges AS e_main
-                        JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
-                    WHERE e_main.label='{property_id}' AND e_dataset.node2='{dataset_id}'
-            );
+            DELETE FROM edges WHERE id IN (SELECT id FROM to_be_deleted);
             """
             if debug:
                 print(query)
             cursor.execute(query)
+
+            # We do not delete the temporary table, it is deleted automatically when the session is closed
 
 def variable_data_exists(dataset_id, property_ids, debug=False):
     # Check whether there is some data for any of the property_ids
