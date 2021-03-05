@@ -93,6 +93,15 @@ class TestPropertyAPI(unittest.TestCase):
         put_response = put(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
         self.assertEqual(put_response.status_code, 400, f'put({url})')
 
+    def test_put_illegal_label(self):
+        illegal = property_one_edges.append(
+            pd.DataFrame(
+                [['PUnitTestPropertyOne-extra', 'PUnitTestPropertyOne', 'extra', 123]],
+                columns=['id', 'node1', 'label', 'node2']))
+        url = f'{self.url}/properties/{self.property_one_name}'
+        put_response = put(url, files={'file': io.StringIO(illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        self.assertEqual(put_response.status_code, 400, 'Should not accept labels not in white list')
+
     def test_post(self):
         url = f'{self.url}/properties'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
@@ -114,7 +123,16 @@ class TestPropertyAPI(unittest.TestCase):
 
         self.assertTrue((df == all_edges).all().all())
 
-    def test_post_faile(self):
+    def test_post_illegal_label(self):
+        illegal = property_one_edges.append(
+            pd.DataFrame(
+                [['PUnitTestPropertyOne-extra', 'PUnitTestPropertyOne', 'extra', 123]],
+                columns=['id', 'node1', 'label', 'node2']))
+        url = f'{self.url}/properties'
+        post_response = post(url, files={'file': io.StringIO(illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        self.assertEqual(post_response.status_code, 400, 'Should not accept labels not in white list')
+
+    def test_post_fail(self):
         url = f'{self.url}/properties/Pxyz'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
         post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})

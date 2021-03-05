@@ -19,6 +19,8 @@ def is_same_as_existing(property, edges):
 
 
 class PropertyResource(Resource):
+    label_white_list = ['label', 'description', 'data_type', 'alias', 'P31']
+
     def get_edges(self) -> pd.DataFrame:
         if request.files is None:
             content = {
@@ -75,6 +77,13 @@ class PropertyResource(Resource):
         edges = self.get_edges()
         # print(edges.to_csv(index=False, quoting=csv.QUOTE_NONE))
 
+        illegal_labels = [x for x in edges.loc[:,'label'].unique() if x not in self.label_white_list]
+        if illegal_labels:
+            content = {
+                'Error': f'Labels not in white list: {",".join(illegal_labels)}'
+            }
+            return content, 400
+
         properties = edges.loc[:,'node1'].unique()
 
         existing_properties = check_existing_properties(properties)
@@ -126,6 +135,14 @@ class PropertyResource(Resource):
             return content, 400
 
         edges = self.get_edges()
+
+        illegal_labels = [x for x in edges.loc[:,'label'].unique() if x not in self.label_white_list]
+        if illegal_labels:
+            content = {
+                'Error': f'Labels not in white list: {",".join(illegal_labels)}'
+            }
+            return content, 400
+
         properties = list(edges['node1'].drop_duplicates())
         if len(properties) > 1:
             content = {
