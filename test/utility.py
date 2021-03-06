@@ -1,5 +1,10 @@
+import io
+import csv
 import os
 import typing
+
+import pandas as pd
+
 from requests import put
 from requests import post, delete, get
 
@@ -28,6 +33,27 @@ def create_dataset(p_url, return_edges=False, name='Unit Test Dataset', dataset_
         post_url = f'{p_url}/metadata/datasets'
 
     return post(post_url, json=metadata)
+
+
+def create_dataset_with_edges(
+        p_url, name='Unit Test Dataset', dataset_id='unittestdataset',
+        description='will be deleted in this unit test', url='http://unittest101.org',
+        extra_edges=[], delete_labels=[]):
+    qnode = 'Q' + dataset_id
+    edge_list = []
+    for label, node2 in [('P31', 'Q1172284'),
+                         ('label', f'"{name}"'),
+                         ('P1476', f'"{name}"'),
+                         ('description', f'"{description}"'),
+                         ('P2699', f'"{url}"'),
+                         ('P1813', f'"{dataset_id}"'),
+                         ('P5017', '^2021-03-05T10:14:11/14')] + extra_edges:
+        if label not in delete_labels:
+            edge_list.append([qnode, label, node2, f'{qnode}-{label}'])
+    edges = pd.DataFrame(edge_list, columns=['node1', 'label', 'node2', 'id'])
+    post_url = f'{p_url}/metadata/datasets'
+
+    return post(post_url, files={'file': io.StringIO(edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
 
 
 def delete_dataset(url, dataset_id='unittestdataset'):

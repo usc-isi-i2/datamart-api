@@ -1,3 +1,7 @@
+import csv
+import pandas as pd
+
+from flask_restful import request
 
 class DataInterval:
     name_qnode_map = {
@@ -135,3 +139,25 @@ class Literal:
             return f"^{datetime}/{precision}"
         else:
             return f"^{datetime}"
+
+def get_edges_from_request() -> pd.DataFrame:
+        if request.files is None:
+            content = {
+                'Error': 'Missing TSV edge file'
+            }
+            raise ValueError(content)
+
+        valid_column_names = ['id', 'node1', 'label', 'node2']
+        for key, file_storage in request.files.items():
+            edges = pd.read_csv(file_storage, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
+            # Get just the first file
+            break
+
+        if not set(edges.columns) == set(valid_column_names):
+            content = {
+                'Error': f'Invalid TSV columns: {edges.columns}. Expecting: {valid_column_names}'
+            }
+            raise ValueError(content)
+
+        edges = edges.loc[:, valid_column_names]
+        return edges

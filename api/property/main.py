@@ -7,6 +7,7 @@ import pandas as pd
 from flask import make_response
 from flask_restful import request, Resource
 
+from api.util import get_edges_from_request
 from db.sql.dal.property import is_property_used, check_existing_properties, delete_property, query_property
 from db.sql.kgtk import import_kgtk_dataframe
 
@@ -21,38 +22,17 @@ def is_same_as_existing(property, edges):
 class PropertyResource(Resource):
     label_white_list = ['label', 'description', 'data_type', 'alias', 'P31']
 
-    def get_edges(self) -> pd.DataFrame:
-        if request.files is None:
-            content = {
-                'Error': 'Missing TSV edge file'
-            }
-            return content, 400
-
-        valid_column_names = ['id', 'node1', 'label', 'node2']
-        for key, file_storage in request.files.items():
-            edges = pd.read_csv(file_storage, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
-            # Get just the first file
-            break
-
-        if not set(edges.columns) == set(valid_column_names):
-            content = {
-                'Error': f'Invalid TSV columns: {edges.columns}. Expecting: {valid_column_names}'
-            }
-            return content, 400
-
-        edges = edges.loc[:, valid_column_names]
-        return edges
-
     def get(self, property=None):
         '''Get property'''
-        if property is None:
+        property_name = property
+        if property_name is None:
             edges = query_property()
-            property = 'properties'
-        elif property.startswith('P'):
-            edges = query_property(property)
+            property_name = 'properties'
+        elif property_name.startswith('P'):
+            edges = query_property(property_name)
         else:
             content = {
-                'Error': f'Property name must start with the letter "P": {property}'
+                'Error': f'Property name must start with the letter "P": {property_name}'
             }
             return content, 400
 
@@ -61,7 +41,7 @@ class PropertyResource(Resource):
 
         tsv =  edges.to_csv(index=False, sep="\t", quoting=csv.QUOTE_NONE)
         output = make_response(tsv)
-        output.headers['Content-Disposition'] = f'attachment; filename={property}.tsv'
+        output.headers['Content-Disposition'] = f'attachment; filename={property_name}.tsv'
         output.headers['Content-type'] = 'text/tab-separated-values'
         return output
 
@@ -74,8 +54,11 @@ class PropertyResource(Resource):
             }
             return content, 400
 
-        edges = self.get_edges()
-        # print(edges.to_csv(index=False, quoting=csv.QUOTE_NONE))
+        try:
+            edges = get_edges_from_request()
+            # print(edges.to_csv(index=False, quoting=csv.QUOTE_NONE))
+        except ValueError as e:
+            return e.args[0], 400
 
         illegal_labels = [x for x in edges.loc[:,'label'].unique() if x not in self.label_white_list]
         if illegal_labels:
@@ -134,7 +117,10 @@ class PropertyResource(Resource):
             }
             return content, 400
 
-        edges = self.get_edges()
+        try:
+            edges = get_edges_from_request()
+        except ValueError as e:
+            return e.args[0], 400
 
         illegal_labels = [x for x in edges.loc[:,'label'].unique() if x not in self.label_white_list]
         if illegal_labels:
