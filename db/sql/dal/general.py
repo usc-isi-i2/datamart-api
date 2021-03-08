@@ -31,6 +31,16 @@ def get_dataset_id(dataset):
     return None
 
 
+def qnode_exists(qnode) -> bool:
+    qnode = sanitize(qnode)
+    qnode_query = f'''
+    SELECT  count(*) AS count FROM edges
+    WHERE node1='{qnode}';
+    '''
+    result = query_to_dicts(qnode_query)
+    return result[0]['count'] > 0
+
+
 def get_label(qnode, default=None, lang='en'):
     qnode = sanitize(qnode)
     lang = sanitize(lang)

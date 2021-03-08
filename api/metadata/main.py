@@ -1,13 +1,15 @@
 import csv
 import pandas as pd
-from db.sql import dal
 from flask_restful import Resource
 from flask import request, make_response
-from db.sql.kgtk import import_kgtk_dataframe
+
+from api.util import get_edges_from_request
 from api.variable.delete import VariableDeleter
 from api.metadata.metadata import DatasetMetadata, VariableMetadata
 from api.metadata.update import DatasetMetadataUpdater
 from api.region_utils import get_query_region_ids, UnknownSubjectError
+from db.sql import dal
+from db.sql.kgtk import import_kgtk_dataframe, unquote
 
 
 class VariableMetadataResource(Resource):
@@ -33,7 +35,7 @@ class VariableMetadataResource(Resource):
             return status, 404
 
         # Get current variable metadata
-        metadata_dict = dal.query_variable_metadata(dataset, variable, debug=True)
+        metadata_dict = dal.query_variable_metadata(dataset, variable, debug=False)
         if metadata_dict is None:
             return {'Error': f"No variable {variable} in dataset {dataset}"}, 404
         variable_qnode = dal.get_variable_id(dataset_qnode, variable)
@@ -52,7 +54,7 @@ class VariableMetadataResource(Resource):
         if 'P1476' in labels:
             labels.append('label')
 
-        dal.delete_variable_metadata(dataset_qnode, [variable_qnode], labels=labels, debug=True)
+        dal.delete_variable_metadata(dataset_qnode, [variable_qnode], labels=labels, debug=False)
 
         # Update and validate
         metadata_dict.update(request_dict)
@@ -134,7 +136,7 @@ class VariableMetadataResource(Resource):
 
     def get(self, dataset, variable=None):
         if variable is None:
-            results = dal.query_dataset_variables(dataset, False)
+            results = dal.query_dataset_variables(dataset, True)
             if results is None:
                 return {'Error': f"No dataset {dataset}"}, 404
             results = [VariableMetadata().from_dict(x).to_dict() for x in results]
@@ -182,12 +184,6 @@ class DatasetMetadataResource(Resource):
     vmr = VariableMetadataResource()
 
     def put(self, dataset=None) :
-        if not request.json:
-            content = {
-                'Error': 'JSON content body is empty'
-            }
-            return content, 400
-
         if not dataset:
             content = {
                 'Error': 'Please supply a dataset-id when PUTing'
@@ -197,11 +193,38 @@ class DatasetMetadataResource(Resource):
         dataset_qnode = dal.get_dataset_id(dataset)
         if not dataset_qnode:
             content = {
-                'Error': f'Dataset is not defined {metadata.dataset_id}'
+                'Error': f'Dataset is not defined {dataset}'
             }
             return content, 404
 
-        request_dict = request.json
+        if request.json:
+            return self.put_json(dataset_qnode, dataset, request.json)
+        return self.put_edges(dataset_qnode, dataset)
+
+    def put_edges(self, dataset_qnode:str, dataset_id:str):
+        try:
+            edges = get_edges_from_request()
+        except ValueError as e:
+            return e.args[0], 400
+
+        metadata = DatasetMetadata()
+        status, code = metadata.validate_edges(edges, dataset_qnode, dataset_id)
+        if not code == 200:
+            return status, code
+
+        import_kgtk_dataframe(edges)
+
+        DatasetMetadataUpdater().update(dataset_id)
+
+        result = dal.query_dataset_metadata(dataset_id)[0]
+
+        # validate, just in case
+        result = DatasetMetadata().from_dict(result).to_dict()
+
+        return result, 200
+
+    def put_json(self, dataset_qnode:str, dataset:str, request_json:dict):
+        request_dict = request_json
 
         invalid_metadata = False
         error_report = []
@@ -227,10 +250,10 @@ class DatasetMetadataResource(Resource):
             labels.append('label')
 
         # Get current dataset metadat
-        metadata_dict = dal.query_dataset_metadata(dataset, debug=True)[0]
+        metadata_dict = dal.query_dataset_metadata(dataset, debug=False)[0]
 
         # delete old edges
-        dal.delete_dataset_metadata(dataset_qnode, labels=labels, debug=True)
+        dal.delete_dataset_metadata(dataset_qnode, labels=labels, debug=False)
 
         metadata_dict.update(request_dict)
         metadata = DatasetMetadata().from_dict(metadata_dict)
@@ -252,18 +275,62 @@ class DatasetMetadataResource(Resource):
         return result, 200
 
     def post(self, dataset=None):
-        if not request.json:
-            content = {
-                'Error': 'JSON content body is empty'
-            }
-            return content, 400
-
         if dataset:
             content = {
                 'Error': 'Please do not supply a dataset-id when POSTing'
             }
             return content, 400
 
+        if request.json:
+            return self.post_json()
+        return self.post_edges()
+
+    def post_edges(self):
+        try:
+            edges = get_edges_from_request()
+        except ValueError as e:
+            return e.args[0], 400
+
+        if edges.shape[0] == 0:
+            content = {
+                'Error': 'Empty edge file'
+            }
+            return content, 400
+
+        metadata = DatasetMetadata()
+        status, code = metadata.validate_edges(edges)
+        if not code == 200:
+            return status, code
+
+        dataset_qnode = edges.iloc[0]['node1']
+        p1813_edge = edges[edges.loc[:, 'label'] == 'P1813']
+        dataset = unquote(p1813_edge.iloc[0]['node2'])
+
+        if dal.get_dataset_id(dataset):
+            content = {
+                'Error': f'Dataset identifier {dataset} has already been used'
+            }
+            return content, 409
+
+        if dal.qnode_exists(dataset_qnode):
+            content = {
+                'Error': f'Dataset qnode {dataset_qnode} has already been used'
+            }
+            return content, 409
+
+        import_kgtk_dataframe(edges)
+
+        DatasetMetadataUpdater().update(dataset)
+
+        result = dal.query_dataset_metadata(dataset)[0]
+
+        # validate, just in case
+        result = DatasetMetadata().from_dict(result).to_dict()
+
+        return result, 201
+
+
+    def post_json(self):
         request_metadata = request.json
 
         invalid_metadata = False
@@ -293,6 +360,7 @@ class DatasetMetadataResource(Resource):
 
         content = metadata.to_dict()
 
+        # Used for debugging
         if 'tsv' in request.args:
             tsv = edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False)
             output = make_response(tsv)
