@@ -30,6 +30,15 @@ property_two_edges = pd.DataFrame(
     columns=['id', 'node1', 'label', 'node2']
 )
 
+redefined_property_one_edges = pd.DataFrame(
+    [['PUnitTestPropertyOne-P31', 'PUnitTestPropertyOne', 'P31', 'Q18616576'],
+     ['PUnitTestPropertyOne-data_type', 'PUnitTestPropertyOne', 'data_type', 'Quantity'],
+     ['PUnitTestPropertyOne-label', 'PUnitTestPropertyOne', 'label', '"TestPropertyOne-redefined"']],
+    columns=['id', 'node1', 'label', 'node2']
+)
+
+
+
 data = pd.DataFrame(
     [['PUnitTestPropertyOne-Q100', 'Q100', 'PUnitTestPropertyOne', 123.45]],
     columns=['id', 'node1', 'label', 'node2']
@@ -106,7 +115,7 @@ class TestPropertyAPI(unittest.TestCase):
         url = f'{self.url}/properties'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
         post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(post_response.status_code, 201 , f'put({url})')
+        self.assertEqual(post_response.status_code, 201 , f'post({url})')
 
         part = {}
         for prop in [self.property_one_name, self.property_two_name]:
@@ -136,7 +145,18 @@ class TestPropertyAPI(unittest.TestCase):
         url = f'{self.url}/properties/Pxyz'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
         post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(post_response.status_code, 400 , f'put({url})')
+        self.assertEqual(post_response.status_code, 400 , f'post({url})')
+
+    def test_post_fail_2(self):
+        url = f'{self.url}/properties'
+        all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
+        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        self.assertEqual(post_response.status_code, 201 , f'post({url})')
+
+        url = f'{self.url}/properties'
+        all_edges = pd.DataFrame.append(redefined_property_one_edges, property_two_edges).reset_index(drop=True)
+        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        self.assertEqual(post_response.status_code, 409 , f'post({url})')
 
     def test_delete(self):
         url = f'{self.url}/properties/{self.property_one_name}'
@@ -144,17 +164,17 @@ class TestPropertyAPI(unittest.TestCase):
         self.assertEqual(put_response.status_code, 201, f'put({url})')
 
         delete_response = delete(url)
-        self.assertEqual(delete_response.status_code, 200, f'put({url})')
+        self.assertEqual(delete_response.status_code, 200, f'delete({url})')
 
     def test_delete_fail_1(self):
         url = f'{self.url}/properties'
         delete_response = delete(url)
-        self.assertEqual(delete_response.status_code, 400, f'put({url})')
+        self.assertEqual(delete_response.status_code, 400, f'delete({url})')
 
     def test_delete_fail_2(self):
         url = f'{self.url}/properties/pxyz'
         delete_response = delete(url)
-        self.assertEqual(delete_response.status_code, 400, f'put({url})')
+        self.assertEqual(delete_response.status_code, 400, f'delete({url})')
 
     def test_delete_fail_3(self):
         url = f'{self.url}/properties/{self.property_one_name}'
