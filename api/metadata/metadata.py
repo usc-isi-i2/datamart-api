@@ -87,17 +87,12 @@ PROPERTY_LABEL = {
     'schema:keywords': 'keywords',
     'schema:version': 'version',
     'P2006020004': 'dataset',
-    'P2006020002': 'has qualifier',
+    'P2006020002': 'qualifier',
     'P2006020003': 'variable measured',
     'P2006020005': 'mapping file',
     'P2006020008': 'date created',
     'P2006020009': 'included in data catalog'
 }
-
-LABEL_PROPERTY = {label: prop for prop, label in PROPERTY_LABEL.items()}
-for prop, label in PROPERTY_LABEL.items():
-    if ' ' in label:
-        LABEL_PROPERTY[label.replace(' ', '_')] = prop
 
 def isQnode(name: str) -> bool:
     if not isinstance(name, str):
@@ -430,12 +425,12 @@ class Metadata:
 
         datamart_properties = list(self._required_properties)
         for name in self._datamart_fields:
-            if name in LABEL_PROPERTY:
-                datamart_properties.append(LABEL_PROPERTY[name])
+            if name in self._name_to_pnode_map:
+                datamart_properties.append(self._name_to_pnode_map[name])
             elif name.endswith('_precision'):
                 pass
             else:
-                print('!!!! Missing property:' + name)
+                print('!! Missing property:' + name)
 
         missing_required_properties = [x for x in self._required_properties if x not in properties]
         if missing_required_properties:
@@ -455,12 +450,15 @@ class Metadata:
             name = PROPERTY_LABEL[prop].replace(' ', '_')
             data_type = self._datamart_field_type.get(name, None)
             if data_type is None:
-                print(f'!!!! Missing data type: {name} ({prop})')
+                print(f'!! Missing data type: {name} ({prop})')
             elif data_type == DataType.STRING or data_type == DataType.URL:
                 if len(edge['node2']) < 2  or edge['node2'][0] != '"' or edge['node2'][-1] != '"':
                     value_error.append(f'Row {index}: Node2 for label {prop} is a string. It must be enclosed in double quotes.')
-            elif data_type == DataType.STRING:
+            elif data_type == DataType.QNODE:
                 if len(edge['node2']) == 0 or edge['node2'][0] != 'Q':
+                    value_error.append(f'Row {index}: Node2 for label {prop} is a qnode. It must be start with the letter Q')
+            elif data_type == DataType.PNODE:
+                if len(edge['node2']) == 0 or edge['node2'][0] != 'P':
                     value_error.append(f'Row {index}: Node2 for label {prop} is a qnode. It must be start with the letter Q')
             elif data_type == DataType.DATE:
                 if len(edge['node2']) == 0 or edge['node2'][0] != '^':
@@ -473,8 +471,6 @@ class Metadata:
         if error['Error']:
             return error, 400
         return {}, 200
-
-
 
 
 class DatasetMetadata(Metadata):
@@ -690,11 +686,13 @@ class DatasetMetadata(Metadata):
         if not p1813_edge.shape[0] == 1:
             error['Error'] = 'Must have extactly one P1831 edge'
             return error, 400
+
         if dataset_id and not dataset_id == p1813_edge[0]['node2']:
             error['Error'] = "Dataset id does not match: {dataset_id}  == {p1813_edge[0]['node2']}"
             return error, 400
 
         return super().validate_edges(edges)
+
 
 class VariableMetadata(Metadata):
     '''
@@ -727,7 +725,13 @@ class VariableMetadata(Metadata):
         'name',
     ]
     _required_properties = [
-        "P31", "P1476"
+        "P1476", "label",
+        "P1813",
+        "P31",
+        "P1687",
+        "P2006020002",
+        # "P2006020003",
+        "P2006020004"
     ]
     _collection_get_fields = [
         'name',
@@ -764,7 +768,12 @@ class VariableMetadata(Metadata):
         'column_index': DataType.STRING,
         'qualifier': DataType.QLIST,
         'count': DataType.INTEGER,
-        'tag': DataType.SLIST
+        'tag': DataType.SLIST,
+
+        'instance_of': DataType.QNODE,
+        'label': DataType.STRING,
+        'dataset': DataType.QNODE,
+        'Wikidata_property': DataType.PNODE,
     }
     _name_to_pnode_map = {
         'name': 'P1476',
@@ -784,7 +793,8 @@ class VariableMetadata(Metadata):
         'column_index': 'P2006020001',
         'qualifier': 'P2006020002',
         'count': 'P1114',
-        'tag': 'P2010050001'
+        'tag': 'P2010050001',
+        'dataset_id': 'P2006020004'
     }
 
     def __init__(self):
@@ -894,3 +904,44 @@ class VariableMetadata(Metadata):
 
         edges = [edge for edge in edges if edge is not None]
         return edges
+
+
+    def validate_edges(self, edges: pd.DataFrame, dataset_qnode: str = None,
+                       dataset_id: str = None) -> typing.Tuple[dict, int]:
+
+        error = {}
+        for var_qnode, var_edges in edges.groupby(['node1']):
+            if var_qnode == dataset_qnode:
+                continue
+
+            content, status = super().validate_edges(var_edges)
+            if not content:
+                content = {'Error': ''}
+            dataset_edge = var_edges[var_edges['label']=='P2006020004']
+            if dataset_edge.shape[0] == 0:
+                status = 400
+                content['missing_edge'] = f"('{dataset_qnode}', 'P2006020004','var_qnode')"
+
+            if dataset_edge.shape[0] > 1:
+                status = 400
+                content['Cannot_have_multiple_P2006020004_edges'] = f"{dataset_edge}"
+
+            if status == 400:
+                content['Error'] = f'{var_qnode}: {content["Error"]}'
+                return content, status
+
+        variable_measured_edges = edges[edges['label']=='P2006020003']
+        if variable_measured_edges.shape[0] == 0:
+            error['Error'] = 'Must have P2006020003 edges'
+            return error, 400
+
+        dataset_qnodes = variable_measured_edges.loc[:, 'node1'].unique()
+        if len(dataset_qnodes) > 1:
+            error['Error'] = 'Node1 of P2006020003 edges refer to multiple dataset qnodes: {",".join(dataset_qnodes)}'
+            return error, 400
+
+        if dataset_qnode and not dataset_qnodes[0] == dataset_qnode:
+            error['Error'] = 'Dataset qnode does not match: {qnode.iloc[0]} == {dataset_qnode}'
+            return error, 400
+
+        return {}, 200
