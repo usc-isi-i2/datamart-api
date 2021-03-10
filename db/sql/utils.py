@@ -114,7 +114,8 @@ def delete(sql: str, conn=None, config=None) -> int:
         with conn.cursor() as cursor:
             cursor.execute(sql)
             rows_deleted = cursor.rowcount
-            conn.commit()
+            if our_conn:
+                conn.commit()
     finally:
         if our_conn:
             conn.close()

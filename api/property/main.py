@@ -1,4 +1,5 @@
 import csv
+from db.sql.utils import postgres_connection
 import sys
 import traceback
 
@@ -143,23 +144,25 @@ class PropertyResource(Resource):
             return content, 400
 
         existing_properties = check_existing_properties([property])
-        if property in existing_properties:
-            if not is_same_as_existing(property, edges) and is_property_used(property):
+
+        with postgres_connection() as conn:
+            if property in existing_properties:
+                if not is_same_as_existing(property, edges) and is_property_used(property):
+                    content = {
+                        'Error': 'cannot redefine property that is in use: {property}'
+                    }
+                    return content, 400
+                delete_property(property)
+
+            try:
+                import_kgtk_dataframe(edges, is_file_exploded=False, conn=conn)
+            except Exception as e:
+                print("Failed to import exploded kgtk file", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
                 content = {
-                    'Error': 'cannot redefine property that is in use: {property}'
+                    'Error': 'Failed to import imploded kgtk file'
                 }
                 return content, 400
-            delete_property(property)
-
-        try:
-            import_kgtk_dataframe(edges, is_file_exploded=False)
-        except Exception as e:
-            print("Failed to import exploded kgtk file", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            content = {
-                'Error': 'Failed to import imploded kgtk file'
-            }
-            return content, 400
 
         if property in existing_properties:
             return None, 200

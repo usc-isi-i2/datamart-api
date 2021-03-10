@@ -134,7 +134,7 @@ def unquote_dict(row: dict):
     for key, value in row.items():
         row[key] = unquote(value)
 
-def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
+def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, conn=None):
     def column_names(fields):
         for field in fields:
             if field[-2:] == '$?':
@@ -254,7 +254,12 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
     if config and not 'POSTGRES' in config:
         config = dict(POSTGRES=config)
 
-    with postgres_connection(config) as conn:
+    try:
+        if not conn:
+            conn = postgres_connection(config)
+            our_conn = True
+        else:
+            our_conn = False
         with conn.cursor() as cursor:
             # Everything here runs under one transaction
             for (type_name, objects) in obj_map.items():
@@ -264,13 +269,18 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
                 if not delete:
                     save_objects(type_name, objects)
                     print(f"Saved {len(objects)} of {type_name} - {time.time() - start}")
-        conn.commit()
+
+        if our_conn:
+            conn.commit()
+    finally:
+        if our_conn:
+            our_conn.close()
 
     print(f"Done saving {count} objects in {time.time() - start}")
 
     return
 
-def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
+def import_kgtk_dataframe(df, config=None, is_file_exploded=False, conn=None):
     temp_dir = tempfile.mkdtemp()
     try:
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
@@ -283,8 +293,8 @@ def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
             if not os.path.isfile(exploded_tsv_path):
                 raise ValueError("Couldn't create exploded TSV file")
 
-            import_kgtk_tsv(exploded_tsv_path, config)
+            import_kgtk_tsv(exploded_tsv_path, config, conn=conn)
         else:
-            import_kgtk_tsv(tsv_path, config=config)
+            import_kgtk_tsv(tsv_path, config=config, conn=conn)
     finally:
         shutil.rmtree(temp_dir)
