@@ -15,12 +15,6 @@ from db.sql.kgtk import import_kgtk_dataframe, unquote
 class VariableMetadataResource(Resource):
     def put(self, dataset, variable=None):
         '''Update metadata'''
-        if not request.json:
-            content = {
-                'Error': 'JSON content body is empty'
-            }
-            return content, 400
-
         if variable is None:
             content = {
                 'Error': 'Variable id is required.'
@@ -42,6 +36,46 @@ class VariableMetadataResource(Resource):
 
         metadata_dict['dataset_id'] = dataset
 
+        if request.json:
+            return self.put_json(dataset, dataset_qnode, variable, metadata_dict, variable_qnode)
+        return self.put_edges(dataset, dataset_qnode, variable, metadata_dict, variable_qnode)
+
+    def put_edges(self, dataset, dataset_qnode, variable, metadata_dict, variable_qnode):
+        try:
+            edges = get_edges_from_request()
+        except ValueError as e:
+            return e.args[0], 400
+
+        # Must provide complete set of variable metadata edges
+
+        metadata = VariableMetadata()
+        status, code = metadata.validate_edges(edges, dataset_qnode, dataset)
+        if not code == 200:
+            return status, code
+
+        variable_edges = edges[edges.loc[:, 'label'] != 'P2006020003']
+        var_qnodes = variable_edges['node1'].unique()
+        if not var_qnodes[0] == variable_qnode or len(var_qnodes) > 1:
+            status = {
+                'Error': f'Edges must be about variable {variable} ({variable_qnode})'
+            }
+            return status, 400
+
+
+        dal.delete_variable_metadata(dataset_qnode, [variable_qnode])
+
+        # import variable metadatga
+        import_kgtk_dataframe(edges)
+
+        DatasetMetadataUpdater().update(dataset)
+
+        result = dal.query_variable_metadata(dataset, variable)
+        result['dataset_id'] = dataset
+        result = VariableMetadata().from_dict(result).to_dict()
+
+        return result, 200
+
+    def put_json(self, dataset, dataset_qnode, variable, metadata_dict, variable_qnode):
         # Delete existing fields that are to be updated
         request_dict = request.json
         for field_name in request_dict.keys():
@@ -74,30 +108,73 @@ class VariableMetadataResource(Resource):
         return results, 200
 
     def post(self, dataset, variable=None):
-        if not request.json:
-            content = {
-                'Error': 'JSON content body is empty'
-            }
-            return content, 400
-        # print('Post variable: ', request.json)
-
         if variable:
             content = {
                 'Error': 'Please do not supply a variable when POSTing'
             }
             return content, 400
 
+        dataset_qnode = dal.get_dataset_id(dataset)  # qnode
+        if not dataset_qnode:
+            status = {
+                'Error': f'Cannot find dataset {dataset}'
+            }
+            return status, 404
+
+        if request.json:
+            return self.post_json(dataset, dataset_qnode)
+        return self.post_edges(dataset, dataset_qnode)
+
+    def post_edges(self, dataset, dataset_qnode):
+        try:
+            edges = get_edges_from_request()
+        except ValueError as e:
+            return e.args[0], 400
+
+        metadata = VariableMetadata()
+        status, code = metadata.validate_edges(edges, dataset_qnode, dataset)
+        if not code == 200:
+            return status, code
+
+        p1813_edges = edges[edges.loc[:, 'label'] == 'P1813']
+
+        already_defined = []
+        for edge in p1813_edges.itertuples(index=False):
+            variable_id = unquote(edge.node2)
+            if dal.get_variable_id(dataset_qnode, variable_id) is not None:
+                already_defined.append(variable_id)
+        if already_defined:
+            status = {
+                'Error': f'Variable has already been defined in dataset {dataset}: {already_defined}'
+            }
+            return status, 409
+
+        # Need to check variable qnode is not used
+
+        # import variable metadatga
+        import_kgtk_dataframe(edges)
+
+        results = []
+        for i, edge in p1813_edges.iterrows():
+            variable = unquote(edge['node2'])
+            result = dal.query_variable_metadata(dataset, variable)
+            result['dataset_id'] = dataset
+            result = VariableMetadata().from_dict(result).to_dict()
+            results.append(result)
+
+        if len(results) == 1:
+            # Return dict to be compatible with existing post_json
+            return results[0], 201
+        else:
+            return results, 201
+
+
+    def post_json(self, dataset, dataset_id):
         metadata: VariableMetadata = VariableMetadata()
         status, code = metadata.from_request(request.json)
         if not code == 200:
             return status, code
 
-        dataset_id = dal.get_dataset_id(dataset)
-        if not dataset_id:
-            status = {
-                'Error': f'Cannot find dataset {dataset}'
-            }
-            return status, 404
         metadata.dataset_id = dataset
 
         if metadata.variable_id and dal.get_variable_id(dataset_id, metadata.variable_id) is not None:
@@ -117,7 +194,6 @@ class VariableMetadataResource(Resource):
         metadata.corresponds_to_property = variable_pnode
 
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_id, variable_id))
-        print(edges)
 
         if 'test' not in request.args:
             import_kgtk_dataframe(edges)
@@ -201,22 +277,22 @@ class DatasetMetadataResource(Resource):
             return self.put_json(dataset_qnode, dataset, request.json)
         return self.put_edges(dataset_qnode, dataset)
 
-    def put_edges(self, dataset_qnode:str, dataset_id:str):
+    def put_edges(self, dataset_qnode:str, dataset:str):
         try:
             edges = get_edges_from_request()
         except ValueError as e:
             return e.args[0], 400
 
         metadata = DatasetMetadata()
-        status, code = metadata.validate_edges(edges, dataset_qnode, dataset_id)
+        status, code = metadata.validate_edges(edges, dataset_qnode, dataset)
         if not code == 200:
             return status, code
 
         import_kgtk_dataframe(edges)
 
-        DatasetMetadataUpdater().update(dataset_id)
+        DatasetMetadataUpdater().update(dataset)
 
-        result = dal.query_dataset_metadata(dataset_id)[0]
+        result = dal.query_dataset_metadata(dataset)[0]
 
         # validate, just in case
         result = DatasetMetadata().from_dict(result).to_dict()
@@ -261,7 +337,6 @@ class DatasetMetadataResource(Resource):
         # keep just the changed edges
         edges = pd.DataFrame(metadata.to_kgtk_edges(dataset_qnode))
         edges = edges[edges['label'].isin(labels)]
-        print(edges)
 
         import_kgtk_dataframe(edges)
 

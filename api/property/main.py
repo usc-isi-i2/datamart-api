@@ -78,12 +78,17 @@ class PropertyResource(Resource):
             if not same:
                 redefinitions.append(prop)
 
+        if redefinitions:
+            content = {
+                'Error': f'Cannot redefine existing properties: {",".join(redefinitions)}'
+            }
+            return content, 409
+
         # create only new properties
         edges = edges[~edges.loc[:, 'node1'].isin(existing_properties)]
 
         print('new')
         print(edges.to_csv(index=False, quoting=csv.QUOTE_NONE))
-
 
         try:
             import_kgtk_dataframe(edges, is_file_exploded=False)
@@ -94,12 +99,6 @@ class PropertyResource(Resource):
                 'Error': 'Failed to import imploded kgtk file'
             }
             return content, 400
-
-        if redefinitions:
-            content = {
-                'Error': f'Cannot redefine existing properties: {",".join(redefinitions)}'
-            }
-            return content, 409
 
         return None, 201
 
