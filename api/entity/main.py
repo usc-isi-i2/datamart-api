@@ -7,6 +7,7 @@ import pandas as pd
 from flask import make_response
 from flask_restful import request, Resource
 
+from api.util import get_edges_from_request
 from db.sql.dal.entity import is_entity_used, check_existing_entities, delete_entity, query_entity
 from db.sql.kgtk import import_kgtk_dataframe
 
@@ -133,7 +134,12 @@ class EntityResource(Resource):
             }
             return content, 400
 
-        edges = self.get_edges()
+        try:
+            edges = get_edges_from_request()
+        except ValueError as e:
+            return e.args[0], 400
+
+        print(edges)
 
         illegal_labels = [x for x in edges.loc[:,'label'].unique() if x not in self.label_white_list]
         if illegal_labels:
