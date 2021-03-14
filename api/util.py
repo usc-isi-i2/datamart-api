@@ -141,23 +141,28 @@ class Literal:
             return f"^{datetime}"
 
 def get_edges_from_request() -> pd.DataFrame:
-        if request.files is None:
-            content = {
-                'Error': 'Missing TSV edge file'
-            }
-            raise ValueError(content)
+    try:
+        edges = pd.read_csv(request.stream, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
+    except:
+        raise ValueError({ 'Error': 'Invalid input passed, expected TSV body' })
 
-        valid_column_names = ['id', 'node1', 'label', 'node2']
-        for key, file_storage in request.files.items():
-            edges = pd.read_csv(file_storage, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
-            # Get just the first file
-            break
+    # if request.files is None:
+    #     content = {
+    #         'Error': 'Missing TSV edge file'
+    #     }
+    #     raise ValueError(content)
 
-        if not set(edges.columns) == set(valid_column_names):
-            content = {
-                'Error': f'Invalid TSV columns: {edges.columns}. Expecting: {valid_column_names}'
-            }
-            raise ValueError(content)
+    # for key, file_storage in request.files.items():
+    #     edges = pd.read_csv(file_storage, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
+    #     # Get just the first file
+    #     break
 
-        edges = edges.loc[:, valid_column_names]
-        return edges
+    valid_column_names = ['id', 'node1', 'label', 'node2']
+    if not set(edges.columns) == set(valid_column_names):
+        content = {
+            'Error': f'Invalid TSV columns: {edges.columns}. Expecting: {valid_column_names}'
+        }
+        raise ValueError(content)
+
+    edges = edges.loc[:, valid_column_names]
+    return edges

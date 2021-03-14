@@ -287,7 +287,7 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
             conn.commit()
     finally:
         if our_conn:
-            our_conn.close()
+            conn.close()
 
     print(f"Done saving {count} objects in {time.time() - start}")
 
