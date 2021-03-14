@@ -154,7 +154,7 @@ class PropertyResource(Resource):
                 delete_property(property)
 
             try:
-                import_kgtk_dataframe(edges, is_file_exploded=False, conn=conn)
+                import_kgtk_dataframe(edges, is_file_exploded=False, conn=conn, fail_if_duplicate=True)
             except Exception as e:
                 print("Failed to import exploded kgtk file", file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
