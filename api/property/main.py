@@ -14,8 +14,8 @@ from db.sql.kgtk import import_kgtk_dataframe
 
 def is_same_as_existing(property, edges):
     existing_def = query_property(property)
-    existing_def = existing_def.sort_values(['label']).reset_index(drop=True)
-    new_def = edges[edges['node1']==property].sort_values(['label']).reset_index(drop=True)
+    existing_def = existing_def.sort_values(['label']).reset_index(drop=True).sort_index(axis=1)
+    new_def = edges[edges['node1']==property].sort_values(['label']).reset_index(drop=True).sort_index(axis=1)
     same = (existing_def == new_def).all().all()
     return same
 

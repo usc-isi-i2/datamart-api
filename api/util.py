@@ -1,5 +1,7 @@
+from api.kgtk_wrapper import KGTKPipeline
 import csv
 import pandas as pd
+from api import kgtk_wrapper
 
 from flask_restful import request
 
@@ -157,12 +159,20 @@ def get_edges_from_request() -> pd.DataFrame:
     #     # Get just the first file
     #     break
 
-    valid_column_names = ['id', 'node1', 'label', 'node2']
+    valid_column_names = ['node1', 'label', 'node2']
     if not set(edges.columns) == set(valid_column_names):
         content = {
-            'Error': f'Invalid TSV columns: {edges.columns}. Expecting: {valid_column_names}'
+            'Error': f'Invalid TSV columns: {str(set(edges.columns))}. Expecting: {valid_column_names}'
         }
         raise ValueError(content)
 
     edges = edges.loc[:, valid_column_names]
+
+    with kgtk_wrapper.KGTKPipeline(edges) as pipeline:
+        #ok, err = kgtk_wrapper.validate(pipeline)
+        #if not ok:
+        #    raise ValueError({ 'Error': f'Invalid edge file: {err}' })
+        kgtk_wrapper.add_ids(pipeline)
+        edges = pipeline.read_csv('with-ids.tsv')
+
     return edges

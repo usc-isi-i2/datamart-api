@@ -1,6 +1,7 @@
 # This file contains code that imports a KGTK file into the database. This code is taken from the postgres-wikidata
 # repository, and should at some point be united into the KGTK toolkit
 
+from api.kgtk_wrapper import KGTKPipeline
 import csv
 # Import edges from a KGTK TSV file
 import datetime
@@ -11,6 +12,7 @@ import tempfile
 import time
 from csv import DictReader
 from typing import Tuple, List, Dict
+from api import kgtk_wrapper
 
 import dateutil.parser
 
@@ -294,20 +296,29 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     return
 
 def import_kgtk_dataframe(df, config=None, is_file_exploded=False, fail_if_duplicate=False, conn=None):
-    temp_dir = tempfile.mkdtemp()
-    try:
-        tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
-        exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
-
-        df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
-
+    with KGTKPipeline(df) as ctx:
         if not is_file_exploded:
-            subprocess.run(['kgtk', 'explode', "-i", tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
-            if not os.path.isfile(exploded_tsv_path):
-                raise ValueError("Couldn't create exploded TSV file")
-
-            import_kgtk_tsv(exploded_tsv_path, config, conn=conn, fail_if_duplicate=fail_if_duplicate)
+            kgtk_wrapper.explode(ctx, 'input.tsv', 'exploded.tsv')
+            path = ctx.get_file('exploded.tsv')
         else:
-            import_kgtk_tsv(tsv_path, config=config, conn=conn, fail_if_duplicate=fail_if_duplicate)
-    finally:
-        shutil.rmtree(temp_dir)
+            path = ctx.get_file('input.tsv')
+
+        import_kgtk_tsv(str(path), config, conn=conn, fail_if_duplicate=fail_if_duplicate)
+
+    # temp_dir = tempfile.mkdtemp()
+    # try:
+    #     tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
+    #     exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
+
+    #     df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
+
+    #     if not is_file_exploded:
+    #         subprocess.run(['kgtk', 'explode', "-i", tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
+    #         if not os.path.isfile(exploded_tsv_path):
+    #             raise ValueError("Couldn't create exploded TSV file")
+
+    #         import_kgtk_tsv(exploded_tsv_path, config, conn=conn, fail_if_duplicate=fail_if_duplicate)
+    #     else:
+    #         import_kgtk_tsv(tsv_path, config=config, conn=conn, fail_if_duplicate=fail_if_duplicate)
+    # finally:
+    #     shutil.rmtree(temp_dir)
