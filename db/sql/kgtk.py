@@ -134,7 +134,16 @@ def unquote_dict(row: dict):
     for key, value in row.items():
         row[key] = unquote(value)
 
-def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
+def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fail_if_duplicate=False, conn=None):
+    """ This function takes an exploded KGTK edge file and imports it into the database.
+
+    It has several modes of operations:
+    delete = True  ==> edges from the kgtk file are deleted, not created
+    replace = True => edges are overwritten (essentially deleted and then inserted)
+    fail_duplicate = True => duplicate edges cause a failure
+
+    If all flags are False, edges are going to be added. Duplicated edges are not touched in the database.
+    """
     def column_names(fields):
         for field in fields:
             if field[-2:] == '$?':
@@ -177,7 +186,7 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
         'SymbolValue': ('symbols', ['edge_id$', 'symbol$']),
     }
 
-    def write_objects(typename, objects):
+    def write_objects(typename, objects, fail_if_duplicate):
         nonlocal OBJECT_INFO
 
         table_name, fields = OBJECT_INFO[typename]
@@ -189,14 +198,15 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
             slice = objects[x:x+CHUNK_SIZE]
             values = [formatted_object_values(obj, fields, columns) for obj in slice]
             statement += ',\n'.join(values)
-            statement += "\nON CONFLICT DO NOTHING;"
+            if not fail_if_duplicate:
+                statement += "\nON CONFLICT DO NOTHING;"
             cursor.execute(statement)
 
-    def save_objects(type_name: str, objects: List[Tuple]):
+    def save_objects(type_name: str, objects: List[Tuple], fail_if_duplicate):
         edges = [t[0] for t in objects]
-        write_objects('Edge', edges)
+        write_objects('Edge', edges, fail_if_duplicate)
         values = [t[1] for t in objects]
-        write_objects(type_name, values)
+        write_objects(type_name, values, fail_if_duplicate)
 
     def delete_object_records(typename, objects):
         nonlocal OBJECT_INFO
@@ -218,9 +228,12 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
         values = [t[1] for t in objects]
         delete_object_records(type_name, values)
 
+    flag_count = int(delete) + int(replace) + int(fail_if_duplicate)
+    if flag_count > 1:
+        raise ValueError("Only one of delete, replace and fail_duplicate may be True")
 
-    if delete and replace:
-        raise ValueError("delete and replace can't both be True")
+    if replace:  # Avoid the ON CONFLICT clause in case of replace, since we know for a fact there will not be duplicates
+        fail_if_duplicate = True
 
     obj_map: Dict[str, List[Tuple]] = dict()   # Map from value type to list of (edge, value)
     start = time.time()
@@ -254,7 +267,12 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
     if config and not 'POSTGRES' in config:
         config = dict(POSTGRES=config)
 
-    with postgres_connection(config) as conn:
+    try:
+        if not conn:
+            conn = postgres_connection(config)
+            our_conn = True
+        else:
+            our_conn = False
         with conn.cursor() as cursor:
             # Everything here runs under one transaction
             for (type_name, objects) in obj_map.items():
@@ -262,15 +280,20 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False):
                     delete_objects(type_name, objects)
                     print(f"Deleted {len(objects)} of {type_name} - {time.time() - start}")
                 if not delete:
-                    save_objects(type_name, objects)
+                    save_objects(type_name, objects, fail_if_duplicate)
                     print(f"Saved {len(objects)} of {type_name} - {time.time() - start}")
-        conn.commit()
+
+        if our_conn:
+            conn.commit()
+    finally:
+        if our_conn:
+            conn.close()
 
     print(f"Done saving {count} objects in {time.time() - start}")
 
     return
 
-def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
+def import_kgtk_dataframe(df, config=None, is_file_exploded=False, fail_if_duplicate=False, conn=None):
     temp_dir = tempfile.mkdtemp()
     try:
         tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
@@ -283,8 +306,8 @@ def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
             if not os.path.isfile(exploded_tsv_path):
                 raise ValueError("Couldn't create exploded TSV file")
 
-            import_kgtk_tsv(exploded_tsv_path, config)
+            import_kgtk_tsv(exploded_tsv_path, config, conn=conn, fail_if_duplicate=fail_if_duplicate)
         else:
-            import_kgtk_tsv(tsv_path, config=config)
+            import_kgtk_tsv(tsv_path, config=config, conn=conn, fail_if_duplicate=fail_if_duplicate)
     finally:
         shutil.rmtree(temp_dir)

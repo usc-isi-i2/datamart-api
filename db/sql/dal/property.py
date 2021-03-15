@@ -26,6 +26,6 @@ def is_property_used(property_name: str) -> bool:
     result = query_to_dicts(sql)
     return result[0]['count'] > 0
 
-def delete_property(property_name: str = None):
+def delete_property(property_name: str = None, conn=None):
     sql = f"delete from edges where node1='{sanitize(property_name)}'"
-    delete(sql)
+    delete(sql, conn=conn)

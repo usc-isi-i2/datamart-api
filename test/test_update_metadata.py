@@ -108,10 +108,18 @@ class TestUpdateMetadata(unittest.TestCase):
 
     def test_update_variable_name(self):
         dataset_id = 'unittestuploaddataset'
+        variable_id = 'ingo_changed'
+        result = delete_variable_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        print('delete_variable_data', result.status_code, result.text)
+        result = delete_variable(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        print('delete_variable', result.status_code, result.text)
         variable_id = 'ingo'
-        delete_variable_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
-        delete_variable(self.url, dataset_id=dataset_id, variable_id=variable_id)
-        delete_dataset(self.url, dataset_id=dataset_id)
+        result = delete_variable_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        print('delete_variable_data', result.status_code, result.text)
+        result = delete_variable(self.url, dataset_id=dataset_id, variable_id=variable_id)
+        print('delete_variable', result.status_code, result.text)
+        result = delete_dataset(self.url, dataset_id=dataset_id)
+        print('delete_dataset', result.status_code, result.text)
 
         expected_metadata = {
             "name": "INGO",
@@ -163,7 +171,8 @@ class TestUpdateMetadata(unittest.TestCase):
         response = create_dataset(self.url, dataset_id=dataset_id)
         self.assertEqual(response.status_code, 201, response.text)
 
-        f_path = 'test/test_data/test_file_main_subject_country_simple.csv'
+        # f_path = 'test/test_data/test_file_main_subject_country_simple_1.csv'
+        f_path = 'test_data/test_file_main_subject_country_simple_1.csv'
         udp = upload_data_put(f_path, f'{self.url}/datasets/unittestuploaddataset/annotated')
         self.assertTrue(udp.status_code==201, udp.text)
         self.assertTrue(udp.json()[0] == expected_metadata, udp.json()[0])
