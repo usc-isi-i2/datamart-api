@@ -29,6 +29,6 @@ def is_entity_used(entity_name: str) -> bool:
     result = query_to_dicts(sql)
     return result[0]['count'] > 0
 
-def delete_entity(entity_name: str = None):
+def delete_entity(entity_name: str = None, conn=None):
     sql = f"delete from edges where node1='{sanitize(entity_name)}'"
-    delete(sql)
+    delete(sql, conn=conn)

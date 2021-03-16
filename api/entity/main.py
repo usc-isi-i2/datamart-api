@@ -1,3 +1,5 @@
+from api.util import get_edges_from_request
+from db.sql.utils import postgres_connection
 import csv
 import sys
 import traceback
@@ -22,32 +24,11 @@ def is_same_as_existing(entity, edges):
 class EntityResource(Resource):
     label_white_list = ['label', 'description', 'alias', 'P31']
 
-    def get_edges(self) -> pd.DataFrame:
-        if request.files is None:
-            content = {
-                'Error': 'Missing TSV edge file'
-            }
-            return content, 400
-
-        valid_column_names = ['id', 'node1', 'label', 'node2']
-        for key, file_storage in request.files.items():
-            edges = pd.read_csv(file_storage, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
-            # Get just the first file
-            break
-
-        if not set(edges.columns) == set(valid_column_names):
-            content = {
-                'Error': f'Invalid TSV columns: {edges.columns}. Expecting: {valid_column_names}'
-            }
-            return content, 400
-
-        edges = edges.loc[:, valid_column_names]
-        return edges
-
     def get(self, entity=None):
         '''Get entity'''
 
-        entity = request.args.get('name', None)
+        if not entity:
+            entity = request.args.get('name', None)
         label = request.args.get('label', None)
 
         if entity is None and label is None:
@@ -84,7 +65,10 @@ class EntityResource(Resource):
             }
             return content, 400
 
-        edges = self.get_edges()
+        try:
+            edges = get_edges_from_request()
+        except ValueError as e:
+            return e.args[0], 400
 
         illegal_labels = [x for x in edges.loc[:,'label'].unique() if x not in self.label_white_list]
         if illegal_labels:
@@ -97,23 +81,20 @@ class EntityResource(Resource):
 
         existing_entities = check_existing_entities(entities)
 
-        # Remove the current definition before updating the new definition
-        for ent in existing_entities:
-            delete_entity(ent)
+        with postgres_connection() as conn:
+            # Remove the current definition before updating the new definition
+            for ent in existing_entities:
+                delete_entity(ent, conn=conn)
 
-        print('new')
-        print(edges.to_csv(index=False, quoting=csv.QUOTE_NONE))
-
-
-        try:
-            import_kgtk_dataframe(edges, is_file_exploded=False)
-        except Exception as e:
-            print("Failed to import exploded kgtk file", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            content = {
-                'Error': 'Failed to import imploded kgtk file'
-            }
-            return content, 400
+            try:
+                import_kgtk_dataframe(edges, is_file_exploded=False, conn=conn)
+            except Exception as e:
+                print("Failed to import exploded kgtk file", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                content = {
+                    'Error': 'Failed to import imploded kgtk file'
+                }
+                return content, 400
 
 
 
@@ -139,8 +120,6 @@ class EntityResource(Resource):
         except ValueError as e:
             return e.args[0], 400
 
-        print(edges)
-
         illegal_labels = [x for x in edges.loc[:,'label'].unique() if x not in self.label_white_list]
         if illegal_labels:
             content = {
@@ -162,18 +141,20 @@ class EntityResource(Resource):
             return content, 400
 
         existing_entities = check_existing_entities([entity])
-        if entity in existing_entities:
-            delete_entity(entity)
 
-        try:
-            import_kgtk_dataframe(edges, is_file_exploded=False)
-        except Exception as e:
-            print("Failed to import exploded kgtk file", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            content = {
-                'Error': 'Failed to import imploded kgtk file'
-            }
-            return content, 400
+        with postgres_connection() as conn:
+            if entity in existing_entities:
+                delete_entity(entity, conn=conn)
+
+            try:
+                import_kgtk_dataframe(edges, is_file_exploded=False, conn=conn)
+            except Exception as e:
+                print("Failed to import exploded kgtk file", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                content = {
+                    'Error': 'Failed to import imploded kgtk file'
+                }
+                return content, 400
 
         if entity in existing_entities:
             return None, 200
