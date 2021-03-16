@@ -7,9 +7,9 @@ def query_entity(entity_name: str = None, entity_label: str = None) -> DataFrame
     if entity_name is None and entity_label is None:
         where_clause = "where node1 like 'Q%' and label = 'label'"
     elif entity_name is None:
-        where_clause = f"where label = 'label' and node2 like '%{sanitize(entity_label)}%'"
+        where_clause = f"where node2 like '%{sanitize(entity_label)}%'"
     else:
-        where_clause = f"where node1 = '{sanitize(entity_name)}' and label = 'label'"
+        where_clause = f"where node1 = '{sanitize(entity_name)}'"
     return query_edges_to_df(where_clause)
 
 def check_existing_entities(entities: Iterable) -> list:
