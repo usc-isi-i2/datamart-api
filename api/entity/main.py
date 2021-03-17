@@ -27,8 +27,6 @@ class EntityResource(Resource):
     def get(self, entity=None):
         '''Get entity'''
 
-        if not entity:
-            entity = request.args.get('name', None)
         label = request.args.get('label', None)
 
         if entity is None and label is None:
