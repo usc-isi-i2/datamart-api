@@ -21,7 +21,8 @@
                 "--port",
                 "14000"
             ],
-            "jinja": true
+            "jinja": true,
+            "justMyCode": false
         },
         {
             "name": "Clean for CausX",
