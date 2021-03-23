@@ -10,7 +10,7 @@ from flask import make_response
 from flask_restful import request, Resource
 
 from api.util import get_edges_from_request
-from db.sql.dal.entity import is_entity_used, check_existing_entities, delete_entity, query_entity
+from db.sql.dal.entity import has_entity_other_labels, is_entity_used, check_existing_entities, delete_entity, query_entity
 from db.sql.kgtk import import_kgtk_dataframe
 
 def is_same_as_existing(entity, edges):
@@ -82,8 +82,7 @@ class EntityResource(Resource):
         with postgres_connection() as conn:
             # Remove the current definition before updating the new definition
             for ent in existing_entities:
-                delete_entity(ent, conn=conn)
-
+                delete_entity(ent, EntityResource.label_white_list, conn=conn)
             try:
                 import_kgtk_dataframe(edges, is_file_exploded=False, conn=conn)
             except Exception as e:
@@ -142,7 +141,7 @@ class EntityResource(Resource):
 
         with postgres_connection() as conn:
             if entity in existing_entities:
-                delete_entity(entity, conn=conn)
+                delete_entity(entity, EntityResource.label_white_list, conn=conn)
 
             try:
                 import_kgtk_dataframe(edges, is_file_exploded=False, conn=conn)
@@ -179,6 +178,11 @@ class EntityResource(Resource):
             }
             return content, 400
 
+        if has_entity_other_labels(entity, EntityResource.label_white_list):
+            content = {
+                'Error': f"Cannot delete entity {entity}, it was not created by the entities endpoint"
+            }
 
-        delete_entity(entity)
+
+        delete_entity(entity, None)
         return None, 200

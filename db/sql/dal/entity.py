@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from typing import List, Optional
 from db.sql.dal.general import sanitize
 from db.sql.utils import query_edges_to_df, query_to_dicts, delete
 from pandas import DataFrame
@@ -29,6 +30,23 @@ def is_entity_used(entity_name: str) -> bool:
     result = query_to_dicts(sql)
     return result[0]['count'] > 0
 
-def delete_entity(entity_name: str = None, conn=None):
+def _label_where(labels: List[str]):
+    sanitized = [sanitize(label) for label in labels]
+    quoted = [f"'{label}'" for label in sanitized]
+    joined = ', '.join(quoted)
+    return '(' + joined + ')'
+
+    return joined
+def delete_entity(entity_name: str, labels: Optional[List[str]], conn=None):
     sql = f"delete from edges where node1='{sanitize(entity_name)}'"
+
+    if labels:
+        sql += ' and label IN ' + _label_where(labels)
+
     delete(sql, conn=conn)
+
+def has_entity_other_labels(entity_name: str, labels: List[str]) -> bool:
+    labels = _label_where(labels)
+    sql = f"SELECT COUNT(*) FROM edges WHERE node1='{sanitize(entity_name)}' AND label IN {labels}"
+    result = query_to_dicts(sql)
+    return result[0]['count'] > 0
