@@ -6,6 +6,8 @@ import typing
 import os
 import sys
 
+import pandas as pd
+
 from dateutil.parser import parse
 from enum import Enum
 
@@ -13,17 +15,19 @@ from api.util import DataInterval, Literal, TimePrecision
 
 from db.sql import dal
 
-
 class Triple:
     def __init__(self):
         self.all_ids_dict = {}
     def create_triple(self, node1, label, node2):
+        if not node1 or not node1[0] == 'Q':
+            raise Exception(f'node1 must begin with Q: {node1}')
         id_key = '{}-{}'.format(node1, label)
         if id_key not in self.all_ids_dict:
             self.all_ids_dict[id_key] = 0
         else:
             self.all_ids_dict[id_key] += 1
         id_index = self.all_ids_dict[id_key]
+        id_value = f'{node1}-{label}-{node2}'
         return {
             'node1': node1,
             'label': label,
@@ -48,41 +52,46 @@ class DataType(Enum):
     INTERVAL = 9
     INTEGER = 10
     FLOAT = 11
+    SLIST = 12  # list of strings
 
 PROPERTY_LABEL = {
     'P17': 'country',
     'P31': 'instance of',
     'P170': 'creator',
     'P276': 'location',
-    'P275': 'copyrightLicense',
+    'P275': 'copyright license',
     'P356': 'doi',
-    'P527': 'hasPart',
+    'P527': 'has part',
     'P580': 'start time',
     'P582': 'end time',
+    'P625': 'coordinate location',
     'P767': 'contributor',
+    'P856': 'official website',
     'P921': 'main subject',
     'P1114': 'quantity',
     'P1476': 'name',
     'P1687': 'Wikidata property',
-    'P1813': 'short name',
+    'P1813': 'dataset_id',
     'P1880': 'measurement scale',
     'P1932': 'stated as',
     'P2699': 'url',
     'P2860': 'cites work',
     'P3896': 'geoshape',
     'P5017': 'last update',
-    'P6269': 'apiEndpoint',
+    'P6269': 'api endpoint',
     'P6339': 'data interval',
-    'label': '',
+    'label': 'label',
     'description': 'description',
     'schema:dateCreated': 'dateCreated',
     'schema:includedInDataCatalog': 'includedInDataCatalog',
     'schema:keywords': 'keywords',
     'schema:version': 'version',
     'P2006020004': 'dataset',
-    'P2006020002': 'has qualifier',
+    'P2006020002': 'qualifier',
     'P2006020003': 'variable measured',
-    'P2006020005': 'mapping file'
+    'P2006020005': 'mapping file',
+    'P2006020008': 'date created',
+    'P2006020009': 'included in data catalog'
 }
 
 def isQnode(name: str) -> bool:
@@ -165,7 +174,6 @@ def process_pnode_list(qlist: typing.List) -> typing.List[dict]:
         result.append(process_pnode_obj(item))
     return result
 
-
 class Metadata:
 
     # official properties
@@ -179,6 +187,9 @@ class Metadata:
 
     # minimal required properties
     _required_fields: typing.List[str] = []
+
+    # minimal required wikidata properties (KGTK labels)
+    _required_properties: typing.List[str] = []
 
     # properties for GET metadata collection methods
     _collection_get_fields: typing.List[str] = []
@@ -215,6 +226,11 @@ class Metadata:
     @classmethod
     def is_list_field(cls, field: str) -> bool:
         return field in cls._list_fields
+
+    @classmethod
+    def get_property(cls, field_name: str) -> str:
+        '''Returns property name corresponding to name'''
+        return cls._name_to_pnode_map[field_name]
 
     def field_edge(self, node1: str, field_name: str, *, required: bool = False,
                    is_time: bool = False, is_item: bool = False) -> typing.Optional[dict]:
@@ -275,7 +291,10 @@ class Metadata:
     def from_dict(self, desc: dict):
         for key, value in desc.items():
             if key in self._datamart_fields or key in self._internal_fields:
-                setattr(self, key, value)
+                if isinstance(value, datetime.datetime):
+                    setattr(self, key, value.isoformat())
+                else:
+                    setattr(self, key, value)
             else:
                 raise ValueError(f'Key not allowed: {key}')
         return self
@@ -286,21 +305,22 @@ class Metadata:
     def from_json(self, desc: str):
         return self.from_dict(json.loads(desc))
 
-    def from_request(self, desc: dict) -> typing.Tuple[dict, int]:
+    def from_request(self, desc: dict, check_required_fields=True) -> typing.Tuple[dict, int]:
         '''Process description from REST request'''
         result = {}
         error = {}
 
         # Check required fields
-        for required in self._required_fields:
-            if required not in desc:
-                error['Error'] = 'Missing required properties'
-                if 'Missing' in error:
-                    error['Missing'].append(required)
-                else:
-                    error['Missing'] = [required]
-        if error:
-            return error, 400
+        if check_required_fields:
+            for required in self._required_fields:
+                if required not in desc:
+                    error['Error'] = 'Missing required properties'
+                    if 'Missing' in error:
+                        error['Missing'].append(required)
+                    else:
+                        error['Missing'] = [required]
+            if error:
+                return error, 400
 
         # Parse each field
         for name in self._datamart_fields:
@@ -333,6 +353,14 @@ class Metadata:
                 if isinstance(value, list):
                     try:
                         result[name] = process_pnode_list(value)
+                    except ValueError as err:
+                        error[name] = str(err)
+                else:
+                    error[name] = 'Expecting a list'
+            elif data_type == DataType.SLIST:
+                if isinstance(value, list):
+                    try:
+                        result[name] = value
                     except ValueError as err:
                         error[name] = str(err)
                 else:
@@ -389,6 +417,61 @@ class Metadata:
         self.from_dict(result)
         return {}, 200
 
+    def validate_edges(self, edges: pd.DataFrame) -> typing.Tuple[dict, int]:
+        ''' Validate KGTK edges '''
+        error = {}
+        error['Error'] = ''
+        properties = edges.loc[:, 'label'].unique()
+
+        datamart_properties = list(self._required_properties)
+        for name in self._datamart_fields:
+            if name in self._name_to_pnode_map:
+                datamart_properties.append(self._name_to_pnode_map[name])
+            elif name.endswith('_precision'):
+                pass
+            else:
+                print('!! Missing property:' + name)
+
+        missing_required_properties = [x for x in self._required_properties if x not in properties]
+        if missing_required_properties:
+            error['Error'] += 'Missing required properties. '
+            error['Missing_Required_Properties'] = missing_required_properties
+
+        extra_properties = [x for x in properties if x not in datamart_properties]
+        if extra_properties:
+            error['Error'] += 'Properties not recognized. '
+            error['Properties_Not_Recognized'] = extra_properties
+
+        value_error = []
+        for index, edge in edges.iterrows():
+            prop = edge['label']
+            if prop in extra_properties:
+                continue
+            name = PROPERTY_LABEL[prop].replace(' ', '_')
+            data_type = self._datamart_field_type.get(name, None)
+            if data_type is None:
+                print(f'!! Missing data type: {name} ({prop})')
+            elif data_type == DataType.STRING or data_type == DataType.URL:
+                if len(edge['node2']) < 2  or edge['node2'][0] != '"' or edge['node2'][-1] != '"':
+                    value_error.append(f'Row {index}: Node2 for label {prop} is a string. It must be enclosed in double quotes.')
+            elif data_type == DataType.QNODE:
+                if len(edge['node2']) == 0 or edge['node2'][0] != 'Q':
+                    value_error.append(f'Row {index}: Node2 for label {prop} is a qnode. It must be start with the letter Q')
+            elif data_type == DataType.PNODE:
+                if len(edge['node2']) == 0 or edge['node2'][0] != 'P':
+                    value_error.append(f'Row {index}: Node2 for label {prop} is a qnode. It must be start with the letter Q')
+            elif data_type == DataType.DATE:
+                if len(edge['node2']) == 0 or edge['node2'][0] != '^':
+                    value_error.append(f'Row {index}: Node2 for label {prop} is a date. It must be start with the letter ^')
+
+        if value_error:
+            error['Error'] += 'Data value errors. '
+            error['Data_Value_Errors'] = value_error
+
+        if error['Error']:
+            return error, 400
+        return {}, 200
+
 
 class DatasetMetadata(Metadata):
     '''
@@ -435,6 +518,9 @@ class DatasetMetadata(Metadata):
         'url',
         'dataset_id'
     ]
+    _required_properties = [
+        "P31", "label", "P1476", "P2699", "P1813", "P5017", "description"
+    ]
     _collection_get_fields = [
         'name',
         'description',
@@ -454,7 +540,7 @@ class DatasetMetadata(Metadata):
         'keywords': DataType.STRING,
         'creator': DataType.QNODE,
         'contributor': DataType.QNODE,
-        'citesWork': DataType.STRING,
+        'cites_work': DataType.STRING,
         'copyright_license': DataType.QNODE,
         'version': DataType.STRING,
         'doi': DataType.STRING,
@@ -476,7 +562,9 @@ class DatasetMetadata(Metadata):
         'included_in_data_catalog': DataType.QNODE,
         'has_part': DataType.URL,
         'last_update': DataType.DATE,
-        'last_update_precision': DataType.PRECISION
+        'last_update_precision': DataType.PRECISION,
+        'instance_of': DataType.QNODE,
+        'label': DataType.STRING,
     }
     _name_to_pnode_map = {
         'name': 'P1476',
@@ -581,6 +669,30 @@ class DatasetMetadata(Metadata):
         edges = [edge for edge in edges if edge is not None]
         return edges
 
+    def validate_edges(self, edges: pd.DataFrame, dataset_qnode: str = None,
+                       dataset_id: str = None) -> typing.Tuple[dict, int]:
+        error = {}
+
+        qnode = edges.loc[:, 'node1'].unique()
+        if len(qnode) > 1:
+            error['Error'] = 'Edges contains multiple dataset qnodes: {",".join(qnode)}'
+            return error, 400
+
+        if dataset_qnode and not qnode.iloc[0] == dataset_qnode:
+            error['Error'] = 'Dataset qnode does not match: {qnode.iloc[0]} == {dataset_qnode}'
+            return error, 400
+
+        p1813_edge = edges[edges.loc[:, 'label'] == 'P1813']
+        if not p1813_edge.shape[0] == 1:
+            error['Error'] = 'Must have extactly one P1831 edge'
+            return error, 400
+
+        if dataset_id and not dataset_id == p1813_edge[0]['node2']:
+            error['Error'] = "Dataset id does not match: {dataset_id}  == {p1813_edge[0]['node2']}"
+            return error, 400
+
+        return super().validate_edges(edges)
+
 
 class VariableMetadata(Metadata):
     '''
@@ -611,6 +723,15 @@ class VariableMetadata(Metadata):
     ]
     _required_fields = [
         'name',
+    ]
+    _required_properties = [
+        "P1476", "label",
+        "P1813",
+        "P31",
+        "P1687",
+        "P2006020002",
+        # "P2006020003",
+        "P2006020004"
     ]
     _collection_get_fields = [
         'name',
@@ -646,7 +767,13 @@ class VariableMetadata(Metadata):
         'data_interval': DataType.INTERVAL,
         'column_index': DataType.STRING,
         'qualifier': DataType.QLIST,
-        'count': DataType.INTEGER
+        'count': DataType.INTEGER,
+        'tag': DataType.SLIST,
+
+        'instance_of': DataType.QNODE,
+        'label': DataType.STRING,
+        'dataset': DataType.QNODE,
+        'Wikidata_property': DataType.PNODE,
     }
     _name_to_pnode_map = {
         'name': 'P1476',
@@ -665,7 +792,9 @@ class VariableMetadata(Metadata):
         'data_interval': 'P6339',
         'column_index': 'P2006020001',
         'qualifier': 'P2006020002',
-        'count': 'P1114'
+        'count': 'P1114',
+        'tag': 'P2010050001',
+        'dataset_id': 'P2006020004'
     }
 
     def __init__(self):
@@ -688,12 +817,19 @@ class VariableMetadata(Metadata):
         self.column_index: typing.Union(int, None) = None
         self.qualifier = []
         self.count = None
+        self.tag = []
 
         self._max_admin_level = None
         self._precision = None
 
     def to_kgtk_edges(self, dataset_node: str, variable_node, defined_labels: set = None,
     ) -> typing.List[dict]:
+
+        if not dataset_node or not dataset_node[0] == 'Q':
+            raise Exception(f'Dataset_node must begin with Q: {dataset_node}')
+        if not variable_node or not variable_node[0] == 'Q':
+            raise Exception(f'node2 must begin with Q: {variable_node}')
+
 
         edges = []
 
@@ -763,5 +899,49 @@ class VariableMetadata(Metadata):
             for location_obj in self.location:
                 edges.append(pcd.create_triple(variable_node, 'P276', location_obj['identifier']))
 
+        for tag in self.tag:
+            edges.append(pcd.create_triple(variable_node, self._name_to_pnode_map['tag'], tag))
+
         edges = [edge for edge in edges if edge is not None]
         return edges
+
+
+    def validate_edges(self, edges: pd.DataFrame, dataset_qnode: str = None,
+                       dataset_id: str = None) -> typing.Tuple[dict, int]:
+
+        error = {}
+        for var_qnode, var_edges in edges.groupby(['node1']):
+            if var_qnode == dataset_qnode:
+                continue
+
+            content, status = super().validate_edges(var_edges)
+            if not content:
+                content = {'Error': ''}
+            dataset_edge = var_edges[var_edges['label']=='P2006020004']
+            if dataset_edge.shape[0] == 0:
+                status = 400
+                content['missing_edge'] = f"('{dataset_qnode}', 'P2006020004','var_qnode')"
+
+            if dataset_edge.shape[0] > 1:
+                status = 400
+                content['Cannot_have_multiple_P2006020004_edges'] = f"{dataset_edge}"
+
+            if status == 400:
+                content['Error'] = f'{var_qnode}: {content["Error"]}'
+                return content, status
+
+        variable_measured_edges = edges[edges['label']=='P2006020003']
+        if variable_measured_edges.shape[0] == 0:
+            error['Error'] = 'Must have P2006020003 edges'
+            return error, 400
+
+        dataset_qnodes = variable_measured_edges.loc[:, 'node1'].unique()
+        if len(dataset_qnodes) > 1:
+            error['Error'] = 'Node1 of P2006020003 edges refer to multiple dataset qnodes: {",".join(dataset_qnodes)}'
+            return error, 400
+
+        if dataset_qnode and not dataset_qnodes[0] == dataset_qnode:
+            error['Error'] = 'Dataset qnode does not match: {qnode.iloc[0]} == {dataset_qnode}'
+            return error, 400
+
+        return {}, 200
