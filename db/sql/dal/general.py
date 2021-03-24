@@ -23,7 +23,8 @@ def get_dataset_id(dataset):
     dataset_query = f'''
     SELECT e_dataset.node1 AS dataset_id
         FROM edges e_dataset
-    WHERE e_dataset.label='P1813' AND e_dataset.node2='{dataset}';
+		JOIN edges e_p31 ON (e_dataset.node1=e_p31.node1 AND e_p31.label='P31')
+    WHERE e_dataset.label='P1813' AND e_dataset.node2='{dataset}' AND e_p31.node2='Q1172284';
     '''
     dataset_dicts = query_to_dicts(dataset_query)
     if len(dataset_dicts) > 0:
