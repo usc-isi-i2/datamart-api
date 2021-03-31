@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Flask",
+            "name": "API Backend",
             "type": "python",
             "request": "launch",
             "module": "flask",
@@ -22,6 +22,50 @@
                 "14000"
             ],
             "jinja": true
-        }
+        },
+        {
+            "name": "Clean for CausX",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/clean-for-causx.py",
+            "args": [
+                "d:\\temp\\datamart\\causx-vars.xlsx"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Dump Datasets",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/dump-datasets.py",
+            "args": [
+                "c:\\temp\\datamart",
+                "--datamart-api", "http://localhost:14000",
+                "--package", "c:\\temp\\datamart.tar.gz"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Create Fuzzy-search Views",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/create_search_views.py",
+            "args": [
+                "--recreate"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Import kgtk edges",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/import_tsv_postgres.py",
+            "args": [
+                "c:\\users\\zmbq\\Downloads\\kgtk.tsv"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
     ]
 }

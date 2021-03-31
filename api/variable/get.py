@@ -1,28 +1,24 @@
-
-import os
-import typing
-
-from enum import Enum
-
-from flask import request, make_response, current_app
-
 import pandas as pd
+from enum import Enum
+from db.sql import dal
+from db.sql.dal import Region
+from typing import List, Dict, Set
 from api.util import TimePrecision
-
-from db.sql.utils import query_to_dicts
-from flask.blueprints import Blueprint
-from api.SQLProvider import SQLProvider
+from flask import request, make_response
+from api.region_utils import get_query_region_ids, region_cache, UnknownSubjectError
 
 DROP_QUALIFIERS = [
-    'pq:P585', 'P585' # time
-    'pq:P1640',  # curator
-    'pq:Pdataset', 'P2006020004' # dataset
+    'pq:P585', 'P585'  # time
+               'pq:P1640',  # curator
+    'pq:Pdataset', 'P2006020004'  # dataset
 ]
+
 
 class ColumnStatus(Enum):
     REQUIRED = 0
     DEFAULT = 1
     OPTIONAL = 2
+
 
 COMMON_COLUMN = {
     'dataset_id': ColumnStatus.DEFAULT,
@@ -36,7 +32,8 @@ COMMON_COLUMN = {
     'time': ColumnStatus.REQUIRED,
     'time_precision': ColumnStatus.DEFAULT,
     'country': ColumnStatus.DEFAULT,
-    'country_id': ColumnStatus.OPTIONAL,
+    'country_id': ColumnStatus.DEFAULT,
+    'country_cameo': ColumnStatus.OPTIONAL,
     'admin1': ColumnStatus.DEFAULT,
     'admin1_id': ColumnStatus.OPTIONAL,
     'admin2': ColumnStatus.DEFAULT,
@@ -45,11 +42,12 @@ COMMON_COLUMN = {
     'admin3_id': ColumnStatus.OPTIONAL,
     'place': ColumnStatus.OPTIONAL,
     'place_id': ColumnStatus.OPTIONAL,
-    'coordinate': ColumnStatus.DEFAULT,
+    'region_coordinate': ColumnStatus.DEFAULT,
     'shape': ColumnStatus.OPTIONAL,
     'stated_in': ColumnStatus.DEFAULT,
     'stated_in_id': ColumnStatus.DEFAULT
 }
+
 
 class GeographyLevel(Enum):
     COUNTRY = 0
@@ -58,96 +56,62 @@ class GeographyLevel(Enum):
     ADMIN3 = 3
     OTHER = 4
 
+
 class VariableGetter:
     def get(self, dataset, variable):
 
-        include_cols = []
-        exclude_cols = []
+        include_cols = [col.lower() for col in request.args.getlist('include') or []]
+        exclude_cols = [col.lower() for col in request.args.getlist('exclude') or []]
         main_subjects = []
         limit = -1
-        if request.args.get('include') is not None:
-            include_cols = request.args.get('include').split(',')
-        if request.args.get('exclude') is not None:
-            exclude_cols = request.args.get('exclude').split(',')
         if request.args.get('limit') is not None:
             try:
                 limit = int(request.args.get('limit'))
             except:
                 pass
 
-        provider = SQLProvider()
+        try:
+            regions = get_query_region_ids(request.args)
+        except UnknownSubjectError as ex:
+            return ex.get_error_dict(), 404
 
-        # Add main subject by exact English label
-        # For now assume only country:
-        keyword = 'country'
-        if request.args.get(keyword) is not None:
-            admins = [x.lower() for x in request.args.get(keyword).split(',')]
-            admin_dict = provider.query_country_qnodes(admins)
-            # Find and report unknown countries
-            unknown = [country for country, qnode in admin_dict.items() if qnode is None]
-            if unknown:
-                return { 'Error': 'Unknown countries: ' + ', '. join(unknown) }, 404
-            qnodes = [qnode for qnode in admin_dict.values() if qnode]
-            main_subjects += qnodes
+        # print((dataset, variable, include_cols, exclude_cols, limit, regions))
+        return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, regions)
 
-        # Add main subject by qnode
-        for keyword in ['main_subject_id', 'country_id', 'admin1_id', 'admin2_id', 'admin3_id']:
-            if request.args.get(keyword) is not None:
-                qnodes = request.args.get(keyword).split(',')
-                print(f'Add {keyword}:', qnodes)
-                main_subjects += qnodes
-
-        # Not needed for Causex release
-        # # Add administrative locations using the name of parent administrative location
-        # for keyword, admin_col, lower_admin_col in zip(
-        #         ['in_country', 'in_admin1', 'in_admin2'],
-        #         ['country', 'admin1', 'admin2'],
-        #         ['admin1_id', 'admin2_id', 'admin3_id']):
-        #     if request.args.get(keyword) is not None:
-        #         admins = [x.lower() for x in request.args.get(keyword).split(',')]
-        #         index = region_df.loc[:, admin_col].isin(admins)
-        #         print(f'Add {keyword}({request.args.get(keyword)}):',
-        #               region_df.loc[index, lower_admin_col].unique())
-        #         main_subjects += qnodes
-
-        # # Add administrative locations using the qnode of parent administrative location
-        # for keyword, admin_col, lower_admin_col in zip(
-        #         ['in_country_id', 'in_admin1_id', 'in_admin2_id'],
-        #         ['country_id', 'admin1_id', 'admin2_id'],
-        #         ['admin1_id', 'admin2_id', 'admin3_id']):
-        #     if request.args.get(keyword) is not None:
-        #         admin_ids = request.args.get(keyword).split(',')
-        #         index = region_df.loc[:, admin_col].isin(admin_ids)
-        #         print(f'Add {keyword}({request.args.get(keyword)}):',
-        #               region_df.loc[index, lower_admin_col].unique())
-        #         main_subjects += [x for x in region_df.loc[index, lower_admin_col].unique()]
-
-        print((dataset, variable, include_cols, exclude_cols, limit, main_subjects))
-        return self.get_direct(dataset, variable, include_cols, exclude_cols, limit, main_subjects=main_subjects)
+    def get_result_regions(self, df_location) -> Dict[str, Region]:
+        # Get all the regions that have rows in the dataframe
+        region_ids = [id for id in df_location.unique() if id is not None]
+        regions = region_cache.get_regions(region_ids=region_ids)
+        return regions
 
     def fix_time_precision(self, precision):
         try:
-            return TimePrecision.to_name(int(precision))
+            precision_number = int(float(precision))  # precision is a string that can be '11.0'
+            return TimePrecision.to_name(precision_number)
         except ValueError:
             return 'N/A'
 
-    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, main_subjects=[]):
-        provider = SQLProvider()
-
-        result = provider.query_variable(dataset, variable)
+    def get_direct(self, dataset, variable, include_cols, exclude_cols, limit, regions: Dict[str, List[str]] = {},
+                   return_df=False):
+        result = dal.query_variable(dataset, variable)
         if not result:
             content = {
                 'Error': f'Could not find dataset {dataset} variable {variable}'
             }
             return content, 404
 
-        # Output just the country column
-        admin_level = 0
+        qualifiers = dal.query_qualifiers(result['dataset_id'], result['variable_qnode'])
+        qualifier_names = set([q.name for q in qualifiers])
+        if 'time' not in qualifier_names:
+            if return_df:
+                return None
+            return '', 204
 
-        qualifiers = provider.query_qualifiers(result['variable_id'], result['property_id'])
-        qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
-        select_cols = self.get_columns(admin_level, include_cols, exclude_cols, qualifiers)
-        print(select_cols)
+        tags = dal.query_tags(result['dataset_id'], result['variable_qnode'])
+
+        location_qualifier = 'location' in [q.name for q in qualifiers]
+        # qualifiers = {key: value for key, value in qualifiers.items() if key not in DROP_QUALIFIERS}
+        select_cols = self.get_columns(include_cols, exclude_cols, qualifiers)
 
         # Needed for place columns
         if 'main_subject_id' in select_cols:
@@ -155,9 +119,13 @@ class VariableGetter:
         else:
             temp_cols = ['main_subject_id'] + select_cols
 
-        results = provider.query_data(result['dataset_id'], result['property_id'], main_subjects, qualifiers, limit, temp_cols)
+        if location_qualifier and 'location_id' not in temp_cols:
+            temp_cols = ['location_id'] + temp_cols
 
-        result_df = pd.DataFrame(results, columns=temp_cols)
+        results = dal.query_variable_data(result['dataset_id'], result['property_id'], regions, qualifiers, limit,
+                                          temp_cols)
+
+        result_df = pd.DataFrame(results, columns=temp_cols).fillna('')
 
         if 'dataset_id' in result_df.columns:
             result_df['dataset_id'] = dataset
@@ -165,38 +133,27 @@ class VariableGetter:
             result_df['variable_id'] = variable
         result_df.loc[:, 'variable'] = result['variable_name']
         result_df['time_precision'] = result_df['time_precision'].map(self.fix_time_precision)
-        # result_df.loc[:, 'time_precision'] = self.get_time_precision([10])
 
+        self.add_region_columns(result_df, select_cols)
+        self.add_tag_columns(result_df, tags, exclude_cols)
 
-        # Ke-Thia - this seems unnecessary. The query already returns main_subject, main_subject_id, country, country_id
-        # The query_country_qnodes function converts country names to qnodes, and should be used when filtering by countries
-        # based on the URL
-        # main_subject_ids = result_df.loc[:, 'main_subject_id'].unique()
-        # countries = provider.query_country_qnodes(main_subject_ids)
-        # for main_subject_id in result_df.loc[:, 'main_subject_id'].unique():
-        #     # For now, assume main subject is always country
-        #     # place = location.lookup_admin_hierarchy(admin_level, main_subject_id)
-        #     place = {}
-        #     if main_subject_id in countries:
-        #         place['country'] = countries[main_subject_id]
-
-        #     index = result_df.loc[:, 'main_subject_id'] == main_subject_id
-        #     result_df.loc[index, 'main_subject'] = provider.get_label(main_subject_id, '')
-        #     for col, val in place.items():
-        #         if col in select_cols:
-        #             result_df.loc[index, col] = val
-
-        print(result_df.head())
         if 'main_subject_id' not in select_cols:
             result_df = result_df.drop(columns=['main_subject_id'])
 
+        if return_df:
+            return result_df
+
+        result_df.replace('N/A', '', inplace=True)
+        # TODO SUPER HACK FOR CAUSX on Nov 3, 2020: IF COLUMNS HAVE "Units", REMOVE 'value_unit'
+        if 'Units' in result_df and 'value_unit' in result_df:
+            result_df.drop(columns=['value_unit'], inplace=True)
         csv = result_df.to_csv(index=False)
         output = make_response(csv)
         output.headers['Content-Disposition'] = f'attachment; filename={variable}.csv'
         output.headers['Content-type'] = 'text/csv'
         return output
 
-    def get_columns(self, admin_level, include_cols, exclude_cols, qualifiers) -> typing.List[str]:
+    def get_columns(self, include_cols, exclude_cols, qualifiers) -> List[str]:
         result = []
         for col, status in COMMON_COLUMN.items():
             if status == ColumnStatus.REQUIRED or col in include_cols:
@@ -205,16 +162,63 @@ class VariableGetter:
             if col in exclude_cols:
                 continue
             if status == ColumnStatus.DEFAULT:
-                if col.startswith('admin'):
-                    level = int(col[5])
-                    if level <= admin_level:
-                        result.append(col)
-                else:
-                    result.append(col)
-        for pq_node, col in qualifiers.items():
-            if col not in exclude_cols:
                 result.append(col)
-            col_id = f'{col}_id'
-            if col_id in include_cols:
-                result.append(col_id)
+        # Ignore qualifier fields for now
+        # for pq_node, col in qualifiers.items():
+        #    if col not in exclude_cols:
+        #        result.append(col)
+        #    col_id = f'{col}_id'
+        #    if col_id in include_cols:
+        #        result.append(col_id)
+
+        # Now go over the qualifiers, and add the main column of each qualifier by default
+        for qualifier in qualifiers:
+            for field in qualifier.fields.keys():
+                if (field == qualifier.main_column and field not in exclude_cols) or field in include_cols:
+                    if field not in result:
+                        result.append(field)
+
         return result
+
+    def add_region_columns(self, df, select_cols: List[str]):
+        if 'location_id' in df:
+            location_df = df['location_id']
+            location_in_qualifier = True
+        else:
+            location_df = df['main_subject_id']
+            location_in_qualifier = False
+
+        regions = self.get_result_regions(location_df)
+
+        # if not location_in_qualifier:
+        #    df['main_subject'] = location_df.map(lambda msid: regions[msid].admin if msid in regions else 'N/A')
+
+        # Add the other columns
+        region_columns = ['country', 'country_id', 'country_cameo', 'admin1', 'admin1_id', 'admin2', 'admin2_id',
+                          'admin3', 'admin3_id', 'region_coordinate']
+        for col in region_columns:
+            if col in select_cols:
+                df[col] = location_df.map(lambda msid: regions[msid][col] if msid in regions else 'N/A')
+
+    def add_tag_columns(self, df, tags: List[str], exclude_cols: List[str]):
+        def tag_to_columns():
+            # Break the tags into headers and values.
+            # A tag is A:B, which appears as column A, with the value B.
+            # If there are two tags A:B, A:C, we have one column A with the value B|C
+            tag_dict = {}
+            for tag in tags:
+                if tag.strip() != '':
+                    _ = tag.split(':')
+                    tA = _[0]
+                    tB = ':'.join(_[1:])
+                    # tA, tB = tag.split(':')
+                    if not tA in tag_dict:
+                        tag_dict[tA] = tB
+                    else:
+                        tag_dict[tA] += ' | ' + tB
+            return tag_dict
+
+        tag_dict = tag_to_columns()
+        for tag_name in tag_dict.keys():
+            if tag_name.lower() not in exclude_cols:
+                df[tag_name] = tag_dict[tag_name]

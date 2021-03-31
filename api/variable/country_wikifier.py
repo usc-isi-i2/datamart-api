@@ -1,14 +1,11 @@
-import pandas as pd
-import rltk.similarity as sim
-import numpy as np
 import json
 import logging
-import os
-from config import METADATA_DIR
-
-from abc import ABC, abstractmethod
+import numpy as np
 from functools import partial
-
+import rltk.similarity as sim
+from config import METADATA_DIR
+from abc import ABC, abstractmethod
+import os.path
 
 def word_tokenizer(s):
     return s.split(' ')
@@ -91,7 +88,7 @@ class DatamartCountryWikifier:
         self.similarity_unit = HybridJaccardSimilarity(tl_args={"ignore_case": True}, tokenizer="word")
         self._logger = logging.getLogger(__name__)
 
-        with open('{}/{}'.format(METADATA_DIR, cache_file), "r") as f:
+        with open(os.path.join(METADATA_DIR, cache_file), "r", encoding="utf-8") as f:
             self.memo = json.load(f)
 
     def save(self, loc: str = "country_wikifier_cache.json") -> None:
@@ -101,13 +98,11 @@ class DatamartCountryWikifier:
         with open(loc, "r") as f:
             json.dump(self.memo, f)
 
-    def wikify(self, input_df: pd.DataFrame, col_name, col_number: int = 0,
-               output_col_name: str = None) -> pd.DataFrame:
+    def wikify(self, input_countries: list) -> dict:
         no_wifiy_memo = set()
         wikifier_result = []
-        # for each in input_df.iloc[:, col_number]:
-        for each in list(input_df[col_name]):
-
+        wikified = {}
+        for each in input_countries:
             if isinstance(each, str) or not np.isnan(each):
                 # skip those input we already confirm no candidate
                 if each in no_wifiy_memo:
@@ -129,7 +124,7 @@ class DatamartCountryWikifier:
                         continue
 
                     self._logger.warning("`{}` not in record, will try to find the closest result".format(each))
-                    highest_score = 0
+                    highest_score = 0.0
                     best_res = ""
                     for each_candidate in self.memo.keys():
                         score = self.similarity_unit.similarity(input_str, each_candidate)
@@ -141,24 +136,15 @@ class DatamartCountryWikifier:
                         self._logger.info("get best match: `{}` with score `{}`".format(best_res, highest_score))
                         if highest_score > 0.9:
                             self._logger.info("will add `{}` to memo as `{}`".format(input_str, best_res))
-                            self.memo[input_str] = self.memo[best_res]
-                            self.memo[input_str_processed] = self.memo[best_res]
-                            self.memo[input_str_processed_no_bracket] = self.memo[best_res]
+                            wikified[each] = self.memo[best_res]
+
                         else:
                             no_wifiy_memo.add(each)
+                            wikified[each] = None
                             self._logger.warning("Not wikify for input value `{}`".format(each))
-                            best_res = ""
                 else:
-                    best_res = self.memo.get(input_str) or \
-                               self.memo.get(input_str_processed) or \
-                               self.memo.get(input_str_processed_no_bracket)
-                wikifier_result.append(best_res)
-            else:
-                wikifier_result.append("")
+                    wikified[each] = self.memo.get(input_str, None) or self.memo.get(input_str_processed,
+                                                                                     None) or self.memo.get(
+                        input_str_processed_no_bracket, None)
 
-        # add result and return
-        output_df = input_df.copy()
-        if not output_col_name:
-            output_col_name = input_df.columns[col_number] + "_wikified"
-        output_df[output_col_name] = wikifier_result
-        return output_df
+        return wikified

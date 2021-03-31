@@ -1,5 +1,6 @@
 import datetime
 import gzip
+import hashlib
 import json
 import typing
 import os
@@ -10,10 +11,28 @@ from enum import Enum
 
 from api.util import DataInterval, Literal, TimePrecision
 
-from api.variable.put import create_triple
-from api.variable.get import SQLProvider
+from db.sql import dal
 
-provider = SQLProvider
+
+class Triple:
+    def __init__(self):
+        self.all_ids_dict = {}
+    def create_triple(self, node1, label, node2):
+        id_key = '{}-{}'.format(node1, label)
+        if id_key not in self.all_ids_dict:
+            self.all_ids_dict[id_key] = 0
+        else:
+            self.all_ids_dict[id_key] += 1
+        id_index = self.all_ids_dict[id_key]
+        return {
+            'node1': node1,
+            'label': label,
+            'node2': node2,
+            'id': 'Q{}'.format(
+                hashlib.sha256(bytes('{}{}{}{}'.format(node1, label, node2, id_index), encoding='utf-8')).hexdigest())
+        }
+
+pcd = Triple()
 
 DEFAULT_DATE = datetime.datetime(1900, 1, 1)
 
@@ -51,6 +70,7 @@ PROPERTY_LABEL = {
     'P2699': 'url',
     'P2860': 'cites work',
     'P3896': 'geoshape',
+    'P5017': 'last update',
     'P6269': 'apiEndpoint',
     'P6339': 'data interval',
     'label': '',
@@ -103,7 +123,7 @@ def process_qnode_obj(item: typing.Union[str, dict]) -> dict:
     if isinstance(item, str):
         if isQnode(item):
             qnode = item
-            name = provider.get_label(qnode, qnode)
+            name = dal.get_label(qnode, qnode)
         else:
             name = item
             qnode = wikify(item)
@@ -120,7 +140,7 @@ def process_pnode_obj(item: typing.Union[str, dict]) -> dict:
     if isinstance(item, str):
         if isQnode(item):
             qnode = item
-            name = provider.get_label(qnode, qnode)
+            name = dal.get_label(qnode, qnode)
         else:
             name = item
             qnode = wikify_property(item)
@@ -151,6 +171,7 @@ class Metadata:
     # official properties
     _datamart_fields: typing.List[str] = []
 
+    # mapping from property name to data type
     _datamart_field_type: typing.Dict[str, DataType] = {}
 
     # properties for internal use
@@ -196,7 +217,7 @@ class Metadata:
         return field in cls._list_fields
 
     def field_edge(self, node1: str, field_name: str, *, required: bool = False,
-                   is_time: bool = False, is_item: bool = False):
+                   is_time: bool = False, is_item: bool = False) -> typing.Optional[dict]:
         value = getattr(self, field_name, None)
         label = self._name_to_pnode_map[field_name]
 
@@ -210,24 +231,24 @@ class Metadata:
             else:
                 raise ValueError(f'Do not know how to handle dict: {node1} {field_name} {value}')
         elif not isinstance(value, (float, int, str)):
-            raise ValueError(f'Do not know how to handle: {node1} {field_name} {value}')
+            raise ValueError(f'Do not know how to handle: {node1} {field_name} {value} ({type(value)})')
 
         if is_time:
             precision = getattr(self, f'{field_name}_precision')
-            edge = create_triple(
+            edge = pcd.create_triple(
                 # node1, label, json.dumps(Literal.time_int_precision(value, precision)))
                 node1, label, Literal.time_int_precision(value, precision))
         elif is_item:
             if isinstance(value, str):
                 if not (value.startswith('Q') or value.startswith('P')):
                     print(f'Object for {field_name} should be a qnode or pnode: {value}')
-                edge = create_triple(node1, label, value)
+                edge = pcd.create_triple(node1, label, value)
             elif isinstance(value, dict):
-                edge = create_triple(node1, label, value['identifier'])
+                edge = pcd.create_triple(node1, label, value['identifier'])
             else:
-                edge = create_triple(node1, label, value)
+                edge = pcd.create_triple(node1, label, value)
         else:
-            edge = create_triple(node1, label, json.dumps(value))
+            edge = pcd.create_triple(node1, label, json.dumps(value))
         return edge
 
     def update(self, metadata: dict) -> None:
@@ -404,7 +425,9 @@ class DatasetMetadata(Metadata):
         'date_created',
         'api_endpoint',
         'included_in_data_catalog',
-        'has_part'
+        'has_part',
+        'last_update',
+        'last_update_precision'
     ]
     _required_fields = [
         'name',
@@ -451,7 +474,9 @@ class DatasetMetadata(Metadata):
         'date_created': DataType.DATE,
         'api_endpoint': DataType.URL,
         'included_in_data_catalog': DataType.QNODE,
-        'has_part': DataType.URL
+        'has_part': DataType.URL,
+        'last_update': DataType.DATE,
+        'last_update_precision': DataType.PRECISION
     }
     _name_to_pnode_map = {
         'name': 'P1476',
@@ -481,7 +506,8 @@ class DatasetMetadata(Metadata):
         'date_created': 'schema:dateCreated',
         'api_endpoint': 'P6269',
         'included_in_data_catalog': 'schema:includedInDataCatalog',
-        'has_part': 'P527'
+        'has_part': 'P527',
+        'last_update': 'P5017'
 
     }
     def __init__(self):
@@ -508,20 +534,25 @@ class DatasetMetadata(Metadata):
         self.data_interval = None
         self.variable_measured = None
         self.mapping_file = None
+        # # Remove microseconds
+        # self.last_update = datetime.datetime.now().isoformat().split('.')[0]
+        # self.last_update_precision = 14  # second
+        self.last_update = None
+        self.last_update_precision = None
 
     def to_kgtk_edges(self, dataset_node) -> typing.List[dict]:
 
         edges = []
 
         # isa data set
-        edge = create_triple(dataset_node, 'P31', 'Q1172284')
+        edge = pcd.create_triple(dataset_node, 'P31', 'Q1172284')
         edges.append(edge)
 
         # stated as
         # edges.append(create_triple(edge['id'], 'P1932', json.dumps(self.shortName)))
 
         # label and title
-        edges.append(create_triple(dataset_node, 'label', json.dumps(self.name)))
+        edges.append(pcd.create_triple(dataset_node, 'label', json.dumps(self.name)))
         edges.append(self.field_edge(dataset_node, 'name', required=True))
         edges.append(self.field_edge(dataset_node, 'description', required=True))
         edges.append(self.field_edge(dataset_node, 'url', required=True))
@@ -545,6 +576,7 @@ class DatasetMetadata(Metadata):
         edges.append(self.field_edge(dataset_node, 'data_interval', is_item=True))
         edges.append(self.field_edge(dataset_node, 'variable_measured', is_item=True))
         edges.append(self.field_edge(dataset_node, 'mapping_file'))
+        edges.append(self.field_edge(dataset_node, 'last_update', is_time=True))
 
         edges = [edge for edge in edges if edge is not None]
         return edges
@@ -574,7 +606,8 @@ class VariableMetadata(Metadata):
         'data_interval',
         'column_index',
         'qualifier',
-        'count'
+        'count',
+        'tag'
     ]
     _required_fields = [
         'name',
@@ -665,13 +698,13 @@ class VariableMetadata(Metadata):
         edges = []
 
         # is instance of variable
-        edge = create_triple(variable_node, 'P31', 'Q50701')
+        edge = pcd.create_triple(variable_node, 'P31', 'Q50701')
         edges.append(edge)
 
         # edges.append(create_triple(edge['id'], 'P1932', self.variableID))
 
         # has title
-        edges.append(create_triple(variable_node, 'label', json.dumps(self.name)))
+        edges.append(pcd.create_triple(variable_node, 'label', json.dumps(self.name)))
         edges.append(self.field_edge(variable_node, 'name', required=True))
 
         # edges.append(self.field_edge(variable_node, 'short_name', required=True))
@@ -679,32 +712,32 @@ class VariableMetadata(Metadata):
 
         edges.append(self.field_edge(variable_node, 'description'))
 
-        edges.append(create_triple(dataset_node, 'P2006020003', variable_node))
-        edges.append(create_triple(variable_node, 'P2006020004', dataset_node))
+        edges.append(pcd.create_triple(dataset_node, 'P2006020003', variable_node))
+        edges.append(pcd.create_triple(variable_node, 'P2006020004', dataset_node))
 
         # Wikidata property (P1687) expects object to be a property. KGTK
         # does not support object with type property (May 2020).
-        # edges.append(create_triple(variable_node, 'P1687', self.corresponds_to_property))
+        # edges.append(pcd.create_triple(variable_node, 'P1687', self.corresponds_to_property))
         edges.append(self.field_edge(variable_node, 'corresponds_to_property', is_item=True))
 
         if self.unit_of_measure:
             for unit in self.unit_of_measure:
-                edges.append(create_triple(variable_node, 'P1880', unit['identifier']))
+                edges.append(pcd.create_triple(variable_node, 'P1880', unit['identifier']))
                 if defined_labels is not None and unit['identifier'] not in defined_labels:
                     defined_labels.add(unit['identifier'])
-                    edges.append(create_triple(unit['identifier'], 'label', json.dumps(unit['name'])))
+                    edges.append(pcd.create_triple(unit['identifier'], 'label', json.dumps(unit['name'])))
 
         if self.main_subject:
             for main_subject_obj in self.main_subject:
                 edges.append(
-                    create_triple(variable_node, 'P921', main_subject_obj['identifier']))
+                    pcd.create_triple(variable_node, 'P921', main_subject_obj['identifier']))
 
         # precision = DataInterval.name_to_int(self.data_interval)
         edges.append(self.field_edge(variable_node, 'start_time', is_time=True))
         edges.append(self.field_edge(variable_node, 'end_time', is_time=True))
 
         if self.data_interval:
-            edges.append(create_triple(
+            edges.append(pcd.create_triple(
                 # variable_node, 'P6339', DataInterval.name_to_qnode(self.data_interval))
                 variable_node, 'P6339', self.data_interval))
 
@@ -717,18 +750,18 @@ class VariableMetadata(Metadata):
                 qualifier_node = qualifier_obj['identifier']
                 if qualifier_node.startswith('pq:'):
                     qualifier_node = qualifier_node[3:]
-                edge = create_triple(variable_node, 'P2006020002', qualifier_node)
+                edge = pcd.create_triple(variable_node, 'P2006020002', qualifier_node)
                 edges.append(edge)
                 # qualifier stated as
-                edges.append(create_triple(edge['id'], 'P1932', json.dumps(qualifier_obj['name'])))
+                edges.append(pcd.create_triple(edge['id'], 'P1932', json.dumps(qualifier_obj['name'])))
 
         if self.country:
             for country_obj in self.country:
-                edges.append(create_triple(variable_node, 'P17', country_obj['identifier']))
+                edges.append(pcd.create_triple(variable_node, 'P17', country_obj['identifier']))
 
         if self.location:
             for location_obj in self.location:
-                edges.append(create_triple(variable_node, 'P276', location_obj['identifier']))
+                edges.append(pcd.create_triple(variable_node, 'P276', location_obj['identifier']))
 
         edges = [edge for edge in edges if edge is not None]
         return edges
