@@ -29,6 +29,7 @@ if [ "$result" != "edges" ]; then
     >&2 echo "zcat docker/dev-env/data/postgres/causx.sql.gz | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB"
     # zcat docker/dev-env/data/postgres/causx.sql.gz | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB
     zcat dev-env/data/postgres/causx.sql.gz | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB
+    cat dev-env/data/postgres/patches.sql | psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER $POSTGRES_DB
 fi
 
 gunicorn -b 0.0.0.0:80 --timeout 3600 wsgi:app
