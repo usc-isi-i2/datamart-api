@@ -181,6 +181,9 @@ class DatasetMetadataResource(Resource):
         # validate
         results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
 
+        if dataset:
+            results = results[0]
+
         return results, 200
 
     def delete(self, dataset=None):
