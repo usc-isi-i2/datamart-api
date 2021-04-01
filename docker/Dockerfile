@@ -16,7 +16,7 @@ RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotat
 # Uninstall unnecessary packages
 RUN pip install -e t2wml-annotation && pip uninstall -y torch
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout development
+RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout causeex
 RUN pip install -e t2wml-api
 
 ## Install psql, assuming OS version "buster"
