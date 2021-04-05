@@ -6,6 +6,7 @@
 FROM python:3.7
 RUN pip install --upgrade pip
 RUN pip install gunicorn
+RUN pip install kgtk
 
 COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt
