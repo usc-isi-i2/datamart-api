@@ -6,7 +6,6 @@
 FROM python:3.7
 RUN pip install --upgrade pip
 RUN pip install gunicorn
-RUN pip install kgtk
 
 COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt
@@ -18,6 +17,9 @@ RUN pip install -e t2wml-annotation
 
 RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout development
 RUN pip install -e t2wml-api
+
+# Something installs an old kgtk, we need the new one
+RUN pip install --upgrade kgtk
 
 COPY . /src
 RUN mkdir -p /src/instance

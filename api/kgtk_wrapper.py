@@ -68,4 +68,4 @@ def explode(ctx: KGTKPipeline, infile: str = 'input.tsv', outfile: str = 'explod
                          allow_lax_nodes=True)
 
 def add_ids(ctx: KGTKPipeline, infile: str = 'input.tsv', outfile: str = 'with-ids.tsv') -> None:
-    kgtk.cli.add_id.run(ctx.get_file(infile), ctx.get_file(outfile), id_style='node1-label-node2-num')
+    kgtk.cli.add_id.run(ctx.get_file(infile), ctx.get_file(outfile), id_style='wikidata')
