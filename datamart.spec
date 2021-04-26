@@ -4,13 +4,19 @@
 # and later edited.
 
 from PyInstaller.utils.hooks import copy_metadata
+import sys
+from os import path
+site_packages = next(p for p in sys.path if 'site-packages' in p)
+
+def copy_package(name):
+    return [(path.join(site_packages, name), name)]
 
 block_cipher = None
 
 a = Analysis(['datamart.py'],
              pathex=['/mnt/d/Sources/Pedro/datamart/datamart-api'],
              binaries=[],
-             datas=copy_metadata("pycountry"),
+             datas=copy_metadata("pycountry") + copy_package('distributed') + [('metadata', 'metadata'), ('config.py', '.')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
