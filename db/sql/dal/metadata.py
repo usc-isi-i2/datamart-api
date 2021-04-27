@@ -250,19 +250,34 @@ def _join_edge_helper( main_table, alias, label, satellite_type=None, qualifier=
         sql = "LEFT " + sql;
     return '\t' + sql  + '\n';
 
-def delete_variable_metadata(dataset_id, variable_qnodes, debug=False):
+def delete_variable_metadata(dataset_id, variable_qnodes, labels=None, debug=False):
+    if not labels:
+        labels_where = "1=1"
+    else:
+        labels_str =', '.join([f"'{label}'" for label in labels])
+        labels_where = f"label in ({labels_str})"
+
+    if not variable_qnodes:
+        raise ValueError("At least one variable QNode should be supplied")
     variable_qnodes_str = ', '.join([f"'{qnode}'" for qnode in variable_qnodes])
+    variable_qnodes_where = f'node1 in ({variable_qnodes_str})'
+
     with postgres_connection() as conn:
         with conn.cursor() as cursor:
-            query = f"""DELETE FROM edges WHERE node1 IN ({variable_qnodes_str})"""
+            query = f"""DELETE FROM edges WHERE {variable_qnodes_where} AND {labels_where}"""
             if debug:
                 print(query)
             cursor.execute(query)
 
-def delete_dataset_metadata(dataset_qnode, debug=False):
+def delete_dataset_metadata(dataset_qnode, labels=None, debug=False):
+    if not labels:
+        labels_where = "1=1"
+    else:
+        labels_str =', '.join([f"'{label}'" for label in labels])
+        labels_where = f"label in ({labels_str})"
     with postgres_connection() as conn:
         with conn.cursor() as cursor:
-            query = f"DELETE FROM edges WHERE node1='{dataset_qnode}'"
+            query = f"DELETE FROM edges WHERE node1='{dataset_qnode}' and {labels_where}"
             if debug:
                 print(query)
             cursor.execute(query)
