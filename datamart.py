@@ -29,5 +29,5 @@ os.environ["DB_PASSWORD"] = args.db_password
 from app import app
 
 if __name__ == '__main__':
-    print(app.config.get("POSTGRES"))
+    # print(app.config.get("POSTGRES"))
     app.run(port=12543)
