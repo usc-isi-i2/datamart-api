@@ -4,6 +4,7 @@ from .post import DatasetData
 
 class DatasetResource(Resource):
     def post(self, dataset):
+        raise NotImplementedError("kgtk support has been thorougly disabled")
         post_data = DatasetData()
         return post_data.process(dataset)
 

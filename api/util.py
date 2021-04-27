@@ -1,7 +1,7 @@
 from api.kgtk_wrapper import KGTKPipeline
 import csv
 import pandas as pd
-from api import kgtk_wrapper
+# from api import kgtk_wrapper
 
 from flask_restful import request
 
@@ -143,6 +143,7 @@ class Literal:
             return f"^{datetime}"
 
 def get_edges_from_request() -> pd.DataFrame:
+    raise NotImplementedError('kgtk support has been thoroughly disabled')
     try:
         edges = pd.read_csv(request.stream, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
     except:
