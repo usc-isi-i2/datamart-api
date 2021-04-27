@@ -17,11 +17,6 @@ config = dict(
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("input_file_path", help="input file", type=str)
-    parser.add_argument("--delete", help="Delete edges from the database", default=False, action="store_true")
-    parser.add_argument("--replace", help="Replace existing edges in the database", default=False, action="store_true")
 
     parsed = parser.parse_args()
-    if parsed.delete and parsed.replace:
-        print("Can't specify both --delete and --replace", out=sys.stderr)
-    else:
-        import_kgtk_tsv(parsed.input_file_path, config=config, delete=parsed.delete, replace= parsed.replace)
+    import_kgtk_tsv(parsed.input_file_path, config=config)

@@ -1,7 +1,6 @@
 # This file contains code that imports a KGTK file into the database. This code is taken from the postgres-wikidata
 # repository, and should at some point be united into the KGTK toolkit
 
-from api.kgtk_wrapper import KGTKPipeline
 import csv
 # Import edges from a KGTK TSV file
 import datetime
@@ -12,7 +11,6 @@ import tempfile
 import time
 from csv import DictReader
 from typing import Tuple, List, Dict
-from api import kgtk_wrapper
 
 import dateutil.parser
 
@@ -136,16 +134,7 @@ def unquote_dict(row: dict):
     for key, value in row.items():
         row[key] = unquote(value)
 
-def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fail_if_duplicate=False, conn=None):
-    """ This function takes an exploded KGTK edge file and imports it into the database.
-
-    It has several modes of operations:
-    delete = True  ==> edges from the kgtk file are deleted, not created
-    replace = True => edges are overwritten (essentially deleted and then inserted)
-    fail_duplicate = True => duplicate edges cause a failure
-
-    If all flags are False, edges are going to be added. Duplicated edges are not touched in the database.
-    """
+def import_kgtk_tsv(filename: str, config=None):
     def column_names(fields):
         for field in fields:
             if field[-2:] == '$?':
@@ -171,25 +160,19 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
         for (idx, field) in enumerate(fields):
             column = column_names[idx]
             values.append(format_value(obj, field, column))
-        return values
-
-    def formatted_object_values(obj, fields, column_names):
-        values = object_values(obj, fields, column_names)
         return "(" + ", ".join(values) + ")"
 
-    # Map from object type name to ('table-name', list of fields)
-    # A $ signifies a string value. A ? signifies a nullable value
-    OBJECT_INFO = {
-        'Edge': ('edges', ['id$', 'node1$', 'label$', 'node2$', 'data_type$']),
-        'StringValue': ('strings', ['edge_id$', 'text$', 'language$?']),
-        'DateValue': ('dates', ['edge_id$', 'date_and_time$', 'precision$?', 'calendar$?']),
-        'QuantityValue': ('quantities', ['edge_id$', 'number', 'unit$?', 'low_tolerance?', 'high_tolerance?']),
-        'CoordinateValue': ('coordinates', ['edge_id$', 'latitude', 'longitude', 'precision$?']),
-        'SymbolValue': ('symbols', ['edge_id$', 'symbol$']),
-    }
-
-    def write_objects(typename, objects, fail_if_duplicate):
-        nonlocal OBJECT_INFO
+    def write_objects(typename, objects):
+        # Map from object type name to ('table-name', list of fields)
+        # A $ signifies a string value. A ? signifies a nullable value
+        OBJECT_INFO = {
+            'Edge': ('edges', ['id$', 'node1$', 'label$', 'node2$', 'data_type$']),
+            'StringValue': ('strings', ['edge_id$', 'text$', 'language$?']),
+            'DateValue': ('dates', ['edge_id$', 'date_and_time$', 'precision$?', 'calendar$?']),
+            'QuantityValue': ('quantities', ['edge_id$', 'number', 'unit$?', 'low_tolerance?', 'high_tolerance?']),
+            'CoordinateValue': ('coordinates', ['edge_id$', 'latitude', 'longitude', 'precision$?']),
+            'SymbolValue': ('symbols', ['edge_id$', 'symbol$']),
+        }
 
         table_name, fields = OBJECT_INFO[typename]
         columns = list(column_names(fields))
@@ -198,44 +181,17 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
         for x in range(0, len(objects), CHUNK_SIZE):
             statement = f"INSERT INTO {table_name} ( {', '.join(columns)} ) VALUES\n"
             slice = objects[x:x+CHUNK_SIZE]
-            values = [formatted_object_values(obj, fields, columns) for obj in slice]
+            values = [object_values(obj, fields, columns) for obj in slice]
             statement += ',\n'.join(values)
-            if not fail_if_duplicate:
-                statement += "\nON CONFLICT DO NOTHING;"
+            statement += "\nON CONFLICT DO NOTHING;"
             cursor.execute(statement)
 
-    def save_objects(type_name: str, objects: List[Tuple], fail_if_duplicate):
+    def save_objects(type_name: str, objects: List[Tuple]):
         edges = [t[0] for t in objects]
-        write_objects('Edge', edges, fail_if_duplicate)
+        write_objects('Edge', edges)
         values = [t[1] for t in objects]
-        write_objects(type_name, values, fail_if_duplicate)
+        write_objects(type_name, values)
 
-    def delete_object_records(typename, objects):
-        nonlocal OBJECT_INFO
-        table_name, fields = OBJECT_INFO[typename]
-        columns = list(column_names(fields))
-
-        # The id is the first column
-        CHUNK_SIZE = 10000 # Delete 10000 rows at a time
-        for x in range(0, len(objects), CHUNK_SIZE):
-            slice = objects[x:x+CHUNK_SIZE]
-            ids = [object_values(obj, fields[:1], columns[:1])[0] for obj in slice]
-            ids_string = '(' + ','.join(ids) + ')'
-            statement = f"DELETE FROM {table_name} WHERE {columns[0]} IN {ids_string};"
-            cursor.execute(statement)
-
-    def delete_objects(type_name: str, objects: List[Tuple]):
-        edges = [t[0] for t in objects]
-        delete_object_records('Edge', edges)
-        values = [t[1] for t in objects]
-        delete_object_records(type_name, values)
-
-    flag_count = int(delete) + int(replace) + int(fail_if_duplicate)
-    if flag_count > 1:
-        raise ValueError("Only one of delete, replace and fail_duplicate may be True")
-
-    if replace:  # Avoid the ON CONFLICT clause in case of replace, since we know for a fact there will not be duplicates
-        fail_if_duplicate = True
 
     obj_map: Dict[str, List[Tuple]] = dict()   # Map from value type to list of (edge, value)
     start = time.time()
@@ -269,56 +225,33 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     if config and not 'POSTGRES' in config:
         config = dict(POSTGRES=config)
 
-    try:
-        if not conn:
-            conn = postgres_connection(config)
-            our_conn = True
-        else:
-            our_conn = False
+    with postgres_connection(config) as conn:
         with conn.cursor() as cursor:
             # Everything here runs under one transaction
             for (type_name, objects) in obj_map.items():
-                if delete or replace:
-                    delete_objects(type_name, objects)
-                    print(f"Deleted {len(objects)} of {type_name} - {time.time() - start}")
-                if not delete:
-                    save_objects(type_name, objects, fail_if_duplicate)
-                    print(f"Saved {len(objects)} of {type_name} - {time.time() - start}")
-
-        if our_conn:
-            conn.commit()
-    finally:
-        if our_conn:
-            conn.close()
+                save_objects(type_name, objects)
+                print(f"Saved {len(objects)} of {type_name} - {time.time() - start}")
+        conn.commit()
 
     print(f"Done saving {count} objects in {time.time() - start}")
 
     return
 
-def import_kgtk_dataframe(df, config=None, is_file_exploded=False, fail_if_duplicate=False, conn=None):
-    with KGTKPipeline(df) as ctx:
+def import_kgtk_dataframe(df, config=None, is_file_exploded=False):
+    temp_dir = tempfile.mkdtemp()
+    try:
+        tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
+        exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
+
+        df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
+
         if not is_file_exploded:
-            kgtk_wrapper.explode(ctx, 'input.tsv', 'exploded.tsv')
-            path = ctx.get_file('exploded.tsv')
+            subprocess.run(['kgtk', 'explode', "-i", tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
+            if not os.path.isfile(exploded_tsv_path):
+                raise ValueError("Couldn't create exploded TSV file")
+
+            import_kgtk_tsv(exploded_tsv_path, config)
         else:
-            path = ctx.get_file('input.tsv')
-
-        import_kgtk_tsv(str(path), config, conn=conn, fail_if_duplicate=fail_if_duplicate)
-
-    # temp_dir = tempfile.mkdtemp()
-    # try:
-    #     tsv_path = os.path.join(temp_dir, f'kgtk.tsv')
-    #     exploded_tsv_path = os.path.join(temp_dir, f'kgtk-exploded.tsv')
-
-    #     df.to_csv(tsv_path, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
-
-    #     if not is_file_exploded:
-    #         subprocess.run(['kgtk', 'explode', "-i", tsv_path, '-o', exploded_tsv_path, '--allow-lax-qnodes'])
-    #         if not os.path.isfile(exploded_tsv_path):
-    #             raise ValueError("Couldn't create exploded TSV file")
-
-    #         import_kgtk_tsv(exploded_tsv_path, config, conn=conn, fail_if_duplicate=fail_if_duplicate)
-    #     else:
-    #         import_kgtk_tsv(tsv_path, config=config, conn=conn, fail_if_duplicate=fail_if_duplicate)
-    # finally:
-    #     shutil.rmtree(temp_dir)
+            import_kgtk_tsv(tsv_path, config=config)
+    finally:
+        shutil.rmtree(temp_dir)
