@@ -1,4 +1,3 @@
 env/
 **/__pycache__/
-dev_env/**
-**/*.sql.gz
+dev-env/data/postgres/local/**
