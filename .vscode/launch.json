@@ -25,6 +25,14 @@
             "justMyCode": false
         },
         {
+            "name": "Consistency Checks",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/script/consistency-checks.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Clean for CausX",
             "type": "python",
             "request": "launch",
@@ -41,8 +49,10 @@
             "program": "${workspaceFolder}/script/dump-datasets.py",
             "args": [
                 "c:\\temp\\datamart",
-                "--datamart-api", "http://localhost:14000",
-                "--package", "c:\\temp\\datamart.tar.gz"
+                "--datamart-api",
+                "http://localhost:14000",
+                "--package",
+                "c:\\temp\\datamart.tar.gz"
             ],
             "console": "integratedTerminal"
         },
