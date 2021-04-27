@@ -19,6 +19,9 @@ RUN pip install -e t2wml-annotation && pip uninstall -y torch
 RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout causeex
 RUN pip install -e t2wml-api
 
+# Something installs an old kgtk, we need the new one
+RUN pip install --upgrade kgtk
+
 ## Install psql, assuming OS version "buster"
 # sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
 # wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
