@@ -18,6 +18,7 @@ parser.add_argument("--db-port", default="5433", help="DB port")
 parser.add_argument("--db-name", default="wikidata", help="DB name")
 parser.add_argument("--db-user", default="postgres", help="DB user")
 parser.add_argument("--db-password", default="postgres", help="DB password")
+parser.add_argument('--datamart-port', default=12543, type=int, help='Datamart will listen on this port')
 args = parser.parse_args()
 
 os.environ["DB_HOST"] = args.db_host
@@ -30,4 +31,4 @@ from app import app
 
 if __name__ == '__main__':
     # print(app.config.get("POSTGRES"))
-    app.run(port=12543)
+    app.run(port=args.datamart_port)
