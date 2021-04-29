@@ -453,8 +453,9 @@ class DatasetMetadataResource(Resource):
         # validate
         results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
 
-        if dataset:
-            results = results[0]
+        # For now, always return a list
+        # if dataset:
+        #     results = results[0]
 
         return results, 200
 
