@@ -1,0 +1,10 @@
+dist: bionic
+language: python
+python:
+  - 3.8.10
+install:
+  - cd test
+  - docker-compose build
+  - docker-compose up -d
+script:
+  - python -m unittest discover -s test -p "test_*.py"
