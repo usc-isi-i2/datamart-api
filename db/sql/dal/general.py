@@ -121,9 +121,10 @@ def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], t
     tag_where = get_tag_where()
 
     # Use Postgres's full text search capabilities
+    # Note: the select subquery is return duplicates, added DISTINCT. Perhaps this is related to the performance issue for dataset_id?
     sql = f"""
     SELECT fuzzy.variable_id, fuzzy.variable_qnode, fuzzy.dataset_qnode, fuzzy.name,  ts_rank(variable_text, {combined_ts_query}) AS rank FROM
-        (SELECT e_var_name.node2 AS variable_id,
+        (SELECT DISTINCT e_var_name.node2 AS variable_id,
                 e_var_name.node1 AS variable_qnode,
                 -- e_dataset_name.node2 AS dataset_id,
                 e_dataset.node1 AS dataset_qnode,
