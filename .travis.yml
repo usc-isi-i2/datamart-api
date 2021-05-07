@@ -1,7 +1,7 @@
 dist: bionic
 language: python
 python:
-  - 3.8.10
+  - 3.8
 install:
   - cd test
   - docker-compose build
