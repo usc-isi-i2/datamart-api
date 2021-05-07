@@ -12,7 +12,7 @@ services:
       - POSTGRES_DB=wikidata
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ../dev-env/data/postgres/base.sql.gz:/docker-entrypoint-initdb.d/00-base.sql.gz
+      - ../dev-env/data/postgres/empty.sql:/docker-entrypoint-initdb.d/00-base.sql
       - ../dev-env/data/postgres:/backup
     expose:
       - "5432"

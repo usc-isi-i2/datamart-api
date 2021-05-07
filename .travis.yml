@@ -6,6 +6,7 @@ install:
   - cd test
   - docker-compose build
   - docker-compose up -d
+  - count=0; until docker logs datamart-postgres | grep "database system is ready to accept connections" &> /dev/null || (( count++ > 12 )); do echo "Waiting $count"; sleep 5; done
   - cd ..
   - pip install pandas
   - pip install requests
