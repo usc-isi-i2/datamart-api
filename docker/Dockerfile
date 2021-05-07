@@ -19,11 +19,11 @@ RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git che
 RUN pip install -e t2wml-api
 
 # Something installs an old kgtk, we need the new one
-RUN pip install --upgrade kgtk
+# RUN pip install --upgrade kgtk
 
 COPY . /src
 RUN mkdir -p /src/instance
 COPY docker/docker_config.py /src/instance/config.py
 WORKDIR /src
 
-CMD ["gunicorn", "-b", "0.0.0.0:80", "--timeout", "3600", "wsgi:app"] 
+CMD ["gunicorn", "-b", "0.0.0.0:80", "--timeout", "3600", "wsgi:app"]
