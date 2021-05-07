@@ -7,9 +7,13 @@ install:
   - docker-compose build
   - docker-compose up -d
   - count=0; until docker logs datamart-postgres | grep "database system is ready to accept connections" &> /dev/null || (( count++ > 12 )); do echo "Waiting $count"; sleep 5; done
+  - docker logs -f datamart-postgres > datamart-postgres.out.txt &
+  - docker logs -f datamart-backend > datamart-backend.out.txt &
   - cd ..
   - pip install pandas
   - pip install requests
 script:
   - pwd
   - python -m unittest discover -s test -p "test_*.py"
+  - cat test/datamart-postgres.out.txt
+  - cat test/datamart-backend.out.txt
