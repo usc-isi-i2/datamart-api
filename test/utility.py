@@ -59,7 +59,8 @@ def create_dataset_with_edges(
     edges = pd.DataFrame(edge_list, columns=['node1', 'label', 'node2', 'id'])
     post_url = f'{p_url}/metadata/datasets'
 
-    return post(post_url, files={'file': io.StringIO(edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+    # return post(post_url, files={'file': io.StringIO(edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+    return post(post_url, data=edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
 
 
 def delete_dataset(url, dataset_id='unittestdataset'):
@@ -132,7 +133,8 @@ def create_variables_with_edges(
         return edges
     else:
         post_url = f'{p_url}/metadata/datasets/{dataset_id}/variables'
-        return post(post_url, files={'file': io.StringIO(edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        # return post(post_url, files={'file': io.StringIO(edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        return post(post_url, data=edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
 
 
 def get_variable(p_url, dataset_id='unittestdataset', variable_id='unittestvariable'):

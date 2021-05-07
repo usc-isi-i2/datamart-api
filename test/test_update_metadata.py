@@ -2,6 +2,7 @@ import datetime
 import time
 import unittest
 import pandas as pd
+from pathlib import Path
 from io import StringIO
 from test.utility import create_variable, create_dataset, delete_variable, delete_variable_data, delete_dataset, \
     get_dataset, get_variable, get_data, update_variable_metadata, upload_data_put, update_dataset_metadata
@@ -110,16 +111,16 @@ class TestUpdateMetadata(unittest.TestCase):
         dataset_id = 'unittestuploaddataset'
         variable_id = 'ingo_changed'
         result = delete_variable_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
-        print('delete_variable_data', result.status_code, result.text)
+        # print('delete_variable_data', result.status_code, result.text)
         result = delete_variable(self.url, dataset_id=dataset_id, variable_id=variable_id)
-        print('delete_variable', result.status_code, result.text)
+        # print('delete_variable', result.status_code, result.text)
         variable_id = 'ingo'
         result = delete_variable_data(self.url, dataset_id=dataset_id, variable_id=variable_id)
-        print('delete_variable_data', result.status_code, result.text)
+        # print('delete_variable_data', result.status_code, result.text)
         result = delete_variable(self.url, dataset_id=dataset_id, variable_id=variable_id)
-        print('delete_variable', result.status_code, result.text)
+        # print('delete_variable', result.status_code, result.text)
         result = delete_dataset(self.url, dataset_id=dataset_id)
-        print('delete_dataset', result.status_code, result.text)
+        # print('delete_dataset', result.status_code, result.text)
 
         expected_metadata = {
             "name": "INGO",
@@ -129,7 +130,7 @@ class TestUpdateMetadata(unittest.TestCase):
             "corresponds_to_property": "PVARIABLE-Qunittestuploaddataset-005",
             "qualifier": [
                 {
-                    "name": "Location0",
+                    "name": "LOCATION_CHANGED",
                     "identifier": "PQUALIFIER-Qunittestuploaddataset-008",
                     "data_type": "String"
                 },
@@ -172,7 +173,7 @@ class TestUpdateMetadata(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
 
         # f_path = 'test/test_data/test_file_main_subject_country_simple_1.csv'
-        f_path = 'test_data/test_file_main_subject_country_simple_1.csv'
+        f_path = Path(__file__).parent / 'test_data/test_file_main_subject_country_simple_1.csv'
         udp = upload_data_put(f_path, f'{self.url}/datasets/unittestuploaddataset/annotated')
         self.assertTrue(udp.status_code==201, udp.text)
         self.assertTrue(udp.json()[0] == expected_metadata, udp.json()[0])
