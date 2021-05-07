@@ -60,4 +60,4 @@ services:
 
 volumes:
   postgres:
-    name: datamart-postgres-volume
+    name: datamart-postgres-test-volume
