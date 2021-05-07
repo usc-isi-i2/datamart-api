@@ -7,6 +7,8 @@ install:
   - docker-compose build
   - docker-compose up -d
   - cd ..
+  - pip install pandas
+  - pip install requests
 script:
   - pwd
   - python -m unittest discover -s test -p "test_*.py"
