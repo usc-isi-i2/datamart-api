@@ -484,6 +484,12 @@ class DatasetMetadataResource(Resource):
 
 
 class FuzzySearchResource(Resource):
+    def _add_tags(self, hits):
+        # May need to optimize if number of hits is too large. For now it's fine for Causx 365 variables
+        for hit in hits:
+            tags = dal.query_tags(hit['dataset_qnode'], hit['variable_qnode'])
+            hit['tag'] = tags
+
     def get(self):
         queries = request.args.getlist('keyword')
 
@@ -507,6 +513,9 @@ class FuzzySearchResource(Resource):
         # We're using Postgres's full text search capabilities for now
         results = dal.fuzzy_query_variables(queries, regions, tags, limit, True)
 
+        # Need dataset qnode and variable node to add tags
+        self._add_tags(results)
+
         # Due to performance issues we will solve later, adding a JOIN to get the dataset short name makes the query
         # very inefficient, so results only have dataset_ids. We will now add the short_names
         dataset_results = dal.query_dataset_metadata(include_dataset_qnode=True)
@@ -514,6 +523,7 @@ class FuzzySearchResource(Resource):
         for row in results:
             row['dataset_id'] = datasets[row['dataset_qnode']]
             del row['dataset_qnode']
+            del row['variable_qnode']
 
         return results
 

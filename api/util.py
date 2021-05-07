@@ -159,6 +159,13 @@ def get_edges_from_request() -> pd.DataFrame:
     #     # Get just the first file
     #     break
 
+    # Should allow id column, because will have edge qualifiers. Also,
+    # the current unit tests have the id column.
+    valid_column_with_id_names = ['node1', 'label', 'node2', 'id']
+    if set(edges.columns) == set(valid_column_with_id_names):
+        edges = edges.loc[:, valid_column_with_id_names]
+        return edges
+
     valid_column_names = ['node1', 'label', 'node2']
     if not set(edges.columns) == set(valid_column_names):
         content = {
