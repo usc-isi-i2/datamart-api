@@ -7,6 +7,8 @@ services:
     container_name: datamart-postgres
     shm_size: 2gb
     environment:
+      - POSTGRES_HOST=128.0.0.1
+      - POSTGRES_PORT=5433
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_DB=wikidata
