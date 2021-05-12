@@ -1,0 +1,20 @@
+dist: bionic
+language: python
+python:
+  - 3.8
+install:
+  - cd test
+  - docker-compose build
+  - docker-compose up -d
+  - count=0; until docker logs datamart-postgres | grep "database system is ready to accept connections" &> /dev/null || (( count++ > 12 )); do echo "Waiting $count"; sleep 5; done
+  - docker logs -f datamart-postgres > datamart-postgres.out.txt &
+  - docker logs -f datamart-backend > datamart-backend.out.txt &
+  - cd ..
+  - pip install pandas
+  - pip install requests
+  - pip install psycopg2 flask sqlalchemy rltk==2.0.0a15 kgtk==0.3.2
+script:
+  - pwd
+  - python -m unittest discover -s test -p "test_*.py"
+  - cat test/datamart-postgres.out.txt
+  - cat test/datamart-backend.out.txt

@@ -11,16 +11,18 @@ COPY requirements.txt /src/requirements.txt
 
 RUN pip install -r src/requirements.txt && pip uninstall -y torch
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 1c750e99ad34467d85ff478603a338015bbfe67f
+# RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 1c750e99ad34467d85ff478603a338015bbfe67f
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 08d6d2c1d40e327217897789ce0c44853f022ee4
 
 # Uninstall unnecessary packages
 RUN pip install -e t2wml-annotation && pip uninstall -y torch
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout causeex
+# RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout causeex
+RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout bceea3fc18a29f33f2a03e5011e0d22c93a03b9f
 RUN pip install -e t2wml-api
 
 # Something installs an old kgtk, we need the new one
-RUN pip install --upgrade kgtk
+# RUN pip install --upgrade kgtk
 
 ## Install psql, assuming OS version "buster"
 # sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'

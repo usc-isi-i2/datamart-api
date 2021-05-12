@@ -70,11 +70,11 @@ class TestPropertyAPI(unittest.TestCase):
 
     def test_put_get(self):
         url = f'{self.url}/properties/{self.property_one_name}'
-        put_response = put(url, files={'file': io.StringIO(property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 201, f'put({url})')
+        put_response = put(url, data=property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 201, put_response.text)
 
         get_response = get(url)
-        self.assertEqual(get_response.status_code, 200, f'get({url})')
+        self.assertEqual(get_response.status_code, 200, get_response.text)
 
         df = pd.read_csv(io.StringIO(get_response.text), sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
         df = df.sort_values(['label']).reset_index(drop=True)
@@ -83,23 +83,23 @@ class TestPropertyAPI(unittest.TestCase):
 
     def test_put_fail_1(self):
         url = f'{self.url}/properties'
-        put_response = put(url, files={'file': io.StringIO(property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        put_response = put(url, data=property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(put_response.status_code, 400, f'put({url})')
 
     def test_put_fail_2(self):
         url = f'{self.url}/properties/pxyz'
-        put_response = put(url, files={'file': io.StringIO(property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        put_response = put(url, data=property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(put_response.status_code, 400, f'put({url})')
 
     def test_put_fail_3(self):
         url = f'{self.url}/properties/Pxyz'
-        put_response = put(url, files={'file': io.StringIO(property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        put_response = put(url, data=property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(put_response.status_code, 400, f'put({url})')
 
     def test_put_fail_4(self):
         url = f'{self.url}/properties/{self.property_one_name}'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
-        put_response = put(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        put_response = put(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(put_response.status_code, 400, f'put({url})')
 
     def test_put_illegal_label(self):
@@ -108,20 +108,20 @@ class TestPropertyAPI(unittest.TestCase):
                 [['PUnitTestPropertyOne-extra', 'PUnitTestPropertyOne', 'extra', 123]],
                 columns=['id', 'node1', 'label', 'node2']))
         url = f'{self.url}/properties/{self.property_one_name}'
-        put_response = put(url, files={'file': io.StringIO(illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        put_response = put(url, data=illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(put_response.status_code, 400, 'Should not accept labels not in white list')
 
     def test_post(self):
         url = f'{self.url}/properties'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
-        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(post_response.status_code, 201 , f'post({url})')
+        post_response = post(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(post_response.status_code, 201 , post_response.text)
 
         part = {}
         for prop in [self.property_one_name, self.property_two_name]:
             url = f'{self.url}/properties/{prop}'
             get_response = get(url)
-            self.assertEqual(get_response.status_code, 200, f'get({url})')
+            self.assertEqual(get_response.status_code, 200, get_response.text)
 
             part[prop] = pd.read_csv(io.StringIO(get_response.text), sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
 
@@ -138,33 +138,33 @@ class TestPropertyAPI(unittest.TestCase):
                 [['PUnitTestPropertyOne-extra', 'PUnitTestPropertyOne', 'extra', 123]],
                 columns=['id', 'node1', 'label', 'node2']))
         url = f'{self.url}/properties'
-        post_response = post(url, files={'file': io.StringIO(illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        post_response = post(url, data=illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(post_response.status_code, 400, 'Should not accept labels not in white list')
 
     def test_post_fail(self):
         url = f'{self.url}/properties/Pxyz'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
-        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        post_response = post(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(post_response.status_code, 400 , f'post({url})')
 
     def test_post_fail_2(self):
         url = f'{self.url}/properties'
         all_edges = pd.DataFrame.append(property_one_edges, property_two_edges).reset_index(drop=True)
-        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(post_response.status_code, 201 , f'post({url})')
+        post_response = post(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(post_response.status_code, 201 , post_response.text)
 
         url = f'{self.url}/properties'
         all_edges = pd.DataFrame.append(redefined_property_one_edges, property_two_edges).reset_index(drop=True)
-        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        post_response = post(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(post_response.status_code, 409 , f'post({url})')
 
     def test_delete(self):
         url = f'{self.url}/properties/{self.property_one_name}'
-        put_response = put(url, files={'file': io.StringIO(property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 201, f'put({url})')
+        put_response = put(url, data=property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 201, put_response.text)
 
         delete_response = delete(url)
-        self.assertEqual(delete_response.status_code, 200, f'delete({url})')
+        self.assertEqual(delete_response.status_code, 200, delete_response.text)
 
     def test_delete_fail_1(self):
         url = f'{self.url}/properties'
@@ -178,8 +178,8 @@ class TestPropertyAPI(unittest.TestCase):
 
     def test_delete_fail_3(self):
         url = f'{self.url}/properties/{self.property_one_name}'
-        put_response = put(url, files={'file': io.StringIO(property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 201, f'put({url})')
+        put_response = put(url, data=property_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 201, put_response.text)
 
         import_kgtk_dataframe(data, config=config)
 
