@@ -14,7 +14,7 @@ STORAGE_BACKEND = 'postgres'
 
 POSTGRES = dict(
    host = os.environ.get("DB_HOST", default="localhost"),
-   port = os.environ.get("DB_PORT", default="5433"),
+   port = os.environ.get("DB_PORT", default="5432"),
    database = os.environ.get("DB_NAME", default="wikidata"),
    user = os.environ.get("DB_USER", default="postgres"),
    password = os.environ.get("DB_PASSWORD", default="postgres"),
