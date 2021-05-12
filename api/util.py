@@ -1,7 +1,7 @@
 from api.kgtk_wrapper import KGTKPipeline
 import csv
 import pandas as pd
-# from api import kgtk_wrapper
+from api.kgtk_replacement import add_ids
 
 from flask_restful import request
 
@@ -143,7 +143,6 @@ class Literal:
             return f"^{datetime}"
 
 def get_edges_from_request() -> pd.DataFrame:
-    raise NotImplementedError('kgtk support has been thoroughly disabled')
     try:
         edges = pd.read_csv(request.stream, sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
     except:
@@ -169,11 +168,13 @@ def get_edges_from_request() -> pd.DataFrame:
 
     edges = edges.loc[:, valid_column_names]
 
-    with kgtk_wrapper.KGTKPipeline(edges) as pipeline:
-        #ok, err = kgtk_wrapper.validate(pipeline)
-        #if not ok:
-        #    raise ValueError({ 'Error': f'Invalid edge file: {err}' })
-        kgtk_wrapper.add_ids(pipeline)
-        edges = pipeline.read_csv('with-ids.tsv')
+    # with kgtk_wrapper.KGTKPipeline(edges) as pipeline:
+    #     #ok, err = kgtk_wrapper.validate(pipeline)
+    #     #if not ok:
+    #     #    raise ValueError({ 'Error': f'Invalid edge file: {err}' })
+    #     kgtk_wrapper.add_ids(pipeline)
+    #     edges = pipeline.read_csv('with-ids.tsv')
+
+    edges = add_ids(edges)
 
     return edges
