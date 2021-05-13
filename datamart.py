@@ -14,7 +14,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--db-host", default="localhost", help="DB host")
-parser.add_argument("--db-port", default="5433", help="DB port")
+parser.add_argument("--db-port", default="5432", help="DB port")
 parser.add_argument("--db-name", default="wikidata", help="DB name")
 parser.add_argument("--db-user", default="postgres", help="DB user")
 parser.add_argument("--db-password", default="postgres", help="DB password")
