@@ -12,7 +12,7 @@ COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt && pip uninstall -y torch
 
 # RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 1c750e99ad34467d85ff478603a338015bbfe67f
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 08d6d2c1d40e327217897789ce0c44853f022ee4
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 5371244918018a9c566ac1265cb74c3edee07cfd
 
 # Uninstall unnecessary packages
 RUN pip install -e t2wml-annotation && pip uninstall -y torch
