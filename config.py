@@ -14,7 +14,7 @@ STORAGE_BACKEND = 'postgres'
 POSTGRES = dict(
     database = 'wikidata',
     host = 'localhost',
-    port = 5433,
+    port = 5432,
     user = 'postgres',
     password = 'postgres',
 )
