@@ -1,7 +1,6 @@
-from api.kgtk_wrapper import KGTKPipeline
 import csv
 import pandas as pd
-from api.kgtk_replacement import add_ids
+from api import kgtk_replacement
 
 from flask_restful import request
 
@@ -175,6 +174,6 @@ def get_edges_from_request() -> pd.DataFrame:
     #     kgtk_wrapper.add_ids(pipeline)
     #     edges = pipeline.read_csv('with-ids.tsv')
 
-    edges = add_ids(edges)
+    edges = kgtk_replacement.add_ids(edges)
 
     return edges
