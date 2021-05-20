@@ -752,6 +752,8 @@ def get_field_map(value): # classify
         raise ValueError("Cannot find node2.")
         return {"data_type": DataType.EMPTY.lower()}
     # is_list():
+
+    value = str(value) # Convert everything to string.
     string = is_string(value)
     if string: return string
 
