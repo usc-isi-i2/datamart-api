@@ -128,7 +128,7 @@ class TestCreateDataset(unittest.TestCase):
 
         response = create_dataset_with_edges(self.url)
 
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 201, response.text)
 
         response = get(f'{self.url}/metadata/datasets').json()
 

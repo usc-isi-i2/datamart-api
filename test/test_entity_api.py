@@ -54,22 +54,22 @@ class TestEntityAPI(unittest.TestCase):
         utils.delete(f"delete from edges where node2 = '{self.entity_two_name}'", config=config)
 
     def test_get_undefined_entity_by_name(self):
-        url = f'{self.url}/entities?name={self.entity_one_name}'
+        url = f'{self.url}/entities/{self.entity_one_name}'
         response = get(url)
-        self.assertEqual(response.status_code, 204, 'get_undefined_entity: ' + url)
+        self.assertEqual(response.status_code, 204, response.text)
 
     def test_get_undefined_entity_by_label(self):
         url = f'{self.url}/entities?label={self.entity_one_label}'
         response = get(url)
-        self.assertEqual(response.status_code, 204, 'get_undefined_entity: ' + url)
+        self.assertEqual(response.status_code, 204, response.text)
 
     def test_put_get(self):
         url = f'{self.url}/entities/{self.entity_one_name}'
-        put_response = put(url, files={'file': io.StringIO(entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 201, f'put({url})')
+        put_response = put(url, data=entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 201, put_response.text)
 
-        get_response = get(f'{self.url}/entities?name={self.entity_one_name}')
-        self.assertEqual(get_response.status_code, 200, f'get({url})')
+        get_response = get(f'{self.url}/entities/{self.entity_one_name}')
+        self.assertEqual(get_response.status_code, 200, get_response.text)
 
         df = pd.read_csv(io.StringIO(get_response.text), sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
         df = df.sort_values(['label']).reset_index(drop=True)
@@ -78,24 +78,24 @@ class TestEntityAPI(unittest.TestCase):
 
     def test_put_fail_1(self):
         url = f'{self.url}/entities'
-        put_response = put(url, files={'file': io.StringIO(entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 400, f'put({url})')
+        put_response = put(url, data=entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 400, put_response.text)
 
     def test_put_fail_2(self):
         url = f'{self.url}/entities/qxyz'
-        put_response = put(url, files={'file': io.StringIO(entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 400, f'put({url})')
+        put_response = put(url, data=entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 400, put_response.text)
 
     def test_put_fail_3(self):
         url = f'{self.url}/entities/Qxyz'
-        put_response = put(url, files={'file': io.StringIO(entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 400, f'put({url})')
+        put_response = put(url, data=entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 400, put_response.text)
 
     def test_put_fail_4(self):
         url = f'{self.url}/entities/{self.entity_one_name}'
         all_edges = pd.DataFrame.append(entity_one_edges, entity_two_edges).reset_index(drop=True)
-        put_response = put(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 400, f'put({url})')
+        put_response = put(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(put_response.status_code, 400, put_response.text)
 
     def test_put_illegal_label(self):
         illegal = entity_one_edges.append(
@@ -103,22 +103,22 @@ class TestEntityAPI(unittest.TestCase):
                 [['QUnitTestEntityOne-extra', 'QUnitTestEntityOne', 'extra', 123]],
                 columns=['id', 'node1', 'label', 'node2']))
         url = f'{self.url}/entities/{self.entity_one_name}'
-        put_response = put(url, files={'file': io.StringIO(illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        put_response = put(url, data=illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(put_response.status_code, 400, 'Should not accept labels not in white list')
 
     def test_post(self):
         url = f'{self.url}/entities'
         all_edges = pd.DataFrame.append(entity_one_edges, entity_two_edges).reset_index(drop=True)
-        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(post_response.status_code, 201 , f'put({url})')
+        post_response = post(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        self.assertEqual(post_response.status_code, 201 , post_response.text)
 
         part = {}
-        for prop in [self.entity_one_name, self.entity_two_name]:
-            url = f'{self.url}/entities?name={prop}'
+        for entity in [self.entity_one_name, self.entity_two_name]:
+            url = f'{self.url}/entities/{entity}'
             get_response = get(url)
-            self.assertEqual(get_response.status_code, 200, f'get({url})')
+            self.assertEqual(get_response.status_code, 200, get_response.text)
 
-            part[prop] = pd.read_csv(io.StringIO(get_response.text), sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
+            part[entity] = pd.read_csv(io.StringIO(get_response.text), sep='\t', quoting=csv.QUOTE_NONE, dtype=object).fillna('')
 
 
         df = pd.DataFrame.append(part[self.entity_one_name], part[self.entity_two_name])
@@ -133,22 +133,23 @@ class TestEntityAPI(unittest.TestCase):
                 [['QUnitTestEntityOne-extra', 'QUnitTestEntityOne', 'extra', 123]],
                 columns=['id', 'node1', 'label', 'node2']))
         url = f'{self.url}/entities'
-        post_response = post(url, files={'file': io.StringIO(illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        post_response = post(url, data=illegal.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(post_response.status_code, 400, 'Should not accept labels not in white list')
 
     def test_post_fail(self):
         url = f'{self.url}/entities/Qxyz'
         all_edges = pd.DataFrame.append(entity_one_edges, entity_two_edges).reset_index(drop=True)
-        post_response = post(url, files={'file': io.StringIO(all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        post_response = post(url, data=all_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(post_response.status_code, 400 , f'put({url})')
 
     def test_delete(self):
         url = f'{self.url}/entities/{self.entity_one_name}'
-        put_response = put(url, files={'file': io.StringIO(entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
-        self.assertEqual(put_response.status_code, 201, f'put({url})')
+        put_response = put(url, data=entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
+        # self.assertEqual(put_response.status_code, 201, f'put({url})')
+        self.assertEqual(put_response.status_code, 201, put_response.text)
 
         delete_response = delete(url)
-        self.assertEqual(delete_response.status_code, 200, f'put({url})')
+        self.assertEqual(delete_response.status_code, 200, delete_response.text)
 
     def test_delete_fail_1(self):
         url = f'{self.url}/entities'
@@ -162,7 +163,7 @@ class TestEntityAPI(unittest.TestCase):
 
     def test_delete_fail_3(self):
         url = f'{self.url}/entities/{self.entity_one_name}'
-        put_response = put(url, files={'file': io.StringIO(entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))})
+        put_response = put(url, data=entity_one_edges.to_csv(sep='\t', quoting=csv.QUOTE_NONE, index=False))
         self.assertEqual(put_response.status_code, 201, f'put({url})')
 
         import_kgtk_dataframe(data, config=config)
