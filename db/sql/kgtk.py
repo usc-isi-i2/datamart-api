@@ -140,7 +140,7 @@ def unquote_dict(row: dict):
         row[key] = unquote(value)
 
 def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fail_if_duplicate=False, conn=None):
-    """ This function takes an exploded KGTK edge file and imports it into the database.
+    """ This function takes a KGTK edge file and imports it into the database.
 
     It has several modes of operations:
     delete = True  ==> edges from the kgtk file are deleted, not created
@@ -148,6 +148,8 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     fail_duplicate = True => duplicate edges cause a failure
 
     If all flags are False, edges are going to be added. Duplicated edges are not touched in the database.
+
+    If the file is not exploded, the function explodes it itself.
     """
     def column_names(fields):
         for field in fields:
@@ -252,7 +254,7 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
             try:
                 data_type = row.get("node2;kgtk:data_type")
                 if not data_type:
-                    # raise ValueError("cannot find 'data type' for row {row_num}")
+                    # File is not exploded, explode it ourselves.
                     prefix = "node2;kgtk:"
                     field_map = kgtk_replacement.get_field_map(row['node2'])
                     unquote_dict(row)
