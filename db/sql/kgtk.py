@@ -12,7 +12,7 @@ import time
 from csv import DictReader
 from typing import Tuple, List, Dict
 from api.kgtk_replacement import ExplodePipeline
-from api import kgtk_replacement 
+from api import kgtk_replacement
 
 import dateutil.parser
 
@@ -93,10 +93,15 @@ def create_edge_objects(row):
         high_tolerance = row.get('node2;kgtk:high_tolerance', None)
         low_tolerance = row.get('node2;kgtk:low_tolerance', None)
         try:
-            if high_tolerance:
+            # Hack if value is string 'None' then treat it as None.
+            if high_tolerance and not high_tolerance == 'None':
                 high_tolerance = float(high_tolerance)
-            if low_tolerance:
+            else:
+                high_tolerance = None
+            if low_tolerance and not low_tolerance == 'None':
                 low_tolerance = float(low_tolerance)
+            else:
+                low_tolerance = None
         except ValueError:
             raise ValueError('High or low tolerance not numeric', row)
 
@@ -207,6 +212,7 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
             statement += ',\n'.join(values)
             if not fail_if_duplicate:
                 statement += "\nON CONFLICT DO NOTHING;"
+            print(statement)
             cursor.execute(statement)
 
     def save_objects(type_name: str, objects: List[Tuple], fail_if_duplicate):
@@ -247,6 +253,10 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     print("Reading rows")
 
     with open(filename, "r", encoding="utf-8") as f:
+        # Probably should not use DictReader. It's reading None for
+        # 'node2;kgtk:high_tolerance' and 'node2;kgtk:low_tolerance'
+        # values as the string 'None'. Added hack in
+        # get_quantity_object() function.
         reader = DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
         row_num = 1
         for row in reader:

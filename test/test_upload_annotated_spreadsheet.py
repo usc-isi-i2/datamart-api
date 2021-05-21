@@ -14,8 +14,7 @@ class TestUploadSpreadsheet(unittest.TestCase):
             "url": "http://unittest102.org"
         }
 
-    # Remove for now
-    def _test_upload_annotated_spreadsheet_1(self):
+    def test_upload_annotated_spreadsheet_1(self):
         delete(f'{self.url}/metadata/datasets/unittestuploaddataset?force=True')
 
         response = post(f'{self.url}/metadata/datasets', json=self.metadata)
