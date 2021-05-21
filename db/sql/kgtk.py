@@ -212,7 +212,6 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
             statement += ',\n'.join(values)
             if not fail_if_duplicate:
                 statement += "\nON CONFLICT DO NOTHING;"
-            print(statement)
             cursor.execute(statement)
 
     def save_objects(type_name: str, objects: List[Tuple], fail_if_duplicate):
