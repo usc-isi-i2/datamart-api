@@ -4,7 +4,7 @@ services:
   db:
     image: postgres:11
     restart: always
-    container_name: datamart-test-postgres
+    container_name: datamart-postgres
     shm_size: 2gb
     environment:
       - POSTGRES_PASSWORD=postgres
