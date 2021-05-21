@@ -11,16 +11,13 @@ COPY requirements.txt /src/requirements.txt
 
 RUN pip install -r src/requirements.txt && pip uninstall -y torch
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout causeex
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 9904fa5fb54965ddbaecc6b04c8e283566d4ad0f
 
 # Uninstall unnecessary packages
 RUN pip install -e t2wml-annotation && pip uninstall -y torch
 
 RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout 6f4f1ebe6c46d493bf25d29e17dfdb54cc179432
 RUN pip install -e t2wml-api
-
-# Something installs an old kgtk, we need the new one
-RUN pip install --upgrade kgtk
 
 ## Install psql, assuming OS version "buster"
 # sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
@@ -31,6 +28,8 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt buster-pgdg main" > /etc/a
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN apt-get update
 RUN apt-get -y install postgresql
+
+RUN pip list
 
 COPY . /src
 RUN mkdir -p /src/instance
