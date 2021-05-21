@@ -1,3 +1,5 @@
+'Copy from datamart-api/api/kgtk_replacement.py'
+
 from datetime import date
 import pandas as pd
 import ast
@@ -9,7 +11,7 @@ import csv
 from pathlib import Path
 import regex as re
 
-from .regex_defination import number_or_quantity_pat, lax_date_and_times_pat
+from .regex_defination import lax_number_or_quantity_pat, lax_date_and_times_pat
 
 
 def build_wikidata_id(row, node1_column_idx, node2_column_idx, label_column_idx, value_hash_width=6, id_separator="-"):
@@ -19,6 +21,27 @@ def build_wikidata_id(row, node1_column_idx, node2_column_idx, label_column_idx,
     else:
         return row[node1_column_idx] + id_separator + row[label_column_idx] + id_separator + \
             hashlib.sha256(node2_value.encode('utf-8')).hexdigest()[:value_hash_width]
+
+def add_ids2(df, overwrite_id=False):
+    ''''This version assume the "id" column exists. By default it does not overide existind ids'''
+    def build_wikidata_id2(row, value_hash_width=6, id_separator="-"):
+        node2_value = row['node2']
+        if value_hash_width > 0 and node2_value.startswith(('L', 'P', 'Q')):
+            return row['node1'] + id_separator + row['label'] + id_separator + row['node2']
+        else:
+            return row['node1'] + id_separator + row['label'] + id_separator + \
+                hashlib.sha256(node2_value.encode('utf-8')).hexdigest()[:value_hash_width]
+
+    def create_id(row):
+        if overwrite_id or not row['id']:
+            new_id = build_wikidata_id2(row)
+        else:
+            new_id = row['id']
+        return new_id
+    id_col = df.apply(create_id, axis=1)
+    new_df = df.copy()
+    new_df['id'] = id_col
+    return new_df
 
 def add_ids(df):
     column_names = df.columns.copy()
@@ -67,7 +90,7 @@ def add_ids(df):
 
     df[new_id_column_name] = None # add a new column for the ids.
     for i, row in df.iterrows():
-        # if add_new_id_column: 
+        # if add_new_id_column:
         #     row.append("")
         # elif old_id_column_idx >= 0:
         #     if row[old_id_column_idx] != "":
@@ -318,7 +341,7 @@ def is_string(value, verbose=False):
             print("KgtkValue.strict_string_re.match failed for %s" % value, flush=True) # file=self.error_file
         return False
 
-    return {"data_type": DataType.STRING.lower(), 
+    return {"data_type": DataType.STRING.lower(),
             "text": m.group("text"),
             "decoded_text": unstringify('"' + m.group("text") + '"')}
 
@@ -407,7 +430,8 @@ def is_number_or_quantity(value, verbose=False):
     if not value.startswith(("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", ".")):
         return False
         # Numeric literals.
-    number_or_quantity_re = re.compile(r'^' + number_or_quantity_pat + r'$')
+    # Use lax pattern
+    number_or_quantity_re = re.compile(r'^' + lax_number_or_quantity_pat + r'$')
     m = number_or_quantity_re.match(value)
     if m is None:
         if verbose:
@@ -437,7 +461,7 @@ def is_number_or_quantity(value, verbose=False):
         except ValueError:
             if verbose:
                 print("KgtkValue.is_number_or_quantity: high tolerance is not float for %s" % (repr(value)),
-                        flush=True) # file=self.error_file, 
+                        flush=True) # file=self.error_file,
             return False
     # For convenience, convert the numeric part to int or float:
     if numberstr is None:
@@ -509,7 +533,7 @@ def is_location_coordinates(value, verbose=False):
             print("KgtkValue.is_location_coordinates: lat is not float for %s" % (repr(value)),
                     flush=True) #  file=self.error_file,
         return False
-    
+
     # Longitude normally runs from -180 to +180:
     minimum_valid_lon = -180
     maximum_valid_lon = 180
@@ -530,7 +554,7 @@ def is_location_coordinates(value, verbose=False):
             print("KgtkValue.is_location_coordinates: lon is not float for %s" % (repr(value)),
                      flush=True) # file=self.error_file,
         return False
-    
+
     return {
         "data_type": DataType.LOCATION_COORDINATES.lower(),
         "valid": True,
@@ -782,6 +806,28 @@ def get_field_map(value): # classify
         }
 
 
+def implode_node2(row):
+    if row['node2;kgtk:data_type'] == 'quantity':
+        node2 = row['node2'] + row['node2;kgtk:units_node']
+    elif row['node2;kgtk:data_type'] == 'date_and_times':
+        node2 = '^' + row['node2'] + '/' + str(row['node2;kgtk:precision'])
+    elif row['node2;kgtk:data_type'] == 'symbol':
+        node2 = row['node2']
+    elif row['node2;kgtk:data_type'] == 'location_coordinates':
+        node2 = '@' + str(row['node2;kgtk:latitude']) + '/' + str(row['node2;kgtk:longitude'])
+    elif row['node2;kgtk:data_type'] == 'string':
+        node2 = row['node2;kgtk:text']
+    else:
+        raise ValueError(f"Data type not recognize: {row['node2;kgtk:data_type']}")
+    return node2
+
+
+def implode(df):
+    imploded = df[['id', 'node1', 'label']].copy()
+    imploded['node2'] = df.apply(implode_node2, axis=1)
+    return imploded
+
+
 class ExplodePipeline:
     def __init__(self, frame):
         self._dir = tempfile.mkdtemp()
@@ -794,11 +840,11 @@ class ExplodePipeline:
     @property
     def input(self):
         return Path(self._dir, 'input.tsv')
-    
+
     @property
     def output(self):
         return Path(self._dir, 'exploded.tsv')
-    
+
     def create_output(self, output_frame):
         output_frame.to_csv(self.output, sep='\t', index=False, quoting=csv.QUOTE_NONE, quotechar='')
 
