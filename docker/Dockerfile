@@ -11,12 +11,12 @@ COPY requirements.txt /src/requirements.txt
 
 RUN pip install -r src/requirements.txt && pip uninstall -y torch
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 1c750e99ad34467d85ff478603a338015bbfe67f
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout causeex
 
 # Uninstall unnecessary packages
 RUN pip install -e t2wml-annotation && pip uninstall -y torch
 
-RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout causeex
+RUN git clone https://github.com/usc-isi-i2/t2wml-api && cd t2wml-api && git checkout 6f4f1ebe6c46d493bf25d29e17dfdb54cc179432
 RUN pip install -e t2wml-api
 
 # Something installs an old kgtk, we need the new one
