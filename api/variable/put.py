@@ -11,7 +11,9 @@ from db.sql.utils import query_to_dicts
 from db.sql.kgtk import import_kgtk_dataframe
 from api.metadata.update import DatasetMetadataUpdater
 from api.variable.delete import VariableDeleter
-from .ethiopia_wikifier import EthiopiaWikifier
+
+# Not needed for Causx version. Importing will import tablelinker which requires kgtk
+# from .ethiopia_wikifier import EthiopiaWikifier
 from .country_wikifier import DatamartCountryWikifier
 
 
