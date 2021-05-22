@@ -7,13 +7,11 @@ import tempfile
 import shutil
 import tarfile
 from flask import send_from_directory
-from annotation.main import T2WMLAnnotation
+# from annotation.main import T2WMLAnnotation
 from db.sql.kgtk import import_kgtk_dataframe
 from api.variable.delete import VariableDeleter
 from api.metadata.main import DatasetMetadataResource, VariableMetadataResource
-from api.metadata.metadata import DatasetMetadata
-from api.metadata.update import DatasetMetadataUpdater
-from annotation.validation.validate_annotation import ValidateAnnotation
+# from annotation.validation.validate_annotation import ValidateAnnotation
 from time import time
 import traceback
 

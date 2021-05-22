@@ -1,6 +1,6 @@
 import datetime
 import json
-import os.path
+import os
 
 class CustomEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -11,12 +11,13 @@ class CustomEncoder(json.JSONEncoder):
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 STORAGE_BACKEND = 'postgres'
+
 POSTGRES = dict(
-    database = 'wikidata',
-    host = 'localhost',
-    port = 5433,
-    user = 'postgres',
-    password = 'postgres',
+   host = os.environ.get("DB_HOST", default="localhost"),
+   port = os.environ.get("DB_PORT", default="5433"),
+   database = os.environ.get("DB_NAME", default="wikidata"),
+   user = os.environ.get("DB_USER", default="postgres"),
+   password = os.environ.get("DB_PASSWORD", default="postgres"),
 )
 
 METADATA_DIR = os.path.join(BASE_DIR, 'metadata')

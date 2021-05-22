@@ -1,7 +1,6 @@
 # This file contains code that imports a KGTK file into the database. This code is taken from the postgres-wikidata
 # repository, and should at some point be united into the KGTK toolkit
 
-from api.kgtk_wrapper import KGTKPipeline
 import csv
 # Import edges from a KGTK TSV file
 import datetime
@@ -12,7 +11,8 @@ import tempfile
 import time
 from csv import DictReader
 from typing import Tuple, List, Dict
-from api import kgtk_wrapper
+from api.kgtk_replacement import ExplodePipeline
+from api import kgtk_replacement
 
 import dateutil.parser
 
@@ -81,19 +81,27 @@ def create_edge_objects(row):
     def get_quantity_object(row):
         number = row.get('node2;kgtk:number')
         if not number:
-            return None
+            if number == 0:
+                pass
+            else:
+                return None
         try:
             number = float(number)
         except ValueError:
             return None
 
-        high_tolerance = row.get('node2;kgtk:high_tolerance') or None
-        low_tolerance = row.get('node2;kgtk:low_tolerance') or None
+        high_tolerance = row.get('node2;kgtk:high_tolerance', None)
+        low_tolerance = row.get('node2;kgtk:low_tolerance', None)
         try:
-            if high_tolerance:
+            # Hack if value is string 'None' then treat it as None.
+            if high_tolerance and not high_tolerance == 'None':
                 high_tolerance = float(high_tolerance)
-            if low_tolerance:
+            else:
+                high_tolerance = None
+            if low_tolerance and not low_tolerance == 'None':
                 low_tolerance = float(low_tolerance)
+            else:
+                low_tolerance = None
         except ValueError:
             raise ValueError('High or low tolerance not numeric', row)
 
@@ -102,7 +110,7 @@ def create_edge_objects(row):
                              number=number, high_tolerance=high_tolerance, low_tolerance=low_tolerance, unit=unit)
 
     def get_symbol_object(row):
-        symbol = row['node2;kgtk:symbol']
+        symbol = row.get('node2;kgtk:symbol')
         if symbol == '' or symbol is None:
             return None
         return SymbolValue(edge_id=row['id'], symbol=symbol)
@@ -137,7 +145,7 @@ def unquote_dict(row: dict):
         row[key] = unquote(value)
 
 def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fail_if_duplicate=False, conn=None):
-    """ This function takes an exploded KGTK edge file and imports it into the database.
+    """ This function takes a KGTK edge file and imports it into the database.
 
     It has several modes of operations:
     delete = True  ==> edges from the kgtk file are deleted, not created
@@ -145,6 +153,8 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     fail_duplicate = True => duplicate edges cause a failure
 
     If all flags are False, edges are going to be added. Duplicated edges are not touched in the database.
+
+    If the file is not exploded, the function explodes it itself.
     """
     def column_names(fields):
         for field in fields:
@@ -240,13 +250,27 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     obj_map: Dict[str, List[Tuple]] = dict()   # Map from value type to list of (edge, value)
     start = time.time()
     print("Reading rows")
+
     with open(filename, "r", encoding="utf-8") as f:
+        # Probably should not use DictReader. It's reading None for
+        # 'node2;kgtk:high_tolerance' and 'node2;kgtk:low_tolerance'
+        # values as the string 'None'. Added hack in
+        # get_quantity_object() function.
         reader = DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
         row_num = 1
         for row in reader:
             row_num += 1
-            unquote_dict(row)
             try:
+                data_type = row.get("node2;kgtk:data_type")
+                if not data_type:
+                    # File is not exploded, explode it ourselves.
+                    prefix = "node2;kgtk:"
+                    field_map = kgtk_replacement.get_field_map(row['node2'])
+                    unquote_dict(row)
+                    for key, value in field_map.items():
+                        row[prefix + key] = value
+                else:
+                    unquote_dict(row)
                 edge, value = create_edge_objects(row)
             except:
                 print(f"Error in row {row_num}")
@@ -270,6 +294,7 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
         config = dict(POSTGRES=config)
 
     try:
+        our_conn = False
         if not conn:
             conn = postgres_connection(config)
             our_conn = True
@@ -296,9 +321,9 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     return
 
 def import_kgtk_dataframe(df, config=None, is_file_exploded=False, fail_if_duplicate=False, conn=None):
-    with KGTKPipeline(df) as ctx:
+    with ExplodePipeline(df) as ctx:
         if not is_file_exploded:
-            kgtk_wrapper.explode(ctx, 'input.tsv', 'exploded.tsv')
+            df = kgtk_replacement.explode(df, ctxPipeline=ctx)
             path = ctx.get_file('exploded.tsv')
         else:
             path = ctx.get_file('input.tsv')
