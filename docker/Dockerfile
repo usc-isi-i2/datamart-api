@@ -11,9 +11,8 @@ COPY requirements.txt /src/requirements.txt
 
 RUN pip install -r src/requirements.txt && pip uninstall -y torch
 
-# Commit hash is head of causeex branch
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 9904fa5fb54965ddbaecc6b04c8e283566d4ad0f
-
+# Commit hash is head of master branch
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 3a835c2d6c809da1c8cc9e233b97473d77f6ed76
 
 # Uninstall unnecessary packages
 RUN pip install -e t2wml-annotation && pip uninstall -y torch
