@@ -3,7 +3,7 @@ from pathlib import Path
 
 from requests import get, delete
 
-from .utility import create_dataset, upload_data_post
+from test.utility import create_dataset, upload_data_post
 
 
 class TestCreateDataset(unittest.TestCase):
