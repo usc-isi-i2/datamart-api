@@ -12,7 +12,7 @@ install:
   - cd ..
   - pip install pandas
   - pip install requests
-  - pip install psycopg2 flask sqlalchemy rltk==2.0.0a17 kgtk==0.3.2
+  - pip install psycopg2 flask sqlalchemy rltk==2.0.0a17 regex
 script:
   - pwd
   - python -m unittest discover -s test -p "test_*.py"

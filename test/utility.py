@@ -7,7 +7,7 @@ import typing
 import pandas as pd
 
 from requests import put
-from requests import post, delete, get
+from requests import put, post, delete, get
 
 
 _remove_pattern = re.compile(r'''["' ]''')
@@ -22,6 +22,16 @@ def upload_data_put(file_path, url):
             'file': (file_name, fd, 'application/octet-stream')
         }
         result = put(url, files=files)
+    return result
+
+
+def upload_data_post(file_path, url, key='file'):
+    file_name = os.path.basename(file_path)
+    with open(file_path, mode='rb') as fd:
+        files = {
+            key: (file_name, fd, 'application/octet-stream')
+        }
+        result = post(url, files=files)
     return result
 
 

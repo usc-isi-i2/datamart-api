@@ -6,7 +6,7 @@ The content of the Datamart is a set of datasets, which in turn consists of one 
 
 The canonical data format used by the Datamart is the text delimited file (CSV). Details of the canonical data format and examples are here: [Canonical Data Format](https://datamart-upload.readthedocs.io/en/latest/download/)
 
-Using the default configuration the Datamart REST URL is `http://localhost:14080/`. The details of the individual REST endpoints are described here: [Datamart REST API](https://datamart-upload.readthedocs.io/en/latest/api/)
+Using the default configuration the Datamart REST URL is `http://localhost:12543/`. The details of the individual REST endpoints are described here: [Datamart REST API](https://datamart-upload.readthedocs.io/en/latest/api/)
 
 If for some reason your are running the development version of the Datamart, the URL is `http://localhost:5000/`
 
@@ -33,7 +33,7 @@ The docker compose yaml file, `docker-compose.yml`, uses docker compose version 
 
 On start up Postgres checks if the `postgres` volume exists. If it does not exist, the volume is created using the contents of the `dev-env/data/postgres/datamart.sql.gz` file.
 
-The ISI Datamart REST endpoints is `http://localhost:14080/`.
+The ISI Datamart REST endpoints is `http://localhost:12543/`.
 
 Once database is up and running, run this script (first time only) to create SQL views for variable search
 
@@ -44,7 +44,7 @@ python script/create_search_views.py
 After adding more data to the database, please run,
 
 ```
-    python script/refresh_search_views.py 
+    python script/refresh_search_views.py
 ```
 
 **IMPORTANT: refreshing SQL views is vital to ensure country and admin level search working**
@@ -60,7 +60,7 @@ The Datamart comes with a few datasets pre-loaded. They include data from OECD, 
 
 To backup the current Postgres database, run
 
-    docker exec -it datamart-postgres /bin/bash
+    docker exec -it datamart-empty-postgres /bin/bash
     # From inside the docker container
     pg_dump --user postgres wikidata | gzip > /backup/datamart-backup.sql.gz
 
@@ -88,7 +88,7 @@ faster than the first time.
 To delete the existing database use the `--volumes` option to bring down docker compose. This command destroys the `postgres` volume.
 
     docker-compose down --volumes
-    
+
 **IMPORTANT: this command will wipe out the database. To simply shutdown the docker, run `docker-compose down` instead**
 
 Replace the `dev-env/data/postgres/datamart.sql.gz` file with the new `.sql.gz` file.

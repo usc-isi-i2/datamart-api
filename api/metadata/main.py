@@ -453,6 +453,10 @@ class DatasetMetadataResource(Resource):
         # validate
         results = [DatasetMetadata().from_dict(x).to_dict() for x in results]
 
+        # For now, always return a list
+        # if dataset:
+        #     results = results[0]
+
         return results, 200
 
     def delete(self, dataset=None):

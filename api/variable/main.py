@@ -2,7 +2,6 @@ from flask_restful import Resource
 from .get import VariableGetter
 from .put import CanonicalData
 from .delete import VariableDeleter
-from .get_all import VariableGetterAll
 
 
 class VariableResource(Resource):
@@ -25,5 +24,7 @@ class VariableResource(Resource):
 
 class VariableResourceAll(Resource):
     def get(self, dataset=None):
+        from .get_all import VariableGetterAll  # Resolve circular import
+
         g = VariableGetterAll()
         return g.get(dataset)
