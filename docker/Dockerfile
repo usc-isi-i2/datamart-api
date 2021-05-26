@@ -12,7 +12,7 @@ COPY requirements.txt /src/requirements.txt
 RUN pip install -r src/requirements.txt
 
 # Commit hash is head of causeex branch
-RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout 9904fa5fb54965ddbaecc6b04c8e283566d4ad0f
+RUN git clone https://github.com/usc-isi-i2/t2wml-annotation && cd t2wml-annotation && git checkout cc0aa451cbeb24a03790a9b48d16fec3e29cfc70
 
 
 # Uninstall unnecessary packages
