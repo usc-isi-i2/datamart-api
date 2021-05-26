@@ -1,0 +1,55 @@
+dataset,iDATAUnitTest,,,,,
+role,main subject,variable,time,time,qualifier,qualifier
+type,country,number,year,month,string,string
+description,,,,,,
+name,,,,,,
+unit,,,,,,
+tag,,,,,,
+header,Country,Event Count,Year,Month,CAMEO_code,Source Country
+data,Russia,0,2020,5,13,Russian Federation
+,Russia,0,2020,6,13,Russian Federation
+,Russia,1,2020,5,30,Russian Federation
+,Russia,0,2020,6,30,Russian Federation
+,Russia,1,2020,5,57,Russian Federation
+,Russia,0,2020,5,51,Russian Federation
+,Russia,0,2020,5,127,Russian Federation
+,Russia,0,2020,6,127,Russian Federation
+,Russia,0,2020,5,20,Russian Federation
+,Russia,1,2020,5,36,Russian Federation
+,Russia,1,2020,6,50,Russian Federation
+,Russia,1,2020,6,120,Russian Federation
+,Russia,0,2020,5,19,Belarus
+,Russia,0,2020,6,19,Belarus
+,Russia,0,2020,5,32,Belarus
+,Russia,0,2020,5,172,Belarus
+,Russia,0,2020,6,172,Belarus
+,Russia,0,2020,5,73,Belarus
+,Russia,0,2020,6,73,Belarus
+,Russia,0,2020,5,130,Belarus
+,Russia,0,2020,6,130,Belarus
+,Russia,1,2020,5,50,Belarus
+,Russia,0,2020,5,20,Japan
+,Russia,0,2020,6,20,Japan
+,Russia,0,2020,6,10,Japan
+,Russia,0,2020,5,30,Japan
+,Russia,1,2020,5,57,Japan
+,Russia,0,2020,6,57,Japan
+,Russia,0,2020,6,40,Japan
+,Russia,1,2020,5,51,Japan
+,Russia,1,2020,6,46,Japan
+,Russia,1,2020,6,111,Japan
+,Russia,0,2020,5,40,Poland
+,Russia,0,2020,6,40,Poland
+,Russia,0,2020,5,57,Iran
+,Russia,0,2020,6,57,Iran
+,Russia,1,2020,6,36,Iran
+,Russia,0,2020,5,73,China
+,Russia,1,2020,6,73,China
+,Russia,0,2020,5,51,China
+,Russia,0,2020,6,40,China
+,Russia,1,2020,5,32,China
+,Russia,1,2020,6,41,China
+,Russia,0,2020,5,40,Latvia
+,Russia,0,2020,6,40,Latvia
+,Russia,0,2020,5,43,Latvia
+,Russia,0,2020,6,43,Latvia

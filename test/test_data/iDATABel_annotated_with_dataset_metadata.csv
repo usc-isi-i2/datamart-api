@@ -1,0 +1,55 @@
+dataset,iDATAUnitTest,iDATAUnitTest,"IDATA, formerly the Integrated Crisis Warning System (ICEWS), is the premier event data coding system. Originally developed in 2007, IDATA uses automated coding to produce an event database by analyzing news stories from hundreds of sources across the globe, using feeds from Factiva and the Open Source Enterprise. The database includes millions of time-stamped, geolocated events from 2000 and is updated weekly. ",https://dataverse.harvard.edu/dataverse/icews,,
+role,main subject,variable,time,time,qualifier,qualifier
+type,country,number,year,month,string,string
+description,,,,,,
+name,,,,,,
+unit,,,,,,
+tag,,FactorClass:http://ontology.causeex.com/ontology/odps/ICM#EconomicAgriculturalCapability|Relevance:0.75|Normalizer:Longitudinal|Units:Sq. Km|DocID:7c5bd533156aaabf38e5103a0f7ff7f7,,,,
+header,Country,Event Count,Year,Month,CAMEO_code,Source Country
+data,Belarus,0,2020,5,13,Russian Federation
+,Belarus,0,2020,6,13,Russian Federation
+,Belarus,1,2020,5,30,Russian Federation
+,Belarus,0,2020,6,30,Russian Federation
+,Belarus,1,2020,5,57,Russian Federation
+,Belarus,0,2020,5,51,Russian Federation
+,Belarus,0,2020,5,127,Russian Federation
+,Belarus,0,2020,6,127,Russian Federation
+,Belarus,0,2020,5,20,Russian Federation
+,Belarus,1,2020,5,36,Russian Federation
+,Belarus,1,2020,6,50,Russian Federation
+,Belarus,1,2020,6,120,Russian Federation
+,Belarus,0,2020,5,19,Belarus
+,Belarus,0,2020,6,19,Belarus
+,Belarus,0,2020,5,32,Belarus
+,Belarus,0,2020,5,172,Belarus
+,Belarus,0,2020,6,172,Belarus
+,Belarus,0,2020,5,73,Belarus
+,Belarus,0,2020,6,73,Belarus
+,Belarus,0,2020,5,130,Belarus
+,Belarus,0,2020,6,130,Belarus
+,Belarus,1,2020,5,50,Belarus
+,Belarus,0,2020,5,20,Japan
+,Belarus,0,2020,6,20,Japan
+,Belarus,0,2020,6,10,Japan
+,Belarus,0,2020,5,30,Japan
+,Belarus,1,2020,5,57,Japan
+,Belarus,0,2020,6,57,Japan
+,Belarus,0,2020,6,40,Japan
+,Belarus,1,2020,5,51,Japan
+,Belarus,1,2020,6,46,Japan
+,Belarus,1,2020,6,111,Japan
+,Belarus,0,2020,5,40,Poland
+,Belarus,0,2020,6,40,Poland
+,Belarus,0,2020,5,57,Iran
+,Belarus,0,2020,6,57,Iran
+,Belarus,1,2020,6,36,Iran
+,Belarus,0,2020,5,73,China
+,Belarus,1,2020,6,73,China
+,Belarus,0,2020,5,51,China
+,Belarus,0,2020,6,40,China
+,Belarus,1,2020,5,32,China
+,Belarus,1,2020,6,41,China
+,Belarus,0,2020,5,40,Latvia
+,Belarus,0,2020,6,40,Latvia
+,Belarus,0,2020,5,43,Latvia
+,Belarus,0,2020,6,43,Latvia
