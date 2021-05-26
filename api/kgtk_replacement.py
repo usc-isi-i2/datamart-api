@@ -1,5 +1,3 @@
-'Copy from datamart-api/api/kgtk_replacement.py'
-
 from datetime import date
 import pandas as pd
 import ast
@@ -10,6 +8,7 @@ import shutil
 import csv
 from pathlib import Path
 import regex as re
+import math
 
 from .regex_defination import lax_number_or_quantity_pat, lax_date_and_times_pat
 
@@ -808,7 +807,10 @@ def get_field_map(value): # classify
 
 def implode_node2(row):
     if row['node2;kgtk:data_type'] == 'quantity':
-        node2 = row['node2'] + row['node2;kgtk:units_node']
+        if isinstance(row['node2;kgtk:units_node'], str):
+            node2 = row['node2'] + row['node2;kgtk:units_node']
+        else:
+            node2 = row['node2']
     elif row['node2;kgtk:data_type'] == 'date_and_times':
         node2 = '^' + row['node2'] + '/' + str(row['node2;kgtk:precision'])
     elif row['node2;kgtk:data_type'] == 'symbol':
