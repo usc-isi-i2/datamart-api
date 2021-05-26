@@ -49,12 +49,9 @@ class TestUploadSpreadsheet(unittest.TestCase):
                     'url': 'https://dataverse.harvard.edu/dataverse/icews',
                     'dataset_id': 'iDATAUnitTest',
                     'last_update_precision': '14'}
-        columns = ['dataset_id', 'variable_id', 'variable', 'main_subject',
-                   'main_subject_id', 'value', 'time', 'time_precision', 'country',
-                   'country_id', 'admin1', 'admin2', 'admin3', 'region_coordinate',
-                   'stated_in', 'stated_in_id', 'Source Country', 'CAMEO_code',
-                   'stated in', 'DocID', 'Units', 'Normalizer', 'Relevance',
-                   'FactorClass']
+        columns = ['CAMEO_code', 'DocID', 'FactorClass', 'Normalizer', 'Relevance', 'Source Country', 'Units', 'admin1', 'admin2', 'admin3',
+                   'country', 'country_id', 'dataset_id', 'main_subject', 'main_subject_id', 'region_coordinate',
+                   'stated in', 'stated_in', 'stated_in_id', 'time', 'time_precision', 'value', 'variable', 'variable_id']
         url = self.url
 
         delete(f'{url}/metadata/datasets/{dataset_id}?force=True')
@@ -100,19 +97,25 @@ class TestUploadSpreadsheet(unittest.TestCase):
         response = get(f'{url}/datasets/{dataset_id}/variables/event_count')
         self.assertEqual(response.status_code, 200, response.text)
         df = pd.read_csv(StringIO(response.text))
-        self.assertTrue((df.columns == columns).all(), df.columns)
+        result_cols = [x for x in df.columns]
+        result_cols.sort()
+        self.assertTrue(result_cols == columns, result_cols)
         self.assertEqual(len(df), 94, 'Missing rows: {len(df)} != 94')
 
         response = get(f'{url}/datasets/{dataset_id}/variables/event_count?country=Russia')
         self.assertEqual(response.status_code, 200, response.text)
         df = pd.read_csv(StringIO(response.text))
-        self.assertTrue((df.columns == columns).all(), df.columns)
+        result_cols = [x for x in df.columns]
+        result_cols.sort()
+        self.assertTrue(result_cols == columns, result_cols)
         self.assertEqual(len(df), 47, 'Missing rows: {len(df)} != 47')
 
         response = get(f'{url}/datasets/{dataset_id}/variables/event_count?country=Belarus')
         self.assertEqual(response.status_code, 200, response.text)
         df = pd.read_csv(StringIO(response.text))
-        self.assertTrue((df.columns == columns).all(), df.columns)
+        result_cols = [x for x in df.columns]
+        result_cols.sort()
+        self.assertTrue(result_cols == columns, result_cols)
         self.assertEqual(len(df), 47, 'Missing rows: {len(df)} != 47')
 
         response = delete(f'{url}/metadata/datasets/{dataset_id}?force=True')
