@@ -2,7 +2,7 @@
 
 import os
 
-POSTGRES = dict(
+DB = dict(
     database = os.environ.get('POSTGRES_DB', 'wikidata'),
     host = os.environ.get('POSTGRES_HOST', 'db'),
     port = int(os.environ.get('POSTGRES_PORT', 5432)),

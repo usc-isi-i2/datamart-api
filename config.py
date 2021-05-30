@@ -10,9 +10,9 @@ class CustomEncoder(json.JSONEncoder):
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
-STORAGE_BACKEND = 'postgres'
+STORAGE_BACKEND = 'postgres'  # Can be sqlserver as well
 
-POSTGRES = dict(
+DB = dict(
    host = os.environ.get("DB_HOST", default="localhost"),
    port = os.environ.get("DB_PORT", default="5433"),
    database = os.environ.get("DB_NAME", default="wikidata"),

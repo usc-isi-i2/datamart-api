@@ -5,7 +5,7 @@ import psycopg2
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from db.sql.utils import postgres_connection
-from config import POSTGRES
+from config import DB
 
 def parse_args():
     parser = ArgumentParser()
@@ -83,7 +83,7 @@ def main():
         coordinates = 'edge_id, longitude, latitude, precision',
         symbols = 'edge_id, symbol',
     )
-    config_object = { 'POSTGRES': POSTGRES }
+    config_object = { 'DB': DB }
     with postgres_connection(config_object) as conn:
         with conn.cursor() as cursor:
             disable_indices(cursor)

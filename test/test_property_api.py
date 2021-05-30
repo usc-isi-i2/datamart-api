@@ -8,7 +8,7 @@ from db.sql.kgtk import import_kgtk_dataframe
 
 from requests import get, put, post, delete
 
-config = dict(POSTGRES = dict(
+config = dict(DB = dict(
     database = 'wikidata',
     host = 'localhost',
     port = 5433,

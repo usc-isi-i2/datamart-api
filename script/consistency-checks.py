@@ -6,7 +6,7 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from config import POSTGRES
+from config import DB
 from db.sql.utils import postgres_connection
 
 def check_double_labels(conn):
@@ -83,7 +83,7 @@ def run():
     print('Performing consistency checks on the Datamart Database')
     print()
 
-    with postgres_connection(config={'POSTGRES': POSTGRES}) as conn:
+    with postgres_connection(config={'DB': DB}) as conn:
         with conn.cursor() as cursor:
             check_double_labels(conn)
             check_no_label(conn)

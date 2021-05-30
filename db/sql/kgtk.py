@@ -290,8 +290,8 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
         return
 
     # Time to write the edges
-    if config and not 'POSTGRES' in config:
-        config = dict(POSTGRES=config)
+    if config and not 'DB' in config:
+        config = dict(DB=config)
 
     try:
         our_conn = False

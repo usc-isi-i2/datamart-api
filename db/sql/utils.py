@@ -16,10 +16,25 @@ def _get_postgres_config(config=None):
             raise ValueError('postgres_connection must receive a config if Flask.current_app is not defined')
         config = current_app.config
 
-    return config['POSTGRES']
+    return config['DB']
+
+def _get_db_config(config=None):
+    if config is None:
+        if not current_app or not current_app.config:
+            raise ValueError('_get_db_config must receive a config if Flask.current_ap is not defined')
+        config = current_app.config
+
+    if 'DB' not in config and 'STORAGE_BACKEND' not in config:
+        raise ValueError('Configuration must have both STORAGE_BACKEND and DB defined')
+
+    return config
 
 def postgres_connection(config=None):
-    postgres = _get_postgres_config(config)
+    config = _get_db_config(config)
+    if config['STORAGE_BACKEND'] != 'postgres':
+        raise ValueError("Storage backend is not set to postgres, can't create a Postgres connection")
+        
+    postgres = config['DB']
     conn = psycopg2.connect(**postgres)
     return conn
 

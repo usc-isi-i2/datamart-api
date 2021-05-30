@@ -8,7 +8,7 @@ import sys
 # to the PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from config import POSTGRES
+from config import DB
 from db.sql.search_views import (create_view, does_view_exists, drop_view,
                                  get_view_name, ADMIN_TYPES)
 from db.sql.utils import postgres_connection
@@ -26,7 +26,7 @@ def run():
 
     args = parse_args()
 
-    config = dict(POSTGRES=POSTGRES)
+    config = dict(DB=DB)
     with postgres_connection(config) as conn:
         for admin, admin_pnode in ADMIN_TYPES.items():
             if does_view_exists(conn, admin):

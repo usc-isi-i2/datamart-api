@@ -16,6 +16,16 @@ services:
       - ./data/postgres:/backup
     ports:
       - "5433:5432"
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2017-latest
+    environment:
+      - ACCEPT_EULA=y
+      - SA_PASSWORD=password!12
+    volumes:
+      - sqlserver:/var/opt/mssql/data
+    ports:
+      - "1433:1433"
+
 
 # Use internal Docker presistent volumes for Postgres storage, as Windows is having issues with mounting
 # local folders as Postgres data folders
@@ -23,3 +33,5 @@ services:
 volumes:
     postgres:
         name: datamart-postgres-base-volume
+    sqlserver:
+        name: datamart-sql-server-base-volume

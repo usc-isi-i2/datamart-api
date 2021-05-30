@@ -1,0 +1,40 @@
+A sketch for adding support for SQL Server, in addition to the Postgres support.
+
+Queries:
+
+Queries can be different, so we need a way to hold all the queries, and provide DB specific helpers.
+Problem: The automatic JOINs added in the code, which may need to be handled differently - although they probaby are OK.
+It is likely that most queries will run properly on both databases, so we will only add queries that are different:
+
+Operations:
+
+The operations we have are opening a connection, executing a statement, getting a cursor, handling transactions.
+We can create a DB class with two implementations:
+
+class Postgres:
+    def __init___(self):...
+
+    def connect(self, config=config): .... returns a PostgresConnection class
+
+
+class PostgresConnection:
+    # Resource handler, so with Postgres,connect(...) works.
+    # Functions
+
+    def execute(statement)  : returns cursor for looping over results
+    def commit()  manually commits the transaction. Will be called when connection is closed
+    def close()
+
+
+class Sqlserver:
+    def __init__(self): ...
+    def connect(self, config=config): returns an SqlConnection instance
+
+class SqlConnection:
+    def execute
+    def commit
+    def close
+
+We may have to wrap the cursor, too, although query_to_dicts should be enough, since it's the only call that's supposed to retrieve data.
+
+Some utilities use config.POSTGRES - they will need to use config, and decide which connection to use based on the config

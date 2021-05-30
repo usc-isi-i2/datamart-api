@@ -1,0 +1,236 @@
+USE [master]
+GO
+/****** Object:  Database [wikidata]    Script Date: 27/05/2021 13:05:08 ******/
+CREATE DATABASE [wikidata]
+ CONTAINMENT = NONE
+ ON  PRIMARY 
+( NAME = N'wikidata', FILENAME = N'/var/opt/mssql/data/wikidata.mdf' , SIZE = 8192KB , MAXSIZE = UNLIMITED, FILEGROWTH = 65536KB )
+ LOG ON 
+( NAME = N'wikidata_log', FILENAME = N'/var/opt/mssql/data/wikidata_log.ldf' , SIZE = 8192KB , MAXSIZE = 2048GB , FILEGROWTH = 65536KB )
+GO
+ALTER DATABASE [wikidata] SET COMPATIBILITY_LEVEL = 140
+GO
+IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
+begin
+EXEC [wikidata].[dbo].[sp_fulltext_database] @action = 'enable'
+end
+GO
+ALTER DATABASE [wikidata] SET ANSI_NULL_DEFAULT OFF 
+GO
+ALTER DATABASE [wikidata] SET ANSI_NULLS OFF 
+GO
+ALTER DATABASE [wikidata] SET ANSI_PADDING OFF 
+GO
+ALTER DATABASE [wikidata] SET ANSI_WARNINGS OFF 
+GO
+ALTER DATABASE [wikidata] SET ARITHABORT OFF 
+GO
+ALTER DATABASE [wikidata] SET AUTO_CLOSE OFF 
+GO
+ALTER DATABASE [wikidata] SET AUTO_SHRINK OFF 
+GO
+ALTER DATABASE [wikidata] SET AUTO_UPDATE_STATISTICS ON 
+GO
+ALTER DATABASE [wikidata] SET CURSOR_CLOSE_ON_COMMIT OFF 
+GO
+ALTER DATABASE [wikidata] SET CURSOR_DEFAULT  GLOBAL 
+GO
+ALTER DATABASE [wikidata] SET CONCAT_NULL_YIELDS_NULL OFF 
+GO
+ALTER DATABASE [wikidata] SET NUMERIC_ROUNDABORT OFF 
+GO
+ALTER DATABASE [wikidata] SET QUOTED_IDENTIFIER OFF 
+GO
+ALTER DATABASE [wikidata] SET RECURSIVE_TRIGGERS OFF 
+GO
+ALTER DATABASE [wikidata] SET  ENABLE_BROKER 
+GO
+ALTER DATABASE [wikidata] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
+GO
+ALTER DATABASE [wikidata] SET DATE_CORRELATION_OPTIMIZATION OFF 
+GO
+ALTER DATABASE [wikidata] SET TRUSTWORTHY OFF 
+GO
+ALTER DATABASE [wikidata] SET ALLOW_SNAPSHOT_ISOLATION OFF 
+GO
+ALTER DATABASE [wikidata] SET PARAMETERIZATION SIMPLE 
+GO
+ALTER DATABASE [wikidata] SET READ_COMMITTED_SNAPSHOT OFF 
+GO
+ALTER DATABASE [wikidata] SET HONOR_BROKER_PRIORITY OFF 
+GO
+ALTER DATABASE [wikidata] SET RECOVERY FULL 
+GO
+ALTER DATABASE [wikidata] SET  MULTI_USER 
+GO
+ALTER DATABASE [wikidata] SET PAGE_VERIFY CHECKSUM  
+GO
+ALTER DATABASE [wikidata] SET DB_CHAINING OFF 
+GO
+ALTER DATABASE [wikidata] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
+GO
+ALTER DATABASE [wikidata] SET TARGET_RECOVERY_TIME = 60 SECONDS 
+GO
+ALTER DATABASE [wikidata] SET DELAYED_DURABILITY = DISABLED 
+GO
+EXEC sys.sp_db_vardecimal_storage_format N'wikidata', N'ON'
+GO
+ALTER DATABASE [wikidata] SET QUERY_STORE = OFF
+GO
+USE [wikidata]
+GO
+/****** Object:  Table [dbo].[coordinates]    Script Date: 27/05/2021 13:05:08 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[coordinates](
+	[edge_id] [varchar](50) NOT NULL,
+	[latitude] [numeric](18, 0) NOT NULL,
+	[longitude] [numeric](18, 0) NOT NULL,
+	[precision] [varchar](10) NULL,
+ CONSTRAINT [PK_coordinates] PRIMARY KEY CLUSTERED 
+(
+	[edge_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[dates]    Script Date: 27/05/2021 13:05:08 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[dates](
+	[edge_id] [varchar](50) NOT NULL,
+	[date_and_time] [datetime] NOT NULL,
+	[precision] [varchar](20) NULL,
+	[calendar] [varchar](20) NULL,
+ CONSTRAINT [PK_dates] PRIMARY KEY CLUSTERED 
+(
+	[edge_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[edges]    Script Date: 27/05/2021 13:05:08 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[edges](
+	[id] [varchar](50) NOT NULL,
+	[node1] [varchar](50) NOT NULL,
+	[label] [varchar](20) NOT NULL,
+	[node2] [varchar](700) NOT NULL,
+	[data_type] [varchar](16) NOT NULL,
+ CONSTRAINT [PK__edges__3213E83FAACB05DC] PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[quantities]    Script Date: 27/05/2021 13:05:08 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[quantities](
+	[edge_id] [varchar](50) NOT NULL,
+	[number] [decimal](18, 8) NOT NULL,
+	[unit] [varchar](16) NULL,
+	[low_tolerance] [numeric](18, 8) NULL,
+	[high_tolerance] [numeric](18, 8) NULL,
+ CONSTRAINT [PK_quantities] PRIMARY KEY CLUSTERED 
+(
+	[edge_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[strings]    Script Date: 27/05/2021 13:05:08 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[strings](
+	[edge_id] [varchar](50) NOT NULL,
+	[text] [varchar](500) NOT NULL,
+	[language] [varchar](20) NULL,
+ CONSTRAINT [PK_strings] PRIMARY KEY CLUSTERED 
+(
+	[edge_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[symbols]    Script Date: 27/05/2021 13:05:08 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[symbols](
+	[edge_id] [varchar](50) NOT NULL,
+	[symbol] [varchar](50) NOT NULL,
+ CONSTRAINT [PK_symbols] PRIMARY KEY CLUSTERED 
+(
+	[edge_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_edges_label]    Script Date: 27/05/2021 13:05:08 ******/
+CREATE NONCLUSTERED INDEX [IX_edges_label] ON [dbo].[edges]
+(
+	[label] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_edges_label_node2]    Script Date: 27/05/2021 13:05:08 ******/
+CREATE NONCLUSTERED INDEX [IX_edges_label_node2] ON [dbo].[edges]
+(
+	[label] ASC,
+	[node2] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_edges_node1_label]    Script Date: 27/05/2021 13:05:08 ******/
+CREATE NONCLUSTERED INDEX [IX_edges_node1_label] ON [dbo].[edges]
+(
+	[node1] ASC,
+	[label] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[coordinates]  WITH CHECK ADD  CONSTRAINT [FK_coordinates_edges] FOREIGN KEY([edge_id])
+REFERENCES [dbo].[edges] ([id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[coordinates] CHECK CONSTRAINT [FK_coordinates_edges]
+GO
+ALTER TABLE [dbo].[dates]  WITH CHECK ADD  CONSTRAINT [FK_dates_edges] FOREIGN KEY([edge_id])
+REFERENCES [dbo].[edges] ([id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[dates] CHECK CONSTRAINT [FK_dates_edges]
+GO
+ALTER TABLE [dbo].[quantities]  WITH CHECK ADD  CONSTRAINT [FK_quantities_edges] FOREIGN KEY([edge_id])
+REFERENCES [dbo].[edges] ([id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[quantities] CHECK CONSTRAINT [FK_quantities_edges]
+GO
+ALTER TABLE [dbo].[strings]  WITH CHECK ADD  CONSTRAINT [FK_strings_edges] FOREIGN KEY([edge_id])
+REFERENCES [dbo].[edges] ([id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[strings] CHECK CONSTRAINT [FK_strings_edges]
+GO
+ALTER TABLE [dbo].[symbols]  WITH CHECK ADD  CONSTRAINT [FK_symbols_edges] FOREIGN KEY([edge_id])
+REFERENCES [dbo].[edges] ([id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[symbols] CHECK CONSTRAINT [FK_symbols_edges]
+GO
+USE [master]
+GO
+ALTER DATABASE [wikidata] SET  READ_WRITE 
+GO

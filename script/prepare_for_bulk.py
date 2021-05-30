@@ -24,7 +24,7 @@ from db.sql.kgtk import create_edge_objects, import_kgtk_tsv
 from db.sql.models import (CoordinateValue, DateValue, Edge, QuantityValue,
                            StringValue, SymbolValue)
 from db.sql.utils import postgres_connection
-from config import POSTGRES
+from config import DB
 
 def parse_args():
     parser = ArgumentParser()
@@ -174,7 +174,7 @@ def close_processors(processors):
 def read_existing_edges(args):
     existing = set()
 
-    config_object = { 'POSTGRES': POSTGRES }
+    config_object = { 'DB': DB }
     with postgres_connection(config_object) as conn:
         print(f'Reading edge IDs from the database')
         with conn.cursor('edges') as cursor:  # Server side cursor

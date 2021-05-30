@@ -19,7 +19,7 @@
                 "--no-debugger",
                 "--no-reload",
                 "--port",
-                "14000"
+                "12543"
             ],
             "jinja": true,
             "justMyCode": false
