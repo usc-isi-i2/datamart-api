@@ -1,41 +1,8 @@
+from db.sql.db_encapsulation import _get_db_config, _postgres_connection, _sqlserver_connection
 from typing import Dict, List
 from timeit import default_timer
 
-import psycopg2
-from flask import current_app
 from pandas import DataFrame
-from sqlalchemy.engine import create_engine
-from sqlalchemy.orm import sessionmaker
-
-
-def _get_postgres_config(config=None):
-    # Returns the postgres configuration, looking at current_app.config by default
-    # (which works when the function is called from within a Flask transaction)
-    if config is None:
-        if not current_app or not current_app.config:
-            raise ValueError('db_connection must receive a config if Flask.current_app is not defined')
-        config = current_app.config
-
-    return config['DB']
-
-def _get_db_config(config=None):
-    if config is None:
-        if not current_app or not current_app.config:
-            raise ValueError('_get_db_config must receive a config if Flask.current_ap is not defined')
-        config = current_app.config
-
-    if 'DB' not in config and 'STORAGE_BACKEND' not in config:
-        raise ValueError('Configuration must have both STORAGE_BACKEND and DB defined')
-
-    return config
-
-def _postgres_connection(config):
-    if config['STORAGE_BACKEND'] != 'postgres':
-        raise ValueError("Storage backend is not set to postgres, can't create a Postgres connection")
-        
-    postgres = config['DB']
-    conn = psycopg2.connect(**postgres)
-    return conn
 
 def db_connection(config=None):
     config = _get_db_config(config)
@@ -45,6 +12,8 @@ def db_connection(config=None):
 
     if config['STORAGE_BACKEND'] == 'postgres':
         return _postgres_connection(config)
+    elif config['STORAGE_BACKEND'] == 'sql-server':
+        return _sqlserver_connection(config)
     else:
         raise ValueError('Unsupported storage backend ' + config['STORAGE_BACKEND'])
 
