@@ -1,5 +1,5 @@
 import csv
-from db.sql.utils import postgres_connection
+from db.sql.utils import db_connection
 import sys
 import traceback
 
@@ -144,7 +144,7 @@ class PropertyResource(Resource):
 
         existing_properties = check_existing_properties([property])
 
-        with postgres_connection() as conn:
+        with db_connection() as conn:
             if property in existing_properties:
                 if not is_same_as_existing(property, edges) and is_property_used(property):
                     content = {

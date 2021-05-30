@@ -1,6 +1,6 @@
 from db.sql.dal.general import get_dataset_id
 from db.sql.dal.variables import get_variable_id
-from db.sql.utils import query_to_dicts, postgres_connection
+from db.sql.utils import query_to_dicts, db_connection
 from api.util import DataInterval, TimePrecision
 
 def query_dataset_metadata(dataset_name=None, include_dataset_qnode=False, debug=False):
@@ -262,7 +262,7 @@ def delete_variable_metadata(dataset_id, variable_qnodes, labels=None, debug=Fal
     variable_qnodes_str = ', '.join([f"'{qnode}'" for qnode in variable_qnodes])
     variable_qnodes_where = f'node1 in ({variable_qnodes_str})'
 
-    with postgres_connection() as conn:
+    with db_connection() as conn:
         with conn.cursor() as cursor:
             query = f"""DELETE FROM edges WHERE {variable_qnodes_where} AND {labels_where}"""
             if debug:
@@ -275,7 +275,7 @@ def delete_dataset_metadata(dataset_qnode, labels=None, debug=False):
     else:
         labels_str =', '.join([f"'{label}'" for label in labels])
         labels_where = f"label in ({labels_str})"
-    with postgres_connection() as conn:
+    with db_connection() as conn:
         with conn.cursor() as cursor:
             query = f"DELETE FROM edges WHERE node1='{dataset_qnode}' and {labels_where}"
             if debug:
@@ -283,7 +283,7 @@ def delete_dataset_metadata(dataset_qnode, labels=None, debug=False):
             cursor.execute(query)
 
 def delete_dataset_last_update(dataset_qnode, debug=False):
-    with postgres_connection() as conn:
+    with db_connection() as conn:
         with conn.cursor() as cursor:
             query = f"DELETE FROM edges WHERE node1='{dataset_qnode}' and label='P5017'"
             if debug:

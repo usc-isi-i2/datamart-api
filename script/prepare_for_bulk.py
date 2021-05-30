@@ -23,7 +23,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from db.sql.kgtk import create_edge_objects, import_kgtk_tsv
 from db.sql.models import (CoordinateValue, DateValue, Edge, QuantityValue,
                            StringValue, SymbolValue)
-from db.sql.utils import postgres_connection
+from db.sql.utils import db_connection
 from config import DB
 
 def parse_args():
@@ -175,7 +175,7 @@ def read_existing_edges(args):
     existing = set()
 
     config_object = { 'DB': DB }
-    with postgres_connection(config_object) as conn:
+    with db_connection(config_object) as conn:
         print(f'Reading edge IDs from the database')
         with conn.cursor('edges') as cursor:  # Server side cursor
             cursor.itersize = 100000

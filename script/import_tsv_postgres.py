@@ -6,14 +6,10 @@ import os
 # to the PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from db.sql.kgtk import import_kgtk_tsv
+from config import DB, STORAGE_BACKEND
 
-config = dict(
-    database = 'wikidata',
-    host = 'localhost',
-    port = 5433,
-    user = 'postgres',
-    password = 'postgres',
-)
+config = dict(DB=DB, STORAGE_BACKEND=STORAGE_BACKEND)
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("input_file_path", help="input file", type=str)

@@ -14,7 +14,7 @@ config = dict(DB = dict(
     port = 5433,
     user = 'postgres',
     password = 'postgres',
-))
+), STORAGE_BACKEND='postgres')
 
 entity_one_edges = pd.DataFrame(
     [['QUnitTestEntityOne-P31', 'QUnitTestEntityOne', 'P31', 'Q18616576'],

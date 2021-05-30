@@ -14,7 +14,7 @@ config = dict(DB = dict(
     port = 5433,
     user = 'postgres',
     password = 'postgres',
-))
+), STORAGE_BACKEND='postgres')
 
 property_one_edges = pd.DataFrame(
     [['PUnitTestPropertyOne-P31', 'PUnitTestPropertyOne', 'P31', 'Q18616576'],

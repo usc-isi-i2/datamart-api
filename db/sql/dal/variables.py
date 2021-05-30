@@ -1,5 +1,5 @@
 from db.sql.dal.general import sanitize
-from db.sql.utils import postgres_connection, query_to_dicts
+from db.sql.utils import db_connection, query_to_dicts
 from typing import Union, Dict, List, Tuple, Any, Set
 from abc import ABC, abstractmethod, abstractproperty
 
@@ -323,7 +323,7 @@ List[Dict[str, Any]]:
 
 
 def delete_variable(dataset_id, variable_id, property_id, debug=False):
-    with postgres_connection() as conn:
+    with db_connection() as conn:
         with conn.cursor() as cursor:
             # Everything here is running under the same transaction
             # We need to delete all edges for this variable, as well as all edges connected to them.

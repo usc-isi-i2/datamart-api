@@ -8,10 +8,10 @@ import sys
 # to the PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from config import DB
+from config import DB, STORAGE_BACKEND
 from db.sql.search_views import (create_view, does_view_exists, drop_view,
                                  get_view_name, ADMIN_TYPES)
-from db.sql.utils import postgres_connection
+from db.sql.utils import db_connection
 
 
 def parse_args():
@@ -26,8 +26,8 @@ def run():
 
     args = parse_args()
 
-    config = dict(DB=DB)
-    with postgres_connection(config) as conn:
+    config = dict(DB=DB, STORAGE_BACKEND=STORAGE_BACKEND)
+    with db_connection(config) as conn:
         for admin, admin_pnode in ADMIN_TYPES.items():
             if does_view_exists(conn, admin):
                 if args.recreate:

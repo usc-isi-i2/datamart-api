@@ -6,8 +6,8 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from config import DB
-from db.sql.utils import postgres_connection
+from config import DB, STORAGE_BACKEND
+from db.sql.utils import db_connection
 
 def check_double_labels(conn):
     def query_prefix(prefix: str) -> List[str]:
@@ -83,7 +83,7 @@ def run():
     print('Performing consistency checks on the Datamart Database')
     print()
 
-    with postgres_connection(config={'DB': DB}) as conn:
+    with db_connection(config={'DB': DB, 'STORAGE_BACKEND': STORAGE_BACKEND}) as conn:
         with conn.cursor() as cursor:
             check_double_labels(conn)
             check_no_label(conn)

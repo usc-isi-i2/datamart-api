@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from config import DB
 from db.sql.search_views import refresh_all_views
-from db.sql.utils import postgres_connection
+from db.sql.utils import db_connection
 
 def run():
     print('Refreshing all materialized views')

@@ -13,7 +13,7 @@ def _get_postgres_config(config=None):
     # (which works when the function is called from within a Flask transaction)
     if config is None:
         if not current_app or not current_app.config:
-            raise ValueError('postgres_connection must receive a config if Flask.current_app is not defined')
+            raise ValueError('db_connection must receive a config if Flask.current_app is not defined')
         config = current_app.config
 
     return config['DB']
@@ -29,8 +29,7 @@ def _get_db_config(config=None):
 
     return config
 
-def postgres_connection(config=None):
-    config = _get_db_config(config)
+def _postgres_connection(config):
     if config['STORAGE_BACKEND'] != 'postgres':
         raise ValueError("Storage backend is not set to postgres, can't create a Postgres connection")
         
@@ -38,24 +37,17 @@ def postgres_connection(config=None):
     conn = psycopg2.connect(**postgres)
     return conn
 
-# Store the engine and session class
-_engine = None
-_session_cls = None
-def create_sqlalchemy_session(config=None):
-    global _engine, _session_cls
-    # Creates a new SQLAlchemy session. The engine and session class are initialized once, during the first call
-    if not _session_cls:
-        if not _engine:
-            if config:
-                pg = config
-            else:
-                pg = _get_postgres_config()
-            connstr = f"postgres+psycopg2://{pg['user']}:{pg['password']}@{pg['host']}:{pg['port']}/{pg['database']}"
+def db_connection(config=None):
+    config = _get_db_config(config)
 
-            _engine = create_engine(connstr)
-        _session_cls = sessionmaker(bind=_engine)
+    if 'STORAGE_BACKEND' not in config:
+        raise ValueError('The configuration must have a storage backend')
 
-    return _session_cls()
+    if config['STORAGE_BACKEND'] == 'postgres':
+        return _postgres_connection(config)
+    else:
+        raise ValueError('Unsupported storage backend ' + config['STORAGE_BACKEND'])
+
 
 def query_to_dicts(sql: str, conn=None, config=None) -> List[Dict]:
     """ Runs an SQL query, return a list of dictionaries - one for each row """
@@ -63,7 +55,7 @@ def query_to_dicts(sql: str, conn=None, config=None) -> List[Dict]:
     row_dicts = []
     our_conn = False
     if conn is None:
-        conn = postgres_connection(config)
+        conn = db_connection(config)
         our_conn = True
 
     try:
@@ -89,7 +81,7 @@ def query_edges_to_df(where_clause: str, conn=None, config=None, fix=True) -> Da
     row_dicts = []
     our_conn = False
     if conn is None:
-        conn = postgres_connection(config)
+        conn = db_connection(config)
         our_conn = True
 
     results = []
@@ -122,7 +114,7 @@ def delete(sql: str, conn=None, config=None) -> int:
     row_dicts = []
     our_conn = False
     if conn is None:
-        conn = postgres_connection(config)
+        conn = db_connection(config)
         our_conn = True
 
     try:

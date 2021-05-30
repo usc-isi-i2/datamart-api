@@ -2,7 +2,7 @@
 
 from typing import Tuple
 
-from db.sql.utils import postgres_connection, query_to_dicts
+from db.sql.utils import db_connection, query_to_dicts
 
 # admin types supported by views, and their property type
 ADMIN_TYPES = {
@@ -93,6 +93,6 @@ def refresh_view(conn, admin, debug=False):
         cursor.execute(query)
 
 def refresh_all_views(config=None, debug=False):
-    with postgres_connection(config) as conn:
+    with db_connection(config) as conn:
         for admin in ADMIN_TYPES.keys():
             refresh_view(conn, admin, debug=debug)

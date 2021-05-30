@@ -4,7 +4,7 @@ import os
 import psycopg2
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from db.sql.utils import postgres_connection
+from db.sql.utils import db_connection
 from config import DB
 
 def parse_args():
@@ -84,7 +84,7 @@ def main():
         symbols = 'edge_id, symbol',
     )
     config_object = { 'DB': DB }
-    with postgres_connection(config_object) as conn:
+    with db_connection(config_object) as conn:
         with conn.cursor() as cursor:
             disable_indices(cursor)
             import_table(cursor, args.input_dir, 'edges', satellites['edges'])

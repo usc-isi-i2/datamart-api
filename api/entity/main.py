@@ -1,5 +1,5 @@
 from api.util import get_edges_from_request
-from db.sql.utils import postgres_connection
+from db.sql.utils import db_connection
 import csv
 import sys
 import traceback
@@ -79,7 +79,7 @@ class EntityResource(Resource):
 
         existing_entities = check_existing_entities(entities)
 
-        with postgres_connection() as conn:
+        with db_connection() as conn:
             # Remove the current definition before updating the new definition
             for ent in existing_entities:
                 delete_entity(ent, EntityResource.label_white_list, conn=conn)
@@ -139,7 +139,7 @@ class EntityResource(Resource):
 
         existing_entities = check_existing_entities([entity])
 
-        with postgres_connection() as conn:
+        with db_connection() as conn:
             if entity in existing_entities:
                 delete_entity(entity, EntityResource.label_white_list, conn=conn)
 

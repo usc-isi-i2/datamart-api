@@ -18,7 +18,7 @@ import dateutil.parser
 
 from db.sql.models import (CoordinateValue, DateValue, Edge, QuantityValue,
                            StringValue, SymbolValue)
-from db.sql.utils import create_sqlalchemy_session, postgres_connection
+from db.sql.utils import db_connection
 
 
 def create_edge_objects(row):
@@ -296,7 +296,7 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     try:
         our_conn = False
         if not conn:
-            conn = postgres_connection(config)
+            conn = db_connection(config)
             our_conn = True
         else:
             our_conn = False
