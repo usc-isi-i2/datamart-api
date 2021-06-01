@@ -7,6 +7,7 @@ import db.sql.utils as utils
 from db.sql.kgtk import import_kgtk_dataframe
 
 from requests import get, put, post, delete
+from .test_config import config
 
 config = dict(DB = dict(
     database = 'wikidata',

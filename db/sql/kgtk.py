@@ -11,6 +11,8 @@ import tempfile
 import time
 from csv import DictReader
 from typing import Tuple, List, Dict
+
+from flask.globals import current_app
 from api.kgtk_replacement import ExplodePipeline
 from api import kgtk_replacement
 
@@ -213,7 +215,6 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
             values = [formatted_object_values(obj, fields, columns) for obj in slice]
             statement += ',\n'.join(values)
             if not fail_if_duplicate:
-                print("fail_if_duplicate is False! How can that be?")
                 statement += "\nON CONFLICT DO NOTHING;"
 
             try:
@@ -256,6 +257,9 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     if replace:  # Avoid the ON CONFLICT clause in case of replace, since we know for a fact there will not be duplicates
         fail_if_duplicate = True
 
+    if config is None:
+        config = current_app.config
+        
     if config['STORAGE_BACKEND'] == 'sql-server':
         if not fail_if_duplicate:  # ON CONFLICT DO NOTHING is not supported on SQL Server
             replace = True

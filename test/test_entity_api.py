@@ -7,14 +7,7 @@ import db.sql.utils as utils
 from db.sql.kgtk import import_kgtk_dataframe
 
 from requests import get, put, post, delete
-
-config = dict(DB = dict(
-    database = 'wikidata',
-    host = 'localhost',
-    port = 5433,
-    user = 'postgres',
-    password = 'postgres',
-), STORAGE_BACKEND='postgres')
+from .test_config import config
 
 entity_one_edges = pd.DataFrame(
     [['QUnitTestEntityOne-P31', 'QUnitTestEntityOne', 'P31', 'Q18616576'],

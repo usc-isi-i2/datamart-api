@@ -1,3 +1,4 @@
+from db.sql.query_helper import get_query_helper
 from db.sql.dal.general import get_dataset_id
 from db.sql.dal.variables import get_variable_id
 from db.sql.utils import query_to_dicts, db_connection
@@ -122,16 +123,16 @@ def query_variables_metadata(variable_select: str, debug=False):
         return query_to_dicts(query)
 
     def fetch_scalars():
-#                e_short_name.node2 AS short_name,
+        helper = get_query_helper()
         select = f"""
         SELECT  e_dataset.node1 AS internal_dataset_id, e_var.node1 AS internal_variable_id,
             s_name.text AS name,
             e_short_name.node2 AS variable_id,
             COALESCE(s_description.text, s_label.text) AS description,
             e_corresponds_to_property.node2 AS corresponds_to_property,
-            to_json(d_start_time.date_and_time)#>>'{{}}' || 'Z' AS start_time,
+            {helper.date_field('d_start_time.date_and_time')} AS start_time,
             d_start_time.precision AS start_time_precision,
-            to_json(d_end_time.date_and_time)#>>'{{}}' || 'Z' AS end_time,
+            {helper.date_field('d_end_time.date_and_time')} AS end_time,
             d_end_time.precision AS end_time_precision,
             e_data_interval.node2 AS data_interval,
             s_column_index.text AS column_index,

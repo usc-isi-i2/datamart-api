@@ -1,3 +1,4 @@
+from db.sql.query_helper import get_query_helper
 from db.sql.dal.general import sanitize
 from db.sql.utils import db_connection, query_to_dicts
 from typing import Union, Dict, List, Tuple, Any, Set
@@ -70,6 +71,7 @@ class Qualifier:
         main_name = self.main_column
         underscored_main_name = sanitize(main_name.replace(' ', '_')).replace(':', '')
         main_table = 'e_' + underscored_main_name
+        helper = get_query_helper()
         if self.is_optional:
             join_clause = 'LEFT '
         else:
@@ -80,7 +82,7 @@ class Qualifier:
             satellite_table = 'd_' + main_name
             satellite_join = f"JOIN dates {satellite_table} ON ({main_table}.id={satellite_table}.edge_id)"
             self.fields = {
-                main_name: f"to_json({satellite_table}.date_and_time)#>>'{{}}' || 'Z'",
+                main_name: helper.date_field(f"{satellite_table}.date_and_time)"),
                 main_name + "_precision": f"{satellite_table}.precision",
             }
         elif self.data_type == 'quantity':
@@ -313,8 +315,9 @@ List[Dict[str, Any]]:
     # We use the || operator on fields from the LEFT JOIN, since x || NULL is NULL in SQL, so coordinate is
     # NULL in the result if there is no coordinate
 
+    helper = get_query_helper()
     if limit > 0:
-        query += f"\nLIMIT {limit}\n"
+        query = helper.add_limit(query, limit)
 
     if debug:
         print(query)
@@ -367,8 +370,10 @@ def variable_data_exists(dataset_id, property_ids, debug=False):
                 FROM edges AS e_main
                 JOIN edges AS e_dataset ON (e_dataset.node1=e_main.id AND e_dataset.label='P2006020004')
             WHERE e_main.label IN ({property_ids_str}) AND e_dataset.node2='{dataset_id}'
-            LIMIT 1
     """
+    helper = get_query_helper()
+    query = helper.add_limit(query, 1)
+    
     if debug:
         print(query)
 

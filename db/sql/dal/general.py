@@ -4,6 +4,7 @@
 #
 # We need to reorganize this in the future, all queries shouldn't be in the same place
 
+from db.sql.query_helper import get_query_helper
 from typing import List, Dict
 from db.sql.utils import query_to_dicts
 from db.sql import search_views
@@ -140,8 +141,9 @@ def fuzzy_query_variables(questions: List[str], regions: Dict[str, List[str]], t
         WHERE e_var.label='P31' AND e_var.node2='Q50701' AND ({region_where}) AND ({tag_where})) AS fuzzy
     WHERE variable_text @@ {combined_ts_query}
     ORDER BY rank DESC
-    LIMIT {limit}
     """
+    helper = get_query_helper()
+    sql = helper.add_limit(sql, limit)
     if debug:
         print(sql)
     results = query_to_dicts(sql)
@@ -166,8 +168,11 @@ def no_keywords_query_variables(region_where: str, tag_where: str, limit: int, d
             LEFT JOIN edges e_tag JOIN strings s_tag ON (e_tag.id=s_tag.edge_id) ON (e_var.node1=e_tag.node1 AND e_tag.label='P2010050001')
 
         WHERE e_var.label='P31' AND e_var.node2='Q50701' AND ({region_where}) AND ({tag_where})
-        LIMIT {limit}
     """
+
+    helper = get_query_helper()
+    sql = helper.add_limit(sql, limit)
+    
     if debug:
         print(sql)
     results = query_to_dicts(sql)

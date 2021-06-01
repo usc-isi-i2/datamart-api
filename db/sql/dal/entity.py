@@ -47,6 +47,6 @@ def delete_entity(entity_name: str, labels: Optional[List[str]], conn=None):
 
 def has_entity_other_labels(entity_name: str, labels: List[str]) -> bool:
     labels = _label_where(labels)
-    sql = f"SELECT COUNT(*) FROM edges WHERE node1='{sanitize(entity_name)}' AND label IN {labels}"
+    sql = f"SELECT COUNT(*) AS count FROM edges WHERE node1='{sanitize(entity_name)}' AND label IN {labels}"
     result = query_to_dicts(sql)
     return result[0]['count'] > 0

@@ -545,6 +545,6 @@ SELECT e_var_name.node1 AS variable_qnode,
 ) AS fuzzy
     WHERE variable_text @@ (plainto_tsquery('worker'))
     ORDER BY rank DESC
-	LIMIT 10
+	LIMIT 10 -- Don't forget to change this to SQL Server's SELECT TOP... if you ever run this query
 
 """
