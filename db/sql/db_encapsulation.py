@@ -50,5 +50,5 @@ def _sqlserver_connection(config):
         raise ValueError("Storage backend is not set to sql-server, can't create an SQL Server connection")
 
     options = config['DB']
-    connstr = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER='{options['host']}';DATABASE='{options['database']}';UID='{options['user']}';PWD='{options['password']}'"
+    connstr = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={options['host']},{options['port']};DATABASE={options['database']};UID={options['user']};PWD={options['password']}"
     return pyodbc.connect(connstr)

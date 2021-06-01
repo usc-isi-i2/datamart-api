@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 import sys
 import os
+import glob
 
 # Allow running from the command line - python script/import... doesn't add the root project directory
 # to the PYTHONPATH
@@ -20,4 +21,6 @@ if __name__ == '__main__':
     if parsed.delete and parsed.replace:
         print("Can't specify both --delete and --replace", out=sys.stderr)
     else:
-        import_kgtk_tsv(parsed.input_file_path, config=config, delete=parsed.delete, replace= parsed.replace)
+        for filename in glob.glob(parsed.input_file_path):
+            print("Importing from ", filename)
+            import_kgtk_tsv(filename, config=config, delete=parsed.delete, replace= parsed.replace)

@@ -73,8 +73,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/script/import_tsv_postgres.py",
             "args": [
-                "d:\\temp\\homicide-with-datatype-symbol.tsv",
-                "--delete"
+                "D:\\temp\\datamart\\countries-edges-exploded.tsv",
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"

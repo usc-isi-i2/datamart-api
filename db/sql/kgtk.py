@@ -172,6 +172,8 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
                 if not '?' in field:
                     raise ValueError(f"Non nullable field {column} as a null value")
                 return 'NULL'
+            if isinstance(val, datetime.datetime):  # Remove timezone
+                val = val.replace(tzinfo=None)
             val = str(val).replace("'", "''")
             if '$' in field:
                 return f"'{val}'"
@@ -204,15 +206,21 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
         table_name, fields = OBJECT_INFO[typename]
         columns = list(column_names(fields))
 
-        CHUNK_SIZE = 10000
+        CHUNK_SIZE = 1000
         for x in range(0, len(objects), CHUNK_SIZE):
             statement = f"INSERT INTO {table_name} ( {', '.join(columns)} ) VALUES\n"
             slice = objects[x:x+CHUNK_SIZE]
             values = [formatted_object_values(obj, fields, columns) for obj in slice]
             statement += ',\n'.join(values)
             if not fail_if_duplicate:
+                print("fail_if_duplicate is False! How can that be?")
                 statement += "\nON CONFLICT DO NOTHING;"
-            cursor.execute(statement)
+
+            try:
+                cursor.execute(statement)
+            except:
+                print(statement)
+                raise
 
     def save_objects(type_name: str, objects: List[Tuple], fail_if_duplicate):
         edges = [t[0] for t in objects]
@@ -226,7 +234,7 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
         columns = list(column_names(fields))
 
         # The id is the first column
-        CHUNK_SIZE = 10000 # Delete 10000 rows at a time
+        CHUNK_SIZE = 1000 # Delete 10000 rows at a time
         for x in range(0, len(objects), CHUNK_SIZE):
             slice = objects[x:x+CHUNK_SIZE]
             ids = [object_values(obj, fields[:1], columns[:1])[0] for obj in slice]
@@ -244,8 +252,14 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
     if flag_count > 1:
         raise ValueError("Only one of delete, replace and fail_duplicate may be True")
 
+    # Time to write the edges
     if replace:  # Avoid the ON CONFLICT clause in case of replace, since we know for a fact there will not be duplicates
         fail_if_duplicate = True
+
+    if config['STORAGE_BACKEND'] == 'sql-server':
+        if not fail_if_duplicate:  # ON CONFLICT DO NOTHING is not supported on SQL Server
+            replace = True
+            fail_if_duplicate = True
 
     obj_map: Dict[str, List[Tuple]] = dict()   # Map from value type to list of (edge, value)
     start = time.time()
@@ -288,10 +302,6 @@ def import_kgtk_tsv(filename: str, config=None, delete=False, replace=False, fai
 
     if count == 0:
         return
-
-    # Time to write the edges
-    if config and not 'DB' in config:
-        config = dict(DB=config)
 
     try:
         our_conn = False
