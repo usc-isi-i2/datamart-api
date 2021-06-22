@@ -22,7 +22,8 @@ services:
       - ACCEPT_EULA=y
       - SA_PASSWORD=password!12
     volumes:
-      - sqlserver:/var/opt/mssql/data
+      - sqlserver:/var/opt/mssql/
+      - ./data/sql-server:/backup
     ports:
       - "1433:1433"
 
