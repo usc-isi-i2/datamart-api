@@ -118,8 +118,8 @@ SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[edges](
 	[id] [varchar](150) NOT NULL,
-	[node1] [varchar](50) NOT NULL,
-	[label] [varchar](20) NOT NULL,
+	[node1] [varchar](100) NOT NULL,
+	[label] [varchar](100) NOT NULL,
 	[node2] [varchar](700) NOT NULL,
 	[data_type] [varchar](30) NOT NULL,
  CONSTRAINT [PK__edges__3213E83FAACB05DC] PRIMARY KEY CLUSTERED 
@@ -136,7 +136,7 @@ GO
 CREATE TABLE [dbo].[quantities](
 	[edge_id] [varchar](150) NOT NULL,
 	[number] [decimal](26, 8) NOT NULL,
-	[unit] [varchar](16) NULL,
+	[unit] [varchar](50) NULL,
 	[low_tolerance] [numeric](26, 8) NULL,
 	[high_tolerance] [numeric](26, 8) NULL,
  CONSTRAINT [PK_quantities] PRIMARY KEY CLUSTERED 
@@ -152,7 +152,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[strings](
 	[edge_id] [varchar](150) NOT NULL,
-	[text] [varchar](500) NOT NULL,
+	[text] [varchar](5000) NOT NULL,
 	[language] [varchar](20) NULL,
  CONSTRAINT [PK_strings] PRIMARY KEY CLUSTERED 
 (

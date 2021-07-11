@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 #    password = os.environ.get("DB_PASSWORD", default="postgres"),
 # )
 
-STORAGE_BACKEND = 'sql-server'  # Can be sqlserver as well
+STORAGE_BACKEND = 'sql-server'  # Can be postgres as well
 
 DB = dict(
    host = os.environ.get("DB_HOST", default="localhost"),
