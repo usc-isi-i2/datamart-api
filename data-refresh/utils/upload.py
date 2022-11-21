@@ -142,7 +142,29 @@ def submit_annotated_dir(datamart_url: str, annotated_path: str, yaml_path: Opti
 
         if not save_tsv_p is None:
             with tarfile.open(save_tsv_p, 'r') as tar:
-                tar.extractall(td)
+                
+                import os
+                
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner=numeric_owner) 
+                    
+                
+                safe_extract(tar, td)
             fname = [f for f in os.listdir(td)][0]
             # Cut metadata info if not the first one
             if i > 0:
